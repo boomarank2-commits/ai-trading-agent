@@ -6,6 +6,11 @@ Ein Doppelklick auf [`STARTBOT.bat`](STARTBOT.bat) startet ausschließlich
 Freqtrade im **Dry-run**. Der Bot liest öffentliche Binance-Marktdaten, gibt
 aber keine echten Orders auf und benötigt keine Binance-API-Schlüssel.
 
+Zusätzlich bleibt das Konsolenfenster mit den laufenden Freqtrade-Meldungen
+offen und die lokale FreqUI-Weboberfläche wird automatisch im Standardbrowser
+geöffnet. Die Oberfläche läuft ausschließlich auf diesem Rechner unter
+`http://127.0.0.1:8080`.
+
 Die festen Testeinstellungen sind:
 
 - 250 virtuelle USDT Startkapital;
@@ -18,6 +23,29 @@ Die festen Testeinstellungen sind:
 Das ist ein simulierter Forward-Test mit echten öffentlichen Marktdaten, kein
 Echtgeldbetrieb. Der Starter lädt keine Schlüssel und kann mit diesen
 Einstellungen kein Echtgeld handeln.
+
+## FreqUI im Browser
+
+Nach dem Start wartet `STARTBOT.bat`, bis die lokale Freqtrade-API wirklich
+bereit ist, und öffnet dann automatisch `http://127.0.0.1:8080` im Browser.
+Das Konsolenfenster bleibt gleichzeitig geöffnet und zeigt weiterhin die
+laufenden Meldungen und Heartbeats.
+
+Für die ausschließlich lokale Paper-Test-Oberfläche gelten:
+
+- Benutzer: `testbot`
+- Passwort: `PaperOnly-250-USDT!`
+- Adresse: `http://127.0.0.1:8080`
+
+Die API bindet ausdrücklich nur an `127.0.0.1` und wird nicht im Netzwerk oder
+Internet veröffentlicht. Falls der Browser ausnahmsweise nicht automatisch
+aufgeht, kann die Adresse manuell im Browser geöffnet werden, sobald im
+Konsolenfenster `state='RUNNING'` bzw. ein Bot-Heartbeat erscheint.
+
+FreqUI kann nicht nur Werte anzeigen, sondern besitzt auch Bedienfunktionen.
+Für einen unveränderten Beobachtungstest sollten keine manuellen Start-, Stop-,
+Force-Entry- oder Force-Exit-Aktionen in der Oberfläche ausgelöst werden.
+`force_entry_enable` bleibt im Testbot technisch deaktiviert.
 
 ## Erster Start auf einem neuen Rechner
 
@@ -41,21 +69,26 @@ uv sync --frozen --all-extras --python 3.12
 
 aus. Dadurch wird die in `uv.lock` festgelegte Python-3.12-Umgebung angelegt.
 Abhängig von Internetverbindung und Rechner kann der erste Start einige Minuten
-dauern; spätere unveränderte Prüfungen sind deutlich kürzer. Danach startet
-Freqtrade automatisch.
+dauern; spätere unveränderte Prüfungen sind deutlich kürzer.
+
+Fehlt die FreqUI-Weboberfläche in der lokalen Freqtrade-Installation, führt der
+Setup-Pfad zusätzlich einmalig den offiziellen Befehl `freqtrade install-ui`
+aus. Danach startet Freqtrade automatisch. Spätere Starts installieren die UI
+nicht erneut, solange sie vorhanden ist.
 
 ## Betrieb und Beenden
 
 Der Testbot läuft im geöffneten Konsolenfenster dauerhaft im Vordergrund. Das
-Fenster muss geöffnet bleiben. Solange der Bot läuft, blockiert der Starter den
-normalen Windows-Energiesparmodus. Zuklappen des Laptops, Ruhezustand,
-Herunterfahren, ein Windows-Neustart oder ein Stromausfall können den Prozess
-trotzdem beenden.
+Fenster muss geöffnet bleiben. Die Browseroberfläche ist nur eine zusätzliche
+Ansicht; das Schließen des Browserfensters beendet den Bot nicht. Solange der
+Bot läuft, blockiert der Starter den normalen Windows-Energiesparmodus.
+Zuklappen des Laptops, Ruhezustand, Herunterfahren, ein Windows-Neustart oder ein
+Stromausfall können den Prozess trotzdem beenden.
 
-Mit **Strg+C** wird der Testbot sauber beendet. Dabei werden Sitzungsdaten
-abgeschlossen und ein Bericht erzeugt. Das bloße Schließen des Fensters kann
-den Abschlussbericht überspringen; er lässt sich danach mit
-`TESTBOT_AUSWERTUNG.bat` nachholen.
+Mit **Strg+C im Konsolenfenster** wird der Testbot sauber beendet. Dabei werden
+Sitzungsdaten abgeschlossen und ein Bericht erzeugt. Das bloße Schließen des
+Konsolenfensters kann den Abschlussbericht überspringen; er lässt sich danach
+mit `TESTBOT_AUSWERTUNG.bat` nachholen.
 
 Es gibt keinen automatischen Start nach einem Windows-Neustart. Danach einfach
 erneut auf `STARTBOT.bat` doppelklicken. Die persistente Dry-run-Datenbank wird
