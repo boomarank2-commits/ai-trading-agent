@@ -19,20 +19,8 @@ echo der Abschlussbericht erzeugt. Direktes Schliessen des Fensters kann
 echo den Abschlussbericht ueberspringen; TESTBOT_AUSWERTUNG.bat holt ihn nach.
 echo.
 
-where uv.exe >nul 2>nul
-if errorlevel 1 (
-    echo FEHLER: Das einmalig benoetigte Programm uv wurde nicht gefunden.
-    echo.
-    echo Installation mit Windows-Paketverwaltung:
-    echo   winget install --id=astral-sh.uv -e
-    echo.
-    echo Offizielle Anleitung:
-    echo   https://docs.astral.sh/uv/getting-started/installation/
-    echo.
-    echo Danach dieses Fenster schliessen und STARTBOT.bat erneut doppelklicken.
-    pause
-    exit /b 1
-)
+call :ensure_uv
+if errorlevel 1 exit /b 1
 
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\start-testbot-24x7.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
@@ -46,3 +34,63 @@ if not "%BOT_EXIT_CODE%"=="0" (
 echo Dieses Fenster kann jetzt geschlossen werden.
 pause
 exit /b %BOT_EXIT_CODE%
+
+:ensure_uv
+where uv.exe >nul 2>nul
+if not errorlevel 1 exit /b 0
+
+echo Das einmalig benoetigte Programm uv wurde nicht gefunden.
+echo STARTBOT installiert uv jetzt automatisch ueber Windows WinGet.
+echo.
+
+where winget.exe >nul 2>nul
+if errorlevel 1 (
+    echo FEHLER: Windows WinGet wurde auf diesem Rechner nicht gefunden.
+    echo Bitte den Microsoft App Installer installieren bzw. aktualisieren
+    echo und STARTBOT.bat danach erneut doppelklicken.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo Installiere uv. Dieser Schritt ist nur beim ersten Mal notwendig ...
+winget install --id=astral-sh.uv -e --accept-source-agreements --accept-package-agreements
+echo.
+
+rem WinGet aktualisiert den PATH eines bereits laufenden Fensters nicht immer sofort.
+rem Die bekannten benutzerspezifischen Installationsorte werden deshalb direkt ergaenzt.
+if exist "%LOCALAPPDATA%\Microsoft\WinGet\Links\uv.exe" set "PATH=%LOCALAPPDATA%\Microsoft\WinGet\Links;%PATH%"
+if exist "%USERPROFILE%\.local\bin\uv.exe" set "PATH=%USERPROFILE%\.local\bin;%PATH%"
+
+where uv.exe >nul 2>nul
+if not errorlevel 1 (
+    echo uv wurde erfolgreich eingerichtet.
+    echo.
+    exit /b 0
+)
+
+rem Falls WinGet keinen Link angelegt hat, suche die installierte uv.exe im WinGet-Paketordner.
+for /f "delims=" %%I in ('where /r "%LOCALAPPDATA%\Microsoft\WinGet\Packages" uv.exe 2^>nul') do (
+    set "UV_FOUND_DIR=%%~dpI"
+    goto :uv_location_found
+)
+
+goto :uv_not_found
+
+:uv_location_found
+set "PATH=%UV_FOUND_DIR%;%PATH%"
+where uv.exe >nul 2>nul
+if not errorlevel 1 (
+    echo uv wurde erfolgreich eingerichtet.
+    echo.
+    exit /b 0
+)
+
+:uv_not_found
+echo FEHLER: uv konnte nach der automatischen Installation nicht gefunden werden.
+echo Bitte STARTBOT.bat einmal schliessen und erneut doppelklicken.
+echo Falls der Fehler bleibt, uv manuell installieren mit:
+echo   winget install --id=astral-sh.uv -e
+echo.
+pause
+exit /b 1
