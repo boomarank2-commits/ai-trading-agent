@@ -182,6 +182,41 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             self.strategy.bot_start()
         self.strategy.stoploss = original_stoploss
 
+    def test_dryrun_freq_ui_is_allowed_only_on_localhost(self) -> None:
+        self.strategy.config.update(
+            {
+                "runmode": "dry_run",
+                "dry_run": True,
+                "initial_state": "running",
+                "cancel_open_orders_on_exit": True,
+                "api_server": {
+                    "enabled": True,
+                    "listen_ip_address": "127.0.0.1",
+                    "listen_port": 8080,
+                    "enable_openapi": False,
+                    "CORS_origins": [],
+                },
+            }
+        )
+        self.strategy.bot_start()
+
+        self.strategy.config["api_server"]["listen_ip_address"] = "0.0.0.0"
+        with self.assertRaisesRegex(RuntimeError, "safety contract"):
+            self.strategy.bot_start()
+
+        self.strategy.config["api_server"]["listen_ip_address"] = "127.0.0.1"
+        self.strategy.config["api_server"]["enable_openapi"] = True
+        with self.assertRaisesRegex(RuntimeError, "safety contract"):
+            self.strategy.bot_start()
+
+        self.strategy.config["api_server"]["enable_openapi"] = False
+        self.strategy.config["runmode"] = "live"
+        self.strategy.config["dry_run"] = False
+        self.strategy.config["initial_state"] = "paused"
+        self.strategy.config["cancel_open_orders_on_exit"] = False
+        with self.assertRaisesRegex(RuntimeError, "safety contract"):
+            self.strategy.bot_start()
+
 
 if __name__ == "__main__":
     unittest.main()
