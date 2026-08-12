@@ -21,21 +21,28 @@ Einstellungen kein Echtgeld handeln.
 
 ## Erster Start auf einem neuen Rechner
 
-Voraussetzungen sind eine Internetverbindung und das installierte Programm
-[`uv`](https://docs.astral.sh/uv/getting-started/installation/). Unter Windows
-kann es einmalig mit `winget install --id=astral-sh.uv -e` installiert werden.
-Fehlt `uv`, zeigt `STARTBOT.bat` genau diesen Hinweis an und startet keinen Bot.
-Der Starter gleicht die lokale Umgebung bei jedem Start mit `uv.lock` ab. Fehlt
-die lokale `.venv`, führt er automatisch
+Voraussetzungen sind eine Internetverbindung und Windows WinGet. `STARTBOT.bat`
+prüft beim Doppelklick automatisch, ob [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
+bereits vorhanden ist. Fehlt `uv`, versucht der Starter es selbst über WinGet
+mit `winget install --id=astral-sh.uv -e` zu installieren. Der Benutzer muss
+also normalerweise keine Eingabeaufforderung öffnen und keinen Installationsbefehl
+von Hand eingeben.
+
+Falls WinGet selbst auf dem Rechner fehlt oder die automatische Installation
+nicht erfolgreich abgeschlossen werden kann, stoppt der Starter mit einer klaren
+Fehlermeldung und startet keinen Bot.
+
+Nach erfolgreicher `uv`-Prüfung gleicht der Starter die lokale Umgebung bei jedem
+Start mit `uv.lock` ab. Fehlt die lokale `.venv`, führt er automatisch
 
 ```powershell
 uv sync --frozen --all-extras --python 3.12
 ```
 
 aus. Dadurch wird die in `uv.lock` festgelegte Python-3.12-Umgebung angelegt.
-Abhängig von Internetverbindung und Rechner kann der erste Start einige
-Minuten dauern; spätere unveränderte Prüfungen sind deutlich kürzer. Danach
-startet Freqtrade automatisch.
+Abhängig von Internetverbindung und Rechner kann der erste Start einige Minuten
+dauern; spätere unveränderte Prüfungen sind deutlich kürzer. Danach startet
+Freqtrade automatisch.
 
 ## Betrieb und Beenden
 
