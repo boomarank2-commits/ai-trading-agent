@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+  "_comment": "PAUSED live recovery overlay. start-live-paused.ps1 requires a registry-authorized and independently source-audited exact hash plus process-only FREQTRADE__EXCHANGE__KEY and FREQTRADE__EXCHANGE__SECRET. Never put secrets in this file.",
+  "bot_name": "compression-breakout-250-live",
+  "dry_run": false,
+  "dry_run_wallet": 250,
+  "available_capital": 250,
+  "stake_amount": 80,
+  "max_open_trades": 3,
+  "trading_mode": "spot",
+  "margin_mode": "",
+  "initial_state": "paused",
+  "force_entry_enable": false,
+  "cancel_open_orders_on_exit": false,
+  "position_adjustment_enable": false,
+  "max_entry_position_adjustment": 0,
+  "db_url": "sqlite:///user_data/tradesv3.live.sqlite",
+  "exchange": {
+    "name": "binance",
+    "ccxt_config": {
+      "enableRateLimit": true,
+      "options": {
+        "defaultType": "spot"
+      }
+    },
+    "ccxt_async_config": {
+      "enableRateLimit": true,
+      "options": {
+        "defaultType": "spot"
+      }
+    },
+    "pair_whitelist": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT"
+    ],
+    "pair_blacklist": []
+  },
+  "api_server": {
+    "enabled": false,
+    "listen_ip_address": "127.0.0.1",
+    "listen_port": 8080,
+    "verbosity": "error",
+    "enable_openapi": false,
+    "jwt_secret_key": "disabled-api-jwt-key-000000000000",
+    "ws_token": "disabled-api-websocket-token",
+    "CORS_origins": [],
+    "username": "disabled",
+    "password": "disabled"
+  }
+}

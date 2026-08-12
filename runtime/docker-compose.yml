@@ -1,0 +1,17 @@
+services:
+  freqtrade:
+    image: freqtradeorg/freqtrade:2026.7
+    container_name: compression-breakout-250
+    restart: "no"
+    volumes:
+      - ./user_data:/freqtrade/user_data
+    command:
+      - trade
+      - --userdir
+      - /freqtrade/user_data
+      - --config
+      - /freqtrade/user_data/config.json
+      - --config
+      - /freqtrade/user_data/config-public.json
+      - --strategy
+      - CompressionBreakout250

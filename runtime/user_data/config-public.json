@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+  "_comment": "Public-data/dry-run overlay for CCXT 4.5.73: keep apiKey null so Binance market discovery never selects a private endpoint.",
+  "exchange": {
+    "ccxt_config": {
+      "apiKey": null
+    },
+    "ccxt_async_config": {
+      "apiKey": null
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "poll_seconds": 30,
+  "max_cycle_minutes": 30,
+  "max_output_bytes": 2097152,
+  "holdout_cutoff_utc": "2025-08-12T00:00:00Z",
+  "roles": [
+    {
+      "name": "quant",
+      "file": "loop/01-quant-mathematician.md",
+      "interval_minutes": 15,
+      "enabled": true
+    },
+    {
+      "name": "mean-reversion",
+      "file": "loop/02-mean-reversion-engineer.md",
+      "interval_minutes": 60,
+      "enabled": true
+    },
+    {
+      "name": "trend",
+      "file": "loop/03-trend-following-engineer.md",
+      "interval_minutes": 60,
+      "enabled": true
+    },
+    {
+      "name": "volatility",
+      "file": "loop/04-volatility-strategist.md",
+      "interval_minutes": 60,
+      "enabled": true
+    },
+    {
+      "name": "breakout",
+      "file": "loop/05-breakout-engineer.md",
+      "interval_minutes": 60,
+      "enabled": true
+    },
+    {
+      "name": "optimizer",
+      "file": "loop/06-strategy-optimizer.md",
+      "interval_minutes": 15,
+      "enabled": true
+    },
+    {
+      "name": "risk",
+      "file": "loop/08-risk-manager.md",
+      "interval_minutes": 60,
+      "enabled": true
+    },
+    {
+      "name": "drawdown",
+      "file": "loop/09-drawdown-auditor.md",
+      "interval_minutes": 360,
+      "enabled": true
+    },
+    {
+      "name": "overfitting",
+      "file": "loop/10-overfitting-detector.md",
+      "interval_minutes": 360,
+      "enabled": true
+    },
+    {
+      "name": "multi-timeframe",
+      "file": "loop/11-multi-timeframe-strategist.md",
+      "interval_minutes": 1440,
+      "enabled": true
+    },
+    {
+      "name": "liquidity-sweep",
+      "file": "loop/12-liquidity-sweep-hunter.md",
+      "interval_minutes": 1440,
+      "enabled": true
+    },
+    {
+      "name": "calendar-baseline",
+      "file": "loop/13-moon-phase-strategist.md",
+      "interval_minutes": 10080,
+      "enabled": false
+    },
+    {
+      "name": "pattern",
+      "file": "loop/14-pattern-recognition-strategist.md",
+      "interval_minutes": 1440,
+      "enabled": true
+    }
+  ]
+}

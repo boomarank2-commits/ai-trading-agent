@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "daviddtech-local-trader"
+version = "0.1.0"
+description = "Local research registry and guarded Binance Spot runtime for DaviddTech AI Trader MCP"
+readme = "README.local.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "DaviddTech AI Trader MCP contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+runtime = ["freqtrade==2026.7"]
+mcp = ["mcp==1.29.0"]
+dev = [
+  "pytest==9.1.1",
+  "ruff==0.16.2",
+]
+
+[project.scripts]
+local-trader = "local_trader.cli:main"
+local-trader-mcp = "local_trader.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/local_trader"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

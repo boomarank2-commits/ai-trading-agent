@@ -1,0 +1,2 @@
+# Runtime engine.  Keep this pin aligned with docker-compose.yml.
+freqtrade==2026.7

@@ -7,6 +7,29 @@ build/
 *.log
 .pytest_cache/
 __pycache__/
+.ruff_cache/
+.venv/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Local trading artifacts and credentials
+runtime/user_data/data/
+runtime/user_data/logs/
+runtime/user_data/backtest_results/
+runtime/user_data/hyperopt_results/
+runtime/user_data/strategies/promoted/
+runtime/user_data/DRYRUN_STOP_ENTRIES
+runtime/*.private.json
+runtime/kill-switch
+runtime/user_data/live-instance.lock
+runtime/user_data/.effective-live-*.json
+research/reports/
+research/inbox/
+research/registry/
+research/state.json
+research/state.json.tmp
+research/desk.lock
 
 # Video / large binary files (videos are uploaded to GitHub via user-attachments
 # and embedded in README — no need to keep them in git)

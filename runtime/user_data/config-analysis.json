@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+  "_comment": "Lookahead-analysis compatibility overlay. Freqtrade forces market orders for this diagnostic and therefore requires other-side pricing.",
+  "entry_pricing": {
+    "price_side": "other",
+    "use_order_book": false
+  },
+  "exit_pricing": {
+    "price_side": "other",
+    "use_order_book": false
+  }
+}

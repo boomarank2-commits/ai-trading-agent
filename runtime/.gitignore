@@ -1,0 +1,26 @@
+# Native runtime and local environment
+.venv/
+.env
+*.log
+__pycache__/
+*.py[cod]
+
+# Freqtrade-generated data and reports
+user_data/data/
+user_data/logs/
+user_data/backtest_results/
+user_data/hyperopt_results/
+user_data/plot/
+user_data/notebooks/
+user_data/freqaimodels/
+user_data/*.sqlite
+user_data/*.sqlite-*
+user_data/*.db
+user_data/*.db-*
+user_data/strategies/*.json
+
+# A local file with this name blocks new live/dry-run entries.
+user_data/STOP_ENTRIES
+user_data/DRYRUN_STOP_ENTRIES
+user_data/live-instance.lock
+user_data/.effective-live-*.json

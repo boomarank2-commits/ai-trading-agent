@@ -1,0 +1,60 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$script:RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+$script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:RuntimeRoot ".."))
+$script:UserDataPath = Join-Path $script:RuntimeRoot "user_data"
+$script:ConfigPath = Join-Path $script:UserDataPath "config.json"
+$script:PublicOverlayPath = Join-Path $script:UserDataPath "config-public.json"
+$script:AnalysisOverlayPath = Join-Path $script:UserDataPath "config-analysis.json"
+$script:LiveOverlayPath = Join-Path $script:UserDataPath "config-live.example.json"
+$script:VenvPath = Join-Path $script:RepoRoot ".venv"
+$script:FreqtradeExe = Join-Path $script:VenvPath "Scripts\freqtrade.exe"
+$script:StrategyName = "CompressionBreakout250"
+
+function Assert-RuntimeLayout {
+    if (-not (Test-Path -LiteralPath $script:ConfigPath -PathType Leaf)) {
+        throw "Freqtrade config not found: $script:ConfigPath"
+    }
+    if (-not (Test-Path -LiteralPath $script:PublicOverlayPath -PathType Leaf)) {
+        throw "Public-data overlay not found: $script:PublicOverlayPath"
+    }
+    if (-not (Test-Path -LiteralPath $script:AnalysisOverlayPath -PathType Leaf)) {
+        throw "Analysis overlay not found: $script:AnalysisOverlayPath"
+    }
+    if (-not (Test-Path -LiteralPath $script:FreqtradeExe -PathType Leaf)) {
+        throw "Freqtrade is not installed in the repository .venv. Run scripts/setup-venv.ps1 first."
+    }
+}
+
+function Assert-NoFreqtradeOverrides {
+    param([string[]]$Allowed = @())
+
+    $unexpected = @(Get-ChildItem Env:FREQTRADE__* -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -notin $Allowed
+    })
+    if ($unexpected.Count -gt 0) {
+        $names = ($unexpected.Name | Sort-Object) -join ", "
+        throw "Refusing command because unapproved Freqtrade overrides are inherited: $names"
+    }
+}
+
+function Invoke-FreqtradeCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$CommandArgs
+    )
+
+    Assert-RuntimeLayout
+    Push-Location -LiteralPath $script:RuntimeRoot
+    try {
+        & $script:FreqtradeExe @CommandArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "Freqtrade exited with code $LASTEXITCODE."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "name": "trend-pullback-250-v1",
+  "strategy_class": "TrendPullback250V1",
+  "role": "quant-researcher.md",
+  "hypothesis": "On Binance Spot 15-minute candles, a confirmed recovery from a shallow pullback inside a rising multi-day trend will produce a positive net expectancy after 0.20% cost per side across BTC/USDT, ETH/USDT, and SOL/USDT.",
+  "mechanism": "The slow EMA regime filter avoids countertrend longs, while the price-and-RSI recovery confirmation enters after short-term weakness instead of chasing an already extended breakout.",
+  "major_change": "Replace the baseline's fast volatility-compression breakout and 10-candle channel exit with one coherent slow-regime pullback/recovery signal pair; risk and capital limits remain unchanged.",
+  "parent_version_id": null,
+  "timeframe": "15m",
+  "symbols": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT"
+  ],
+  "research_timerange": "20240812-20250812",
+  "validation_timerange": "20250812-20260812",
+  "holdout_label": "quarantined-v1",
+  "fee_ratio": 0.001,
+  "slippage_ratio": 0.001,
+  "combined_cost_ratio_per_side": 0.002,
+  "frozen_source_sha256": "8790d38c0e38cbcd6446207cba3f63d806d6ccb8354330aef740b117a5361827",
+  "risk_policy": {
+    "exchange": "BINANCE",
+    "market_type": "SPOT",
+    "quote_asset": "USDT",
+    "max_capital": 250.0,
+    "max_position": 80.0,
+    "max_exposure": 240.0,
+    "max_open_positions": 3,
+    "leverage": 1.0,
+    "allow_shorts": false,
+    "allow_dca": false,
+    "allow_martingale": false,
+    "max_daily_loss": 10.0
+  }
+}
