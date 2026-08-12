@@ -38,3 +38,22 @@ $freqtradeExe = Join-Path $venvPath "Scripts\freqtrade.exe"
 if ($LASTEXITCODE -ne 0) {
     throw "Freqtrade installation verification failed with code $LASTEXITCODE."
 }
+
+# FreqUI is an optional Freqtrade component. Install it only when the local
+# frontend is genuinely missing, so normal later starts stay fast and do not
+# contact the network just to refresh the UI.
+$freqUiIndex = [string](& $venvPython -c "from pathlib import Path; import freqtrade; print(Path(freqtrade.__file__).resolve().parent / 'rpc' / 'api_server' / 'ui' / 'installed' / 'index.html')")
+$freqUiIndex = $freqUiIndex.Trim()
+if ([string]::IsNullOrWhiteSpace($freqUiIndex)) {
+    throw "FreqUI installation path could not be resolved."
+}
+if (-not (Test-Path -LiteralPath $freqUiIndex -PathType Leaf)) {
+    Write-Host "FreqUI fehlt; installiere die offizielle Freqtrade-Weboberflaeche einmalig."
+    & $freqtradeExe install-ui
+    if ($LASTEXITCODE -ne 0) {
+        throw "FreqUI installation failed with code $LASTEXITCODE."
+    }
+}
+if (-not (Test-Path -LiteralPath $freqUiIndex -PathType Leaf)) {
+    throw "FreqUI installation completed without creating the expected frontend: $freqUiIndex"
+}
