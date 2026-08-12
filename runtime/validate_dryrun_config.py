@@ -98,7 +98,16 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         _exact(f"exchange.{section}.options.defaultType", options.get("defaultType"), "spot")
 
     _exact("pairlists", config.get("pairlists"), [{"method": "StaticPairList"}])
-    _exact("api_server.enabled", config.get("api_server", {}).get("enabled"), False)
+
+    api_server = config.get("api_server")
+    if not isinstance(api_server, Mapping):
+        raise ValueError("api_server must be an object")
+    _exact("api_server.enabled", api_server.get("enabled"), True)
+    _exact("api_server.listen_ip_address", api_server.get("listen_ip_address"), "127.0.0.1")
+    _exact("api_server.listen_port", api_server.get("listen_port"), 8080)
+    _exact("api_server.enable_openapi", api_server.get("enable_openapi"), False)
+    _exact("api_server.CORS_origins", api_server.get("CORS_origins"), [])
+
     _exact("telegram.enabled", config.get("telegram", {}).get("enabled"), False)
     _exact(
         "external_message_consumer.enabled",
