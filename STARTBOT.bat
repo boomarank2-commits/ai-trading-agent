@@ -22,6 +22,16 @@ echo.
 call :ensure_uv
 if errorlevel 1 exit /b 1
 
+echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
+echo Adresse  : http://127.0.0.1:8080
+echo Benutzer : testbot
+echo Passwort : PaperOnly-250-USDT!
+echo.
+
+rem Ein versteckter lokaler Helfer wartet, bis die Freqtrade-API wirklich bereit ist,
+rem und oeffnet erst dann FreqUI. Das Konsolenfenster des Bots bleibt parallel offen.
+start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:8080'; $ping=$url + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $url; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
+
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\start-testbot-24x7.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
