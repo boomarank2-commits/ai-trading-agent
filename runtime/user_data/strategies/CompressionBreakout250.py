@@ -132,6 +132,23 @@ class CompressionBreakout250(IStrategy):
         stake_amount = float(self.config.get("stake_amount", 0.0))
         available_capital = float(self.config.get("available_capital", 0.0))
         max_open_trades = int(self.config.get("max_open_trades", -1))
+
+        # The paper-test UI may expose Freqtrade only on loopback. Live recovery
+        # still requires the API to remain disabled. A disabled API is also safe
+        # for other runtime invocations.
+        api_server = self.config.get("api_server", {})
+        api_server_safe = False
+        if isinstance(api_server, dict):
+            api_server_safe = api_server.get("enabled") is False
+            if self._runmode_value(self.config) == "dry_run":
+                api_server_safe = api_server_safe or (
+                    api_server.get("enabled") is True
+                    and api_server.get("listen_ip_address") == "127.0.0.1"
+                    and api_server.get("listen_port") == 8080
+                    and api_server.get("enable_openapi") is False
+                    and api_server.get("CORS_origins") == []
+                )
+
         invariants_hold = (
             self.can_short is False
             and self.position_adjustment_enable is False
@@ -175,7 +192,7 @@ class CompressionBreakout250(IStrategy):
             and set(pairs).issubset(allowed_pairs)
             and len(pairs) == len(set(pairs))
             and self.config.get("force_entry_enable") is False
-            and self.config.get("api_server", {}).get("enabled") is False
+            and api_server_safe
             and self.config.get("telegram", {}).get("enabled") is False
             and not adjacent_parameters.is_file()
         )
