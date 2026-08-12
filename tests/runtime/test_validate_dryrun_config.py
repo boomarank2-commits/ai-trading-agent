@@ -25,6 +25,7 @@ def _effective_config() -> dict:
     config["exchange"]["ccxt_async_config"].update(
         overlay["exchange"]["ccxt_async_config"]
     )
+    config["api_server"].update(overlay["api_server"])
     config["initial_state"] = "running"
     return config
 
@@ -46,7 +47,9 @@ def test_known_dryrun_configuration_matches_displayed_contract() -> None:
         (("exchange", "pair_whitelist"), ["BTC/USDT"]),
         (("exchange", "ccxt_config", "apiKey"), "secret"),
         (("exchange", "ccxt_async_config", "secret"), "secret"),
-        (("api_server", "enabled"), True),
+        (("api_server", "enabled"), False),
+        (("api_server", "listen_ip_address"), "0.0.0.0"),
+        (("api_server", "listen_port"), 8081),
         (("strategy_path",), "other"),
     ],
 )
