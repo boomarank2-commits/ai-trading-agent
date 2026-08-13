@@ -845,7 +845,11 @@ def test_report_exporter_runs_with_explicit_bypass_from_restricted_supervisor(
     )
     script = r"""
 $ErrorActionPreference = "Stop"
-if ((Get-ExecutionPolicy) -ne "Restricted") {
+$processPolicy = [Environment]::GetEnvironmentVariable(
+    "PSExecutionPolicyPreference",
+    [EnvironmentVariableTarget]::Process
+)
+if ($processPolicy -ne "Restricted") {
     throw "Regression test did not enter a restricted supervisor process."
 }
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
