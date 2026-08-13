@@ -1,5 +1,6 @@
 .env
-.env.local
+.env.*
+!.env.example
 node_modules/
 dist/
 build/
@@ -21,6 +22,17 @@ runtime/user_data/hyperopt_results/
 runtime/user_data/strategies/promoted/
 runtime/user_data/DRYRUN_STOP_ENTRIES
 runtime/user_data/.testbot-ui-password
+runtime/user_data/.testbot-ui-auth.json
+# Atomic auth writes (including leftovers from older builds).
+runtime/user_data/.testbot-ui-auth.json.tmp.*
+runtime/user_data/.testbot-ui-auth.json.bak.*
+runtime/user_data/..testbot-ui-auth.json.tmp.*
+runtime/user_data/..testbot-ui-auth.json.bak.*
+# Equivalent patterns used by isolated auth contract tests/custom paths.
+*.testbot-ui-auth.json.tmp.*
+*.testbot-ui-auth.json.bak.*
+# Legacy overlay may remain locally while an already running bot still holds it.
+runtime/user_data/config-public.json
 runtime/*.private.json
 runtime/kill-switch
 runtime/user_data/live-instance.lock

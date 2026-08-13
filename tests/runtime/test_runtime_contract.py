@@ -17,7 +17,7 @@ RUNTIME = REPO_ROOT / "runtime"
 USER_DATA = RUNTIME / "user_data"
 CONFIG_PATH = USER_DATA / "config.json"
 LIVE_OVERLAY_PATH = USER_DATA / "config-live.example.json"
-PUBLIC_OVERLAY_PATH = USER_DATA / "config-public.json"
+PUBLIC_OVERLAY_PATH = USER_DATA / "config-paper-public.json"
 ANALYSIS_OVERLAY_PATH = USER_DATA / "config-analysis.json"
 STRATEGY_PATH = USER_DATA / "strategies" / "CompressionBreakout250.py"
 

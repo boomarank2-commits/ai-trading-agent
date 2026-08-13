@@ -11,14 +11,18 @@ $exportScript = Join-Path $PSScriptRoot "export-dryrun-report.ps1"
 $logsRoot = Join-Path $script:UserDataPath "logs"
 $sessionsRoot = Join-Path $logsRoot "sessions"
 $instanceLockPath = Join-Path $logsRoot "testbot-instance.lock"
+$childLockPath = Join-Path $logsRoot "testbot-child.lock"
 $entryStopPath = Join-Path $script:UserDataPath "DRYRUN_STOP_ENTRIES"
-$databasePath = Join-Path $script:UserDataPath "tradesv3.dryrun.sqlite"
-$databaseUrl = "sqlite:///user_data/tradesv3.dryrun.sqlite"
-$strategyPath = Join-Path $script:UserDataPath "strategies\CompressionBreakout250.py"
+$databasePath = Join-Path $script:UserDataPath "tradesv3.paper-trend-breakout-250-v1.sqlite"
+$databaseUrl = "sqlite:///user_data/tradesv3.paper-trend-breakout-250-v1.sqlite"
+$paperStrategyName = "PaperTrendBreakout250V1"
+$paperStrategyVersion = 1
+$strategyPath = Join-Path $script:UserDataPath "strategies\$paperStrategyName.py"
 $strategyDirectory = Split-Path -Parent $strategyPath
+$paperRuntimeOverlayPath = Join-Path $script:UserDataPath "config-paper-runtime.json"
 $lockFilePath = Join-Path $script:RepoRoot "uv.lock"
 $dryRunValidator = Join-Path $script:RuntimeRoot "validate_dryrun_config.py"
-$lockedRunner = Join-Path $script:RuntimeRoot "locked_freqtrade.py"
+$lockedRunner = Join-Path $script:RuntimeRoot "paper_locked_freqtrade.py"
 $pythonExe = Join-Path $script:VenvPath "Scripts\python.exe"
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
@@ -86,10 +90,87 @@ function Get-LowerSha256 {
     }
 }
 
-Assert-NoFreqtradeOverrides
+function Repair-InterruptedSessionManifests {
+    param(
+        [Parameter(Mandatory = $true)][string]$SessionsDirectory,
+        [Parameter(Mandatory = $true)][string]$ReportExporter
+    )
+
+    # This function is called only after this process owns both the exclusive
+    # supervisor lock and the reserved child lock. Therefore an unfinished
+    # official session cannot still have a live supervisor or paper child. A
+    # hard power-off or killed console is recorded honestly before restart.
+    $detectedAt = [DateTimeOffset]::UtcNow
+    foreach ($candidate in @(Get-ChildItem -LiteralPath $SessionsDirectory -Filter "session-manifest.json" -File -Recurse -ErrorAction SilentlyContinue)) {
+        try {
+            $oldManifest = Get-Content -LiteralPath $candidate.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ([string]$oldManifest.status -notin @("starting", "running")) {
+                continue
+            }
+            if (-not [string]::IsNullOrWhiteSpace([string]$oldManifest.ended_at_utc)) {
+                continue
+            }
+            $sessionDirectory = $candidate.Directory.FullName
+            $sessionId = $candidate.Directory.Name
+            if ([string]$oldManifest.session_id -ne $sessionId -or $sessionId -notmatch '^[A-Za-z0-9._-]+$') {
+                throw "Sitzungs-ID und Sitzungsverzeichnis stimmen nicht sicher ueberein."
+            }
+            $startedAt = [DateTimeOffset]::Parse([string]$oldManifest.started_at_utc)
+            $lastActivity = $startedAt
+            foreach ($activityPath in @(
+                $candidate.FullName,
+                (Join-Path $sessionDirectory "supervisor.log"),
+                (Join-Path $sessionDirectory "freqtrade.log")
+            )) {
+                if (Test-Path -LiteralPath $activityPath -PathType Leaf) {
+                    $activity = [DateTimeOffset]::new((Get-Item -LiteralPath $activityPath).LastWriteTimeUtc)
+                    if ($activity -gt $lastActivity) {
+                        $lastActivity = $activity
+                    }
+                }
+            }
+            if ($lastActivity -gt $detectedAt) {
+                $lastActivity = $detectedAt
+            }
+
+            try {
+                $oldDatabasePath = [string]$oldManifest.database.path
+                if ([string]::IsNullOrWhiteSpace($oldDatabasePath)) {
+                    throw "Sitzungsmanifest enthaelt keinen eigenen Datenbankpfad."
+                }
+                & $ReportExporter `
+                    -SessionStartUtc $startedAt.ToString("o") `
+                    -SessionEndUtc $lastActivity.ToString("o") `
+                    -OutputDirectory $sessionDirectory `
+                    -SessionId $sessionId `
+                    -DatabasePath $oldDatabasePath
+                $oldManifest.report_status = "created_after_interruption"
+            }
+            catch {
+                $oldManifest.report_status = "failed_after_interruption: $($_.Exception.Message)"
+                Write-SupervisorLog "WARNUNG: Bericht fuer unterbrochene Sitzung $sessionId fehlgeschlagen: $($_.Exception.Message)"
+            }
+
+            $oldManifest.status = "interrupted"
+            $oldManifest.ended_at_utc = $lastActivity.ToString("o")
+            $oldManifest.freqtrade_exit_code = $null
+            $oldManifest | Add-Member -NotePropertyName "interruption_detected_at_utc" -NotePropertyValue $detectedAt.ToString("o") -Force
+            $oldManifest | Add-Member -NotePropertyName "interruption_reason" -NotePropertyValue "previous supervisor and paper child no longer held their official locks" -Force
+            Write-JsonAtomic -Path $candidate.FullName -Value $oldManifest
+            Write-SupervisorLog "Unterbrochene vorherige Sitzung abgeschlossen: $sessionId"
+        }
+        catch {
+            Write-SupervisorLog "WARNUNG: Verwaistes Sitzungsmanifest konnte nicht sicher repariert werden ($($candidate.FullName)): $($_.Exception.Message)"
+        }
+    }
+}
+
+Assert-NoFreqtradeOverrides -Allowed $script:TestbotApiOverrideNames
+Assert-TestbotApiEnvironment
 [System.IO.Directory]::CreateDirectory($sessionsRoot) | Out-Null
 
 $instanceLock = $null
+$childLockReservation = $null
 $sleepPreventionActive = $false
 $previousDryRun = [Environment]::GetEnvironmentVariable(
     "FREQTRADE__DRY_RUN",
@@ -116,7 +197,9 @@ $environmentWasMinimized = $false
 $sourceLock = $null
 $configLock = $null
 $publicOverlayLock = $null
+$paperRuntimeOverlayLock = $null
 $runnerLock = $null
+$lockedRunnerDependency = $null
 $dependencyLock = $null
 
 try {
@@ -130,6 +213,23 @@ try {
     }
     catch [System.IO.IOException] {
         throw "Der Testbot laeuft bereits. Ein zweiter Start wurde sicher blockiert."
+    }
+
+    # Reserve the child-owned lock before doing recovery or setup.  Once the
+    # Python child starts it holds this same FileShare.None lock itself for its
+    # complete lifetime.  If this supervisor is force-killed while Freqtrade
+    # survives, a later supervisor can acquire the instance lock but is still
+    # blocked here and therefore cannot misclassify/restart the active session.
+    try {
+        $childLockReservation = [System.IO.File]::Open(
+            $childLockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+    }
+    catch [System.IO.IOException] {
+        throw "Ein verwaister oder noch startender Testbot-Prozess laeuft bereits. Neustart wurde sicher blockiert."
     }
 
     $sessionCreatedAt = [DateTimeOffset]::UtcNow
@@ -157,11 +257,35 @@ try {
         throw "Setup oder Pruefung der lokalen Umgebung ist fehlgeschlagen: $($_.Exception.Message)"
     }
     Assert-RuntimeLayout
-    foreach ($requiredFile in @($dryRunValidator, $lockedRunner, $strategyPath, $lockFilePath)) {
+    foreach ($requiredFile in @(
+        $dryRunValidator,
+        $lockedRunner,
+        $strategyPath,
+        $paperRuntimeOverlayPath,
+        $lockFilePath
+    )) {
         if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
             throw "Erforderliche Testbot-Datei fehlt: $requiredFile"
         }
     }
+    $pythonVersion = (& $pythonExe -c "import platform; print(platform.python_version())").Trim()
+    $freqtradeVersion = (& $pythonExe -c "from importlib.metadata import version; print(version('freqtrade'))").Trim()
+    $freqUiVersion = (& $pythonExe -c "from pathlib import Path; import freqtrade; print((Path(freqtrade.__file__).resolve().parent / 'rpc' / 'api_server' / 'ui' / 'installed' / '.uiversion').read_text(encoding='utf-8').strip())").Trim()
+    $gitCommit = $null
+    try {
+        if ($null -ne (Get-Command git.exe -ErrorAction SilentlyContinue)) {
+            $candidateGitCommit = (& git.exe -C $script:RepoRoot rev-parse --verify HEAD 2>$null).Trim()
+            if ($LASTEXITCODE -eq 0 -and $candidateGitCommit -match '^[0-9a-f]{40}$') {
+                $gitCommit = $candidateGitCommit
+            }
+        }
+    }
+    catch {
+        $gitCommit = $null
+    }
+    Repair-InterruptedSessionManifests `
+        -SessionsDirectory $sessionsRoot `
+        -ReportExporter $exportScript
 
     # Lock every execution input before resolving and validating the effective
     # configuration.  Read sharing lets Freqtrade consume the files, while
@@ -184,8 +308,21 @@ try {
         [System.IO.FileAccess]::Read,
         [System.IO.FileShare]::Read
     )
+    $paperRuntimeOverlayLock = [System.IO.File]::Open(
+        $paperRuntimeOverlayPath,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
     $runnerLock = [System.IO.File]::Open(
         $lockedRunner,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    $lockedRunnerDependencyPath = Join-Path $script:RuntimeRoot "locked_freqtrade.py"
+    $lockedRunnerDependency = [System.IO.File]::Open(
+        $lockedRunnerDependencyPath,
         [System.IO.FileMode]::Open,
         [System.IO.FileAccess]::Read,
         [System.IO.FileShare]::Read
@@ -199,6 +336,7 @@ try {
     $strategyHash = Get-LowerSha256 -Stream $sourceLock
     $configHash = Get-LowerSha256 -Stream $configLock
     $publicOverlayHash = Get-LowerSha256 -Stream $publicOverlayLock
+    $paperRuntimeOverlayHash = Get-LowerSha256 -Stream $paperRuntimeOverlayLock
     $dependencyHash = Get-LowerSha256 -Stream $dependencyLock
 
     $previousValidationDryRun = [Environment]::GetEnvironmentVariable(
@@ -216,6 +354,7 @@ try {
             & $script:FreqtradeExe show-config `
                 --config $script:ConfigPath `
                 --config $script:PublicOverlayPath `
+                --config $paperRuntimeOverlayPath `
                 --userdir $script:UserDataPath
         ) | ForEach-Object { $_.ToString() }
         if ($LASTEXITCODE -ne 0) {
@@ -280,15 +419,26 @@ public static class DaviddTechTestBotPower {
     }
 
     $manifest = [ordered]@{
-        schema_version = 1
+        schema_version = 2
         session_id = $sessionId
+        supervisor_pid = $PID
         started_at_utc = $sessionCreatedAt.ToString("o")
         ended_at_utc = $null
         status = "starting"
         dry_run = $true
         real_orders_possible = $false
+        software = [ordered]@{
+            python_version = $pythonVersion
+            freqtrade_version = $freqtradeVersion
+            frequi_version = $freqUiVersion
+        }
+        source_control = [ordered]@{
+            git_commit = $gitCommit
+        }
         strategy = [ordered]@{
-            name = $script:StrategyName
+            name = $paperStrategyName
+            version = $paperStrategyVersion
+            paper_only = $true
             path = [System.IO.Path]::GetFullPath($strategyPath)
             sha256 = $strategyHash
         }
@@ -297,6 +447,8 @@ public static class DaviddTechTestBotPower {
             sha256 = $configHash
             public_overlay_path = [System.IO.Path]::GetFullPath($script:PublicOverlayPath)
             public_overlay_sha256 = $publicOverlayHash
+            paper_runtime_overlay_path = [System.IO.Path]::GetFullPath($paperRuntimeOverlayPath)
+            paper_runtime_overlay_sha256 = $paperRuntimeOverlayHash
         }
         dependency_lock = [ordered]@{
             path = [System.IO.Path]::GetFullPath($lockFilePath)
@@ -340,6 +492,7 @@ public static class DaviddTechTestBotPower {
     Write-Host " Position          : maximal 80 USDT"
     Write-Host " Gleichzeitig      : maximal 3 Positionen"
     Write-Host " Paare             : BTC/USDT, ETH/USDT, SOL/USDT"
+    Write-Host " Strategie         : $paperStrategyName (1h, Paper-only)"
     Write-Host " Datenbank         : $databasePath"
     Write-Host " Sitzung           : $sessionPath"
     if ($manifest.database.continued_existing_database) {
@@ -356,8 +509,8 @@ public static class DaviddTechTestBotPower {
     }
     Write-Host " Beenden            : Strg+C"
     Write-Host "================================================================"
-    Write-Host " HINWEIS: 0 Trades in 24 Stunden kann bei dieser selten handelnden"
-    Write-Host " Strategie normal sein. Fuer Bericht und sauberes Ende Strg+C nutzen."
+    Write-Host " HINWEIS: Auch mehrere Tage ohne Trade koennen normal sein."
+    Write-Host " Fuer Bericht und sauberes Ende Strg+C nutzen."
     Write-Host " Das direkte Schliessen des Fensters kann den Bericht ueberspringen;"
     Write-Host " TESTBOT_AUSWERTUNG.bat kann jederzeit separat ausgewertet werden."
     Write-Host "================================================================"
@@ -366,43 +519,35 @@ public static class DaviddTechTestBotPower {
     # Generated strategy code runs inside Freqtrade.  Give that child only the
     # Windows runtime variables it needs, not unrelated cloud/API credentials
     # inherited from the shell.  Dry-run needs no exchange secret at all.
-    $environmentAllowlist = @(
-        "ALLUSERSPROFILE", "APPDATA", "COMSPEC", "HOMEDRIVE", "HOMEPATH",
-        "LOCALAPPDATA", "NUMBER_OF_PROCESSORS", "OS", "PATH", "PATHEXT",
-        "PROCESSOR_ARCHITECTURE", "PROGRAMDATA", "PROGRAMFILES",
-        "PROGRAMFILES(X86)", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP",
-        "USERDOMAIN", "USERNAME", "USERPROFILE", "WINDIR"
-    )
-    Get-ChildItem Env: | ForEach-Object {
-        $savedEnvironment[$_.Name] = $_.Value
-        if ($_.Name -notin $environmentAllowlist) {
-            Remove-Item -ErrorAction SilentlyContinue -LiteralPath "Env:$($_.Name)"
-        }
-    }
+    $savedEnvironment = Enter-TestbotChildEnvironment -KillSwitchPath $entryStopPath
     $environmentWasMinimized = $true
-    $env:FREQTRADE__DRY_RUN = "true"
-    $env:FREQTRADE__INITIAL_STATE = "running"
-    $env:AI_TRADING_KILL_SWITCH_FILE = [System.IO.Path]::GetFullPath($entryStopPath)
     $manifest.status = "running"
     Write-JsonAtomic -Path $manifestPath -Value $manifest
 
     $commandArgs = @(
         $lockedRunner,
+        "--child-lock-file", ([System.IO.Path]::GetFullPath($childLockPath)),
         "--strategy-source", $strategyPath,
         "--strategy-sha256", $manifest.strategy.sha256,
-        "--strategy-class", $script:StrategyName,
+        "--strategy-class", $paperStrategyName,
         "--",
         "trade",
         "--config", $script:ConfigPath,
         "--config", $script:PublicOverlayPath,
+        "--config", $paperRuntimeOverlayPath,
         "--userdir", $script:UserDataPath,
-        "--strategy", $script:StrategyName,
+        "--strategy", $paperStrategyName,
         "--db-url", $databaseUrl,
         "--logfile", $freqtradeLogPath
     )
 
     Push-Location -LiteralPath $script:RuntimeRoot
     try {
+        # Transfer ownership to the child.  The supervisor still holds the
+        # separate instance lock, so during this short hand-off either this
+        # child wins or safely fails; a second official supervisor cannot race.
+        $childLockReservation.Dispose()
+        $childLockReservation = $null
         & $pythonExe @commandArgs
         $botExitCode = $LASTEXITCODE
     }
@@ -442,7 +587,8 @@ finally {
                 -SessionStartUtc $startedAtUtc.ToString("o") `
                 -SessionEndUtc $endedAtUtc.ToString("o") `
                 -OutputDirectory (Split-Path -Parent $reportJsonPath) `
-                -SessionId $manifest.session_id
+                -SessionId $manifest.session_id `
+                -DatabasePath $databasePath
             $manifest.report_status = "created"
         }
         catch {
@@ -466,16 +612,7 @@ finally {
     }
 
     if ($environmentWasMinimized) {
-        Get-ChildItem Env: | ForEach-Object {
-            Remove-Item -ErrorAction SilentlyContinue -LiteralPath "Env:$($_.Name)"
-        }
-        foreach ($name in $savedEnvironment.Keys) {
-            [Environment]::SetEnvironmentVariable(
-                $name,
-                [string]$savedEnvironment[$name],
-                [EnvironmentVariableTarget]::Process
-            )
-        }
+        Exit-TestbotChildEnvironment -SavedEnvironment $savedEnvironment
     }
     else {
         if ($null -eq $previousDryRun) {
@@ -498,12 +635,17 @@ finally {
         }
     }
 
+    if ($null -ne $childLockReservation) {
+        $childLockReservation.Dispose()
+    }
     if ($null -ne $instanceLock) {
         $instanceLock.Dispose()
     }
     foreach ($stream in @(
         $dependencyLock,
         $runnerLock,
+        $lockedRunnerDependency,
+        $paperRuntimeOverlayLock,
         $publicOverlayLock,
         $configLock,
         $sourceLock

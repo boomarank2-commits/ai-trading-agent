@@ -20,6 +20,15 @@ Die festen Testeinstellungen sind:
 - Stop-Loss bei 5,5 Prozent unter dem Einstieg;
 - ausschließlich `BTC/USDT`, `ETH/USDT` und `SOL/USDT` auf Binance Spot.
 
+`STARTBOT.bat` verwendet ab Version 1 die eigenständige, ausschließlich für
+Paper-Trading vorgesehene Strategie `PaperTrendBreakout250V1` auf
+1-Stunden-Kerzen. Sie sucht nach einem bestätigten Ausbruch über das vorherige
+72-Stunden-Hoch. Die Baseline `CompressionBreakout250` und ihre
+15-Minuten-Konfiguration bleiben unverändert; auch der Live-Recovery-Launcher
+lädt dieses Paper-Overlay nicht. Details und ehrliche historische Kennzahlen
+stehen in
+[`research/PAPER_TREND_BREAKOUT_250_V1.md`](research/PAPER_TREND_BREAKOUT_250_V1.md).
+
 Das ist ein simulierter Forward-Test mit echten öffentlichen Marktdaten, kein
 Echtgeldbetrieb. Der Starter lädt keine Schlüssel und kann mit diesen
 Einstellungen kein Echtgeld handeln.
@@ -34,11 +43,20 @@ laufenden Meldungen und Heartbeats.
 Für die ausschließlich lokale Paper-Test-Oberfläche gelten:
 
 - Benutzer: `testbot`
-- Passwort: `PaperOnly-250-USDT!`
+- Passwort: beim ersten Start zufällig erzeugt und einmal im STARTBOT-Fenster angezeigt
 - Adresse: `http://127.0.0.1:8080`
 
 Die API bindet ausdrücklich nur an `127.0.0.1` und wird nicht im Netzwerk oder
-Internet veröffentlicht. Falls der Browser ausnahmsweise nicht automatisch
+Internet veröffentlicht. Passwort und API-Schlüssel stehen nicht in der
+versionierten Konfiguration: Das Passwort wird nur DPAPI-verschlüsselt in der
+von Git ignorierten Datei `runtime/user_data/.testbot-ui-auth.json` gespeichert,
+an den aktuellen Windows-Benutzer gebunden und zusätzlich mit einer exklusiven
+Windows-Benutzer-ACL geschützt. JWT- und WebSocket-Schlüssel entstehen bei
+jedem Start neu und werden nicht persistent gespeichert. Mit
+`PASSWORT_AENDERN.bat` wird das Passwort verdeckt und zweimal abgefragt; die
+Änderung gilt nach dem nächsten Botstart.
+
+Falls der Browser ausnahmsweise nicht automatisch
 aufgeht, kann die Adresse manuell im Browser geöffnet werden, sobald im
 Konsolenfenster `state='RUNNING'` bzw. ein Bot-Heartbeat erscheint.
 
@@ -71,8 +89,10 @@ aus. Dadurch wird die in `uv.lock` festgelegte Python-3.12-Umgebung angelegt.
 Abhängig von Internetverbindung und Rechner kann der erste Start einige Minuten
 dauern; spätere unveränderte Prüfungen sind deutlich kürzer.
 
-Fehlt die FreqUI-Weboberfläche in der lokalen Freqtrade-Installation, führt der
-Setup-Pfad zusätzlich einmalig den offiziellen Befehl `freqtrade install-ui`
+Fehlt die exakt gepinnte FreqUI-Weboberfläche `3.1.1` in der lokalen
+Freqtrade-Installation, führt der
+Setup-Pfad zusätzlich einmalig den offiziellen Befehl
+`freqtrade install-ui --ui-version 3.1.1`
 aus. Danach startet Freqtrade automatisch. Spätere Starts installieren die UI
 nicht erneut, solange sie vorhanden ist.
 
@@ -84,6 +104,10 @@ Ansicht; das Schließen des Browserfensters beendet den Bot nicht. Solange der
 Bot läuft, blockiert der Starter den normalen Windows-Energiesparmodus.
 Zuklappen des Laptops, Ruhezustand, Herunterfahren, ein Windows-Neustart oder ein
 Stromausfall können den Prozess trotzdem beenden.
+
+Beim nächsten Start erkennt der Supervisor ein dadurch verwaistes Manifest,
+markiert die vorherige Sitzung ehrlich als `interrupted` und holt deren
+Sitzungsbericht bis zur letzten protokollierten Aktivität nach.
 
 Mit **Strg+C im Konsolenfenster** wird der Testbot sauber beendet. Dabei werden
 Sitzungsdaten abgeschlossen und ein Bericht erzeugt. Das bloße Schließen des
@@ -113,13 +137,14 @@ derselbe Doppelklick die persistente Datenbank wieder aufnehmen.
 
 Die Ergebnisse bleiben lokal unter `runtime/user_data/` erhalten:
 
-- `tradesv3.dryrun.sqlite`: persistente Freqtrade-Datenbank aller simulierten
+- `tradesv3.paper-trend-breakout-250-v1.sqlite`: eigene persistente Freqtrade-Datenbank aller simulierten
   Trades;
 - `logs/sessions/<Sitzungs-ID>/freqtrade.log`: Freqtrade-Protokoll der Sitzung;
 - `logs/sessions/<Sitzungs-ID>/supervisor.log`: Start-, Laufzeit- und
   Abschlussmeldungen;
 - `logs/sessions/<Sitzungs-ID>/session-manifest.json`: Zeiten, Einstellungen,
-  Pfade und Hashes der verwendeten Strategie, Konfiguration und Abhängigkeiten;
+  Pfade und Hashes der verwendeten Strategie, Konfiguration und Abhängigkeiten
+  sowie Git-Commit, Python-, Freqtrade- und FreqUI-Version;
 - `logs/sessions/<Sitzungs-ID>/dryrun-report-<Sitzungs-ID>.json`: strukturierter
   Bericht für eine spätere maschinelle Analyse;
 - `logs/sessions/<Sitzungs-ID>/dryrun-report-<Sitzungs-ID>.md`: lesbare
@@ -137,11 +162,13 @@ Kapitalwert, nicht als aktuellen Wallet- oder Marktwert.
 
 ## Ergebnisse richtig einordnen
 
-Die Strategie handelt selten. Auch nach 24 Stunden können **null Trades** ein
-technisch normales Ergebnis sein; für eine aussagekräftigere Beobachtung kann
-der Test mehrere Tage laufen.
+Die Paper-Strategie erzeugte retrospektiv in den letzten 30 Tagen 14 rohe
+Entry-Signale über alle drei Paare. Tatsächliche Paper-Trades können durch
+Schutzsperren, bereits belegte Slots und Exit-/ROI-Logik abweichen. Auch mehrere
+Tage mit **null Trades** können technisch normal sein.
 
-Die vorhandene Strategie war in den bisherigen historischen Prüfungen negativ.
+Auch diese Strategie war im retrospektiven Gesamtzeitraum negativ; ein echter
+Holdout wurde noch nicht durchgeführt.
 Dieser Dry-run dient dazu, Funktion, Stabilität und Verhalten zu beobachten.
 Weder ein mehrtägiger Lauf noch ein zwischenzeitliches Plus beweist eine
 profitable Strategie oder rechtfertigt Echtgeldbetrieb. Der Bot ist damit

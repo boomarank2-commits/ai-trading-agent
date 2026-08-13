@@ -106,7 +106,7 @@ function New-IsolatedWorkspace($Config, $RoleConfig, [string]$Stamp) {
     Copy-Item -LiteralPath (Join-Path $repoRoot "local-prompts\candidate-contract.md") -Destination (Join-Path $workspace "candidate-contract.md")
     Copy-Item -LiteralPath (Join-Path $repoRoot "runtime\user_data\strategies\CompressionBreakout250.py") -Destination $strategyPath
     Copy-Item -LiteralPath (Join-Path $repoRoot "runtime\user_data\config.json") -Destination (Join-Path $workspace "runtime\user_data\config.json")
-    Copy-Item -LiteralPath (Join-Path $repoRoot "runtime\user_data\config-public.json") -Destination (Join-Path $workspace "runtime\user_data\config-public.json")
+    Copy-Item -LiteralPath (Join-Path $repoRoot "runtime\user_data\config-paper-public.json") -Destination (Join-Path $workspace "runtime\user_data\config-paper-public.json")
 
     $registrySnapshot = Join-Path $workspace "registry-snapshot.json"
     $registryDatabase = Join-Path $repoRoot "research\registry\strategies.sqlite3"

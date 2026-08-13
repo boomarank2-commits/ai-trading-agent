@@ -5,7 +5,7 @@ $script:RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot ".."))
 $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $script:RuntimeRoot ".."))
 $script:UserDataPath = Join-Path $script:RuntimeRoot "user_data"
 $script:ConfigPath = Join-Path $script:UserDataPath "config.json"
-$script:PublicOverlayPath = Join-Path $script:UserDataPath "config-public.json"
+$script:PublicOverlayPath = Join-Path $script:UserDataPath "config-paper-public.json"
 $script:AnalysisOverlayPath = Join-Path $script:UserDataPath "config-analysis.json"
 $script:LiveOverlayPath = Join-Path $script:UserDataPath "config-live.example.json"
 $script:VenvPath = Join-Path $script:RepoRoot ".venv"
@@ -27,11 +27,16 @@ function Assert-RuntimeLayout {
     }
 }
 
+$script:TestbotApiOverrideNames = @(
+    "FREQTRADE__API_SERVER__ENABLED",
+    "FREQTRADE__API_SERVER__USERNAME",
+    "FREQTRADE__API_SERVER__PASSWORD",
+    "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+    "FREQTRADE__API_SERVER__WS_TOKEN"
+)
+
 function Assert-NoFreqtradeOverrides {
-    param([string[]]$Allowed = @(
-        "FREQTRADE__API_SERVER__USERNAME",
-        "FREQTRADE__API_SERVER__PASSWORD"
-    ))
+    param([string[]]$Allowed = @())
 
     $unexpected = @(Get-ChildItem Env:FREQTRADE__* -ErrorAction SilentlyContinue | Where-Object {
         $_.Name -notin $Allowed
@@ -39,6 +44,79 @@ function Assert-NoFreqtradeOverrides {
     if ($unexpected.Count -gt 0) {
         $names = ($unexpected.Name | Sort-Object) -join ", "
         throw "Refusing command because unapproved Freqtrade overrides are inherited: $names"
+    }
+}
+
+function Assert-TestbotApiEnvironment {
+    $values = @{}
+    foreach ($name in $script:TestbotApiOverrideNames) {
+        $values[$name] = [Environment]::GetEnvironmentVariable(
+            $name,
+            [EnvironmentVariableTarget]::Process
+        )
+        if ([string]::IsNullOrWhiteSpace([string]$values[$name])) {
+            throw "Der gesicherte STARTBOT-Aufruf hat unvollstaendige lokale FreqUI-Zugangsdaten."
+        }
+    }
+    if ([string]$values["FREQTRADE__API_SERVER__ENABLED"] -ne "true") {
+        throw "FreqUI darf im Testbot nur explizit fuer den lokalen Dry-run aktiviert werden."
+    }
+    if ([string]$values["FREQTRADE__API_SERVER__USERNAME"] -ne "testbot") {
+        throw "Der lokale FreqUI-Benutzer muss testbot sein."
+    }
+    $password = [string]$values["FREQTRADE__API_SERVER__PASSWORD"]
+    if ($password.Length -lt 14 -or $password.Length -gt 128) {
+        throw "Das lokale FreqUI-Passwort hat eine unzulaessige Laenge."
+    }
+    if ($password.ToCharArray() | Where-Object { [char]::IsControl($_) }) {
+        throw "Das lokale FreqUI-Passwort enthaelt unzulaessige Steuerzeichen."
+    }
+    foreach ($name in @(
+        "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+        "FREQTRADE__API_SERVER__WS_TOKEN"
+    )) {
+        if ([string]$values[$name] -notmatch '^[A-Za-z0-9_-]{43,}$') {
+            throw "Ein fluechtiger lokaler FreqUI-Schluessel ist ungueltig."
+        }
+    }
+}
+
+function Enter-TestbotChildEnvironment {
+    param([Parameter(Mandatory = $true)][string]$KillSwitchPath)
+
+    Assert-TestbotApiEnvironment
+    $saved = @{}
+    $allowlist = @(
+        "ALLUSERSPROFILE", "APPDATA", "COMSPEC", "HOMEDRIVE", "HOMEPATH",
+        "LOCALAPPDATA", "NUMBER_OF_PROCESSORS", "OS", "PATH", "PATHEXT",
+        "PROCESSOR_ARCHITECTURE", "PROGRAMDATA", "PROGRAMFILES",
+        "PROGRAMFILES(X86)", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP",
+        "USERDOMAIN", "USERNAME", "USERPROFILE", "WINDIR"
+    ) + $script:TestbotApiOverrideNames
+    Get-ChildItem Env: | ForEach-Object {
+        $saved[$_.Name] = $_.Value
+        if ($_.Name -notin $allowlist) {
+            Remove-Item -ErrorAction SilentlyContinue -LiteralPath "Env:$($_.Name)"
+        }
+    }
+    $env:FREQTRADE__DRY_RUN = "true"
+    $env:FREQTRADE__INITIAL_STATE = "running"
+    $env:AI_TRADING_KILL_SWITCH_FILE = [System.IO.Path]::GetFullPath($KillSwitchPath)
+    return $saved
+}
+
+function Exit-TestbotChildEnvironment {
+    param([Parameter(Mandatory = $true)][hashtable]$SavedEnvironment)
+
+    Get-ChildItem Env: | ForEach-Object {
+        Remove-Item -ErrorAction SilentlyContinue -LiteralPath "Env:$($_.Name)"
+    }
+    foreach ($name in $SavedEnvironment.Keys) {
+        [Environment]::SetEnvironmentVariable(
+            $name,
+            [string]$SavedEnvironment[$name],
+            [EnvironmentVariableTarget]::Process
+        )
     }
 }
 

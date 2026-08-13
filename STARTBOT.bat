@@ -22,40 +22,19 @@ echo.
 call :ensure_uv
 if errorlevel 1 exit /b 1
 
-rem FreqUI-Zugang: Auf einem frischen Download gilt das dokumentierte
-rem Erstpasswort. Ein mit PASSWORT_AENDERN.bat gesetztes Passwort bleibt
-rem ausschliesslich lokal und ueberschreibt nur den API-Server-Zugang.
-set "LOCAL_UI_PASSWORD_FILE=%~dp0runtime\user_data\.testbot-ui-password"
-set "FREQTRADE__API_SERVER__USERNAME=testbot"
-set "FREQTRADE__API_SERVER__PASSWORD=PaperOnly-250-USDT!"
-set "FIRST_LOGIN_HELP=1"
-if exist "%LOCAL_UI_PASSWORD_FILE%" (
-    set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
-    set "FIRST_LOGIN_HELP=0"
-)
-
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
 echo Bot Name : Testbot
 echo Benutzer : testbot
-if "%FIRST_LOGIN_HELP%"=="1" (
-    echo Passwort : PaperOnly-250-USDT!
-    echo.
-    echo ERSTE ANMELDUNG: Die Login-Hilfe wird zusaetzlich geoeffnet.
-    echo Nach erfolgreichem Login kann mit PASSWORT_AENDERN.bat ein eigenes
-    echo lokales Passwort gesetzt werden. Es wird erst nach Bot-Neustart aktiv.
-    start "" "%~dp0LOGIN_HILFE.html"
-) else (
-    echo Passwort : eigenes lokales Passwort ist aktiv
-    echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
-)
+echo Passwort : wird lokal erzeugt bzw. aus dem geschuetzten Speicher geladen
+echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
 echo.
 
 rem Ein versteckter lokaler Helfer wartet, bis die Freqtrade-API wirklich bereit ist,
 rem und oeffnet erst dann FreqUI. Das Konsolenfenster des Bots bleibt parallel offen.
 start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:8080'; $ping=$url + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $url; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\start-testbot-24x7.ps1"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\manage-testbot-ui-auth.ps1" -Mode Start
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
 echo.

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+  "_comment": "Public market-data overlay for dry-run and research commands. It contains no active UI credentials. STARTBOT enables the loopback-only FreqUI and supplies per-installation credentials through process-local environment variables.",
+  "exchange": {
+    "ccxt_config": {
+      "apiKey": null
+    },
+    "ccxt_async_config": {
+      "apiKey": null
+    }
+  }
+}

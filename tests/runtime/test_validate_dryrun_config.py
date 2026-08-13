@@ -17,7 +17,12 @@ def _effective_config() -> dict:
         (REPO_ROOT / "runtime" / "user_data" / "config.json").read_text(encoding="utf-8")
     )
     overlay = json.loads(
-        (REPO_ROOT / "runtime" / "user_data" / "config-public.json").read_text(
+        (REPO_ROOT / "runtime" / "user_data" / "config-paper-public.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    runtime_overlay = json.loads(
+        (REPO_ROOT / "runtime" / "user_data" / "config-paper-runtime.json").read_text(
             encoding="utf-8"
         )
     )
@@ -25,7 +30,22 @@ def _effective_config() -> dict:
     config["exchange"]["ccxt_async_config"].update(
         overlay["exchange"]["ccxt_async_config"]
     )
-    config["api_server"].update(overlay["api_server"])
+    config["api_server"].update(
+        {
+            "enabled": True,
+            "username": "testbot",
+            "password": "REDACTED",
+            "jwt_secret_key": "j" * 64,
+            "ws_token": "w" * 43,
+        }
+    )
+    config.update(
+        {
+            key: value
+            for key, value in runtime_overlay.items()
+            if not key.startswith("$") and key != "_comment"
+        }
+    )
     config["initial_state"] = "running"
     return config
 
@@ -34,6 +54,9 @@ def test_known_dryrun_configuration_matches_displayed_contract() -> None:
     result = validate(_effective_config())
     assert result["ok"] is True
     assert result["maximum_exposure_usdt"] == 240
+    assert result["strategy"] == "PaperTrendBreakout250V1"
+    assert result["timeframe"] == "1h"
+    assert result["paper_only"] is True
 
 
 @pytest.mark.parametrize(
@@ -44,12 +67,19 @@ def test_known_dryrun_configuration_matches_displayed_contract() -> None:
         (("dry_run_wallet",), 100),
         (("stake_amount",), 81),
         (("max_open_trades",), 4),
+        (("strategy",), "CompressionBreakout250"),
+        (("timeframe",), "15m"),
+        (("minimal_roi",), {"0": 0.05}),
         (("exchange", "pair_whitelist"), ["BTC/USDT"]),
         (("exchange", "ccxt_config", "apiKey"), "secret"),
         (("exchange", "ccxt_async_config", "secret"), "secret"),
         (("api_server", "enabled"), False),
         (("api_server", "listen_ip_address"), "0.0.0.0"),
         (("api_server", "listen_port"), 8081),
+        (("api_server", "username"), "admin"),
+        (("api_server", "password"), "not-redacted"),
+        (("api_server", "jwt_secret_key"), "somethingRandomSomethingRandom123"),
+        (("api_server", "ws_token"), "short"),
         (("strategy_path",), "other"),
     ],
 )
@@ -72,9 +102,15 @@ $oldState=$env:FREQTRADE__INITIAL_STATE
 try {
   $env:FREQTRADE__DRY_RUN='true'
   $env:FREQTRADE__INITIAL_STATE='running'
+  $env:FREQTRADE__API_SERVER__ENABLED='true'
+  $env:FREQTRADE__API_SERVER__USERNAME='testbot'
+  $env:FREQTRADE__API_SERVER__PASSWORD='valid-local-password'
+  $env:FREQTRADE__API_SERVER__JWT_SECRET_KEY=('j' * 64)
+  $env:FREQTRADE__API_SERVER__WS_TOKEN=('w' * 43)
   & '.\\.venv\\Scripts\\freqtrade.exe' show-config `
     --config '.\\runtime\\user_data\\config.json' `
-    --config '.\\runtime\\user_data\\config-public.json' `
+    --config '.\\runtime\\user_data\\config-paper-public.json' `
+    --config '.\\runtime\\user_data\\config-paper-runtime.json' `
     --userdir '.\\runtime\\user_data'
 } finally {
   if ($null -eq $oldDry) {
@@ -87,6 +123,7 @@ try {
   } else {
     $env:FREQTRADE__INITIAL_STATE=$oldState
   }
+  Get-ChildItem Env:FREQTRADE__API_SERVER__* | Remove-Item -ErrorAction SilentlyContinue
 }
 """
     shown = subprocess.run(
@@ -103,7 +140,7 @@ try {
 def test_strategy_directory_has_exactly_one_intended_definition() -> None:
     strategy_directory = REPO_ROOT / "runtime" / "user_data" / "strategies"
     result = validate_strategy_directory(strategy_directory)
-    assert result["strategy_source"].endswith("CompressionBreakout250.py")
+    assert result["strategy_source"].endswith("PaperTrendBreakout250V1.py")
 
 
 def test_cli_accepts_windows_powershell_bom_on_stdin() -> None:

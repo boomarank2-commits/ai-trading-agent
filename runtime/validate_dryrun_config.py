@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+EXPECTED_STRATEGY = "PaperTrendBreakout250V1"
+EXPECTED_TIMEFRAME = "1h"
+EXPECTED_ROI = {"0": 0.08, "120": 0.08, "360": 0.08, "1440": 0.04, "4320": 0.0}
 
 
 def _exact(label: str, actual: Any, expected: Any) -> None:
@@ -22,7 +25,7 @@ def _exact(label: str, actual: Any, expected: Any) -> None:
 def validate_strategy_directory(strategy_directory: Path) -> dict[str, Any]:
     """Ensure Freqtrade can only resolve the intended top-level strategy class."""
     strategy_directory = strategy_directory.resolve(strict=True)
-    expected_source = strategy_directory / "CompressionBreakout250.py"
+    expected_source = strategy_directory / f"{EXPECTED_STRATEGY}.py"
     if not expected_source.is_file():
         raise ValueError(f"required strategy source is missing: {expected_source}")
     if expected_source.with_suffix(".json").exists():
@@ -35,11 +38,11 @@ def validate_strategy_directory(strategy_directory: Path) -> dict[str, Any]:
         except (OSError, UnicodeDecodeError, SyntaxError) as error:
             raise ValueError(f"strategy source is not valid UTF-8 Python: {source}") from error
         if any(
-            isinstance(node, ast.ClassDef) and node.name == "CompressionBreakout250"
+            isinstance(node, ast.ClassDef) and node.name == EXPECTED_STRATEGY
             for node in tree.body
         ):
             definitions.append(str(source.resolve()))
-    _exact("CompressionBreakout250 definitions", definitions, [str(expected_source.resolve())])
+    _exact(f"{EXPECTED_STRATEGY} definitions", definitions, [str(expected_source.resolve())])
     return {"strategy_source": str(expected_source.resolve())}
 
 
@@ -59,13 +62,14 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "max_entry_position_adjustment": 0,
         "force_entry_enable": False,
         "cancel_open_orders_on_exit": True,
-        "strategy": "CompressionBreakout250",
-        "timeframe": "15m",
+        "strategy": EXPECTED_STRATEGY,
+        "timeframe": EXPECTED_TIMEFRAME,
         "stoploss": -0.055,
-        "db_url": "sqlite:///user_data/tradesv3.dryrun.sqlite",
+        "db_url": "sqlite:///user_data/tradesv3.paper-trend-breakout-250-v1.sqlite",
     }
     for key, expected in exact_values.items():
         _exact(key, config.get(key), expected)
+    _exact("minimal_roi", config.get("minimal_roi"), EXPECTED_ROI)
     if not math.isclose(
         float(config["stake_amount"]) * int(config["max_open_trades"]),
         240.0,
@@ -107,6 +111,25 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
     _exact("api_server.listen_port", api_server.get("listen_port"), 8080)
     _exact("api_server.enable_openapi", api_server.get("enable_openapi"), False)
     _exact("api_server.CORS_origins", api_server.get("CORS_origins"), [])
+    _exact("api_server.verbosity", api_server.get("verbosity"), "error")
+    _exact("api_server.username", api_server.get("username"), "testbot")
+    # Freqtrade intentionally returns only this marker from show-config. The
+    # supervisor validates the real process-local value before calling it.
+    _exact("api_server.password", api_server.get("password"), "REDACTED")
+    for secret_name, minimum_length in (("jwt_secret_key", 43), ("ws_token", 43)):
+        secret_value = api_server.get(secret_name)
+        if not isinstance(secret_value, str) or len(secret_value) < minimum_length:
+            raise ValueError(f"api_server.{secret_name} must be a strong ephemeral value")
+        if not all(character.isalnum() or character in "-_" for character in secret_value):
+            raise ValueError(f"api_server.{secret_name} contains unsafe characters")
+        if secret_value in {
+            "super-secret",
+            "somethingrandom",
+            "somethingRandomSomethingRandom123",
+            "disabled-api-jwt-key-000000000000",
+            "disabled-api-websocket-token",
+        }:
+            raise ValueError(f"api_server.{secret_name} must not use a known placeholder")
 
     _exact("telegram.enabled", config.get("telegram", {}).get("enabled"), False)
     _exact(
@@ -151,6 +174,9 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "maximum_exposure_usdt": 240,
         "max_open_positions": 3,
         "pairs": EXPECTED_PAIRS,
+        "strategy": EXPECTED_STRATEGY,
+        "timeframe": EXPECTED_TIMEFRAME,
+        "paper_only": True,
     }
 
 

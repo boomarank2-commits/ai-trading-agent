@@ -1,0 +1,74 @@
+name: Windows validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python 3.12 locked environment
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.28"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Synchronize frozen dependencies
+        shell: pwsh
+        run: uv sync --frozen --all-extras --python 3.12
+
+      - name: Run tests
+        shell: pwsh
+        run: .\.venv\Scripts\python.exe -m pytest
+
+      - name: Run Ruff
+        shell: pwsh
+        run: .\.venv\Scripts\ruff.exe check .
+
+      - name: Parse tracked PowerShell scripts
+        shell: pwsh
+        run: |
+          $parseFailed = $false
+          $scripts = @(git ls-files -- '*.ps1')
+          foreach ($script in $scripts) {
+              $tokens = $null
+              $parseErrors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile(
+                  (Resolve-Path -LiteralPath $script).Path,
+                  [ref]$tokens,
+                  [ref]$parseErrors
+              )
+              if ($parseErrors.Count -gt 0) {
+                  $parseFailed = $true
+                  Write-Error "$script`n$($parseErrors | Out-String)"
+              }
+          }
+          if ($parseFailed) {
+              throw "At least one tracked PowerShell script has parser errors."
+          }

@@ -16,7 +16,8 @@ einschließlich Stoppschalter, persistenter Datenbank und Auswertung, steht in
 - neue Entries werden nach 10 USDT realisiertem Tagesverlust gesperrt
 - Stop-Loss −5,5 %, auf der Börse als Stop-Limit
 - `emergency_exit` und `force_exit` als Market-Order
-- API, Telegram, Webhook und externer Message-Consumer deaktiviert
+- FreqUI/API ausschließlich im gesicherten STARTBOT-Dry-run auf `127.0.0.1`;
+  in Basis-, Analyse- und Live-Konfiguration deaktiviert
 - statische Paarliste und Entry-Kill-Switch
 
 `config.json` ist Dry-run und startet `stopped`. Das Live-Overlay startet
@@ -50,6 +51,17 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 Die Baseline ist trotzdem nicht profitabel und deshalb nicht freigegeben.
 Sicherheitsprüfungen ersetzen keine positive Erwartung.
 
+## Separate Paper-Forward-Strategie
+
+Nur `STARTBOT.bat` ergänzt `config-paper-runtime.json` und startet damit
+`PaperTrendBreakout250V1` auf 1-Stunden-Kerzen. Die Strategie prüft einen
+verschobenen 72-Stunden-Donchian-Ausbruch mit Trend-, ADX-, ATR- und
+Volumenbestätigung. Sie verweigert in ihren Runtime-Callbacks ausdrücklich
+jeden Non-Dry-run-Pfad. `config.json`, `CompressionBreakout250` und der
+Live-Recovery-Launcher bleiben davon getrennt und unverändert. Forschungsstand
+und retrospektive Kennzahlen stehen in
+[`../research/PAPER_TREND_BREAKOUT_250_V1.md`](../research/PAPER_TREND_BREAKOUT_250_V1.md).
+
 ## Installation
 
 Im Repository-Stamm:
@@ -73,10 +85,13 @@ installierte Umgebung als exakt zu `uv.lock` passend bestätigen.
 .\runtime\scripts\recursive-analysis.ps1 -Timerange "20240812-20260812"
 ```
 
-Analyse- und Dry-run-Skripte laden zusätzlich `config-public.json`. Es setzt
+Analyse- und Dry-run-Skripte laden zusätzlich `config-paper-public.json`. Es setzt
 CCXTs internen `apiKey` auf `null`, damit ausschließlich öffentliche
 Binance-Endpunkte genutzt werden. Der Live-Launcher lädt dieses Overlay nie.
 `config-analysis.json` ist nur für Freqtrades Lookahead-Diagnose bestimmt.
+Das zusätzliche versionierte `config-paper-runtime.json` wird ausschließlich
+vom STARTBOT-Supervisor geladen; allgemeine Analyse- und Live-Skripte verwenden
+weiterhin die Baseline aus `config.json`.
 
 Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
@@ -96,8 +111,14 @@ beweist weder Profitabilität noch vollständige Bias-Freiheit.
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
 Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test der
-historisch negativen Baseline ist nur eine technische Beobachtung und keine
+historisch negativen Paper-V1 ist nur eine technische Beobachtung und keine
 Promotion oder Freigabe für Echtgeld.
+
+Nur STARTBOT aktiviert die API prozesslokal auf `127.0.0.1`. Ein zufälliges
+Erstpasswort wird lokal mit einer Windows-Benutzer-ACL gespeichert; flüchtige
+JWT- und WebSocket-Schlüssel werden bei jedem Start neu erzeugt. Sie stehen
+weder in Git noch in den Sitzungsmanifesten, und Query-Tokens werden vor der
+Ausgabe in Uvicorn-Protokollen redigiert.
 
 ## Kill-Switch
 
