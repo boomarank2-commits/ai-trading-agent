@@ -112,6 +112,21 @@ class PaperTrendBreakout250V1(IStrategy):
         stake_amount = float(self.config.get("stake_amount", 0.0))
         available_capital = float(self.config.get("available_capital", 0.0))
         max_open_trades = int(self.config.get("max_open_trades", -1))
+        # Freqtrade normalizes the JSON ROI time keys from strings to integers
+        # while resolving a strategy.  Direct unit construction retains the
+        # source mapping's string keys.  Compare the same exact schedule in a
+        # representation-independent way; the length check prevents aliases
+        # such as both 0 and "0" from collapsing unnoticed.
+        normalized_roi = {
+            str(minutes): float(profit) for minutes, profit in self.minimal_roi.items()
+        }
+        expected_roi = {
+            "0": 0.08,
+            "120": 0.08,
+            "360": 0.08,
+            "1440": 0.04,
+            "4320": 0.0,
+        }
 
         invariants_hold = (
             self.can_short is False
@@ -128,8 +143,8 @@ class PaperTrendBreakout250V1(IStrategy):
             and 1 <= max_open_trades <= self.MAX_OPEN_POSITIONS
             and stake_amount * max_open_trades <= self.MAX_TOTAL_EXPOSURE_USDT
             and math.isclose(float(self.stoploss), -0.055, abs_tol=1e-12)
-            and self.minimal_roi
-            == {"0": 0.08, "120": 0.08, "360": 0.08, "1440": 0.04, "4320": 0.0}
+            and len(self.minimal_roi) == len(expected_roi)
+            and normalized_roi == expected_roi
             and order_types.get("entry") == "limit"
             and order_types.get("exit") == "limit"
             and order_types.get("force_exit") == "market"

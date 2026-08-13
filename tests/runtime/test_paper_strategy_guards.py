@@ -86,6 +86,14 @@ class PaperStrategyGuardTests(unittest.TestCase):
 
     def test_exact_paper_contract_starts_and_non_dry_run_is_impossible(self) -> None:
         self.strategy.bot_start()
+        # Freqtrade 2026.7 converts minimal_roi's JSON keys to integers during
+        # normal strategy resolution.  The runtime guard must accept that
+        # semantically identical representation without weakening any value.
+        self.strategy.minimal_roi = {
+            int(minutes): profit
+            for minutes, profit in self.strategy.minimal_roi.items()
+        }
+        self.strategy.bot_start()
         self.strategy.config.update(
             {"runmode": "live", "dry_run": False, "initial_state": "paused"}
         )

@@ -73,6 +73,10 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "$dependencyLock" in source
     assert "freqtrade.log" in source
     assert "dryrun-report-$sessionId.json" in source
+    assert source.count("Invoke-DryRunReportExporter `") == 2
+    assert "-ExecutionPolicy Bypass `" in source
+    assert "& $exportScript `" not in source
+    assert "& $ReportExporter `" not in source
     assert "@(0, 130, -1073741510)" in source
     assert "config-live" not in source
     assert 'paperStrategyName = "PaperTrendBreakout250V1"' in source
@@ -766,6 +770,7 @@ $ast = [System.Management.Automation.Language.Parser]::ParseFile(
 $names = @(
     "Write-JsonAtomic",
     "Write-SupervisorLog",
+    "Invoke-DryRunReportExporter",
     "Repair-InterruptedSessionManifests"
 )
 foreach ($name in $names) {
@@ -811,6 +816,82 @@ Repair-InterruptedSessionManifests `
     assert (tmp_path / "recovery.log").read_text(encoding="utf-8").count(
         "Unterbrochene vorherige Sitzung abgeschlossen"
     ) == 1
+
+
+def test_report_exporter_runs_with_explicit_bypass_from_restricted_supervisor(
+    tmp_path: Path,
+) -> None:
+    """The automatic report must work after the child environment removes policy state."""
+    exporter = tmp_path / "fake-report-exporter.ps1"
+    result = tmp_path / "report-invocation.json"
+    exporter.write_text(
+        "param([string]$SessionStartUtc,[string]$SessionEndUtc,"
+        "[string]$OutputDirectory,[string]$SessionId,[string]$DatabasePath)\n"
+        "$value = @{ start=$SessionStartUtc; finish=$SessionEndUtc; "
+        "output=$OutputDirectory; id=$SessionId; database=$DatabasePath } "
+        "| ConvertTo-Json\n"
+        "[IO.File]::WriteAllText($env:TEST_REPORT_RESULT,$value)\n",
+        encoding="utf-8",
+    )
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "TEST_LAUNCHER_SOURCE": str(SCRIPTS / "start-testbot-24x7.ps1"),
+            "TEST_REPORT_EXPORTER": str(exporter),
+            "TEST_REPORT_RESULT": str(result),
+            "TEST_REPORT_OUTPUT": str(tmp_path / "output"),
+            "TEST_REPORT_DATABASE": str(tmp_path / "paper.sqlite"),
+        }
+    )
+    script = r"""
+$ErrorActionPreference = "Stop"
+if ((Get-ExecutionPolicy) -ne "Restricted") {
+    throw "Regression test did not enter a restricted supervisor process."
+}
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+    $env:TEST_LAUNCHER_SOURCE, [ref]$null, [ref]$null
+)
+$functionAst = $ast.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq "Invoke-DryRunReportExporter"
+}, $true)
+if ($null -eq $functionAst) {
+    throw "Invoke-DryRunReportExporter function not found"
+}
+Invoke-Expression $functionAst.Extent.Text
+Invoke-DryRunReportExporter `
+    -ReportExporter $env:TEST_REPORT_EXPORTER `
+    -SessionStartUtc "2026-08-13T10:00:00Z" `
+    -SessionEndUtc "2026-08-13T11:00:00Z" `
+    -OutputDirectory $env:TEST_REPORT_OUTPUT `
+    -SessionId "execution-policy-regression" `
+    -DatabasePath $env:TEST_REPORT_DATABASE
+"""
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Restricted",
+            "-Command",
+            script,
+        ],
+        cwd=REPO_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert json.loads(result.read_text(encoding="utf-8")) == {
+        "start": "2026-08-13T10:00:00Z",
+        "finish": "2026-08-13T11:00:00Z",
+        "output": str(tmp_path / "output"),
+        "id": "execution-policy-regression",
+        "database": str(tmp_path / "paper.sqlite"),
+    }
 
 
 def test_powershell_exporter_is_thin_read_only_python_wrapper(tmp_path: Path) -> None:

@@ -90,6 +90,45 @@ function Get-LowerSha256 {
     }
 }
 
+function Invoke-DryRunReportExporter {
+    param(
+        [Parameter(Mandatory = $true)][string]$ReportExporter,
+        [Parameter(Mandatory = $true)][string]$SessionStartUtc,
+        [Parameter(Mandatory = $true)][string]$SessionEndUtc,
+        [Parameter(Mandatory = $true)][string]$OutputDirectory,
+        [Parameter(Mandatory = $true)][string]$SessionId,
+        [Parameter(Mandatory = $true)][string]$DatabasePath
+    )
+
+    # Enter-TestbotChildEnvironment deliberately removes every unrelated
+    # process variable, including PSExecutionPolicyPreference.  Calling a ps1
+    # file directly after the paper child exits would therefore fall back to a
+    # restrictive user policy.  Use the same explicit, process-local bypass as
+    # STARTBOT.bat while retaining the minimized, secret-free environment.
+    $windowsPowerShell = Join-Path `
+        ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) `
+        "WindowsPowerShell\v1.0\powershell.exe"
+    if (-not (Test-Path -LiteralPath $windowsPowerShell -PathType Leaf)) {
+        throw "Windows PowerShell fuer die automatische Auswertung fehlt: $windowsPowerShell"
+    }
+
+    & $windowsPowerShell `
+        -NoLogo `
+        -NoProfile `
+        -NonInteractive `
+        -ExecutionPolicy Bypass `
+        -File $ReportExporter `
+        -SessionStartUtc $SessionStartUtc `
+        -SessionEndUtc $SessionEndUtc `
+        -OutputDirectory $OutputDirectory `
+        -SessionId $SessionId `
+        -DatabasePath $DatabasePath
+    $reportExitCode = $LASTEXITCODE
+    if ($reportExitCode -ne 0) {
+        throw "Automatische Testbot-Auswertung wurde mit Code $reportExitCode beendet."
+    }
+}
+
 function Repair-InterruptedSessionManifests {
     param(
         [Parameter(Mandatory = $true)][string]$SessionsDirectory,
@@ -138,7 +177,8 @@ function Repair-InterruptedSessionManifests {
                 if ([string]::IsNullOrWhiteSpace($oldDatabasePath)) {
                     throw "Sitzungsmanifest enthaelt keinen eigenen Datenbankpfad."
                 }
-                & $ReportExporter `
+                Invoke-DryRunReportExporter `
+                    -ReportExporter $ReportExporter `
                     -SessionStartUtc $startedAt.ToString("o") `
                     -SessionEndUtc $lastActivity.ToString("o") `
                     -OutputDirectory $sessionDirectory `
@@ -583,7 +623,8 @@ finally {
     ) {
         try {
             Write-SupervisorLog "Erzeuge automatische Sitzungs-Auswertung."
-            & $exportScript `
+            Invoke-DryRunReportExporter `
+                -ReportExporter $exportScript `
                 -SessionStartUtc $startedAtUtc.ToString("o") `
                 -SessionEndUtc $endedAtUtc.ToString("o") `
                 -OutputDirectory (Split-Path -Parent $reportJsonPath) `
