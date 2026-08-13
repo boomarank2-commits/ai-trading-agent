@@ -14,7 +14,8 @@ __pycache__/
 *.sqlite-shm
 *.sqlite-wal
 
-# Local trading artifacts and credentials
+# Local trading artifacts and legacy credentials. Active FreqUI credentials
+# live outside the repository under %LOCALAPPDATA%\DaviddTech\AiTradingAgent.
 runtime/user_data/data/
 runtime/user_data/logs/
 runtime/user_data/backtest_results/

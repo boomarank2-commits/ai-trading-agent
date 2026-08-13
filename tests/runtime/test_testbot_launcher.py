@@ -129,13 +129,15 @@ def test_startbot_routes_ui_auth_through_hardened_powershell_helper() -> None:
     assert "-Mode ChangePassword" in password
     assert 'Read-Host "Neues Passwort (mindestens 14 Zeichen)" -AsSecureString' in helper
     assert "SetAccessRuleProtection($true, $false)" in helper
+    assert ".SetOwner(" not in helper
     assert "System.Security.Cryptography.DataProtectionScope]::CurrentUser" in helper
     assert "Add-Type -AssemblyName System.Security" in helper
     assert "[System.IO.File]::GetAccessControl($Path)" in helper
     assert "Get-Acl -LiteralPath" not in helper
     assert "Assert-SecureLocalAuthFile -Path $AuthFilePath" in helper
     assert 'FileAttributes]::Hidden' in helper
-    assert ".testbot-ui-auth.json" in helper
+    assert 'Join-Path $localApplicationData "DaviddTech\\AiTradingAgent\\auth"' in helper
+    assert 'Join-Path $defaultAuthDirectoryPath "frequi-v2.json"' in helper
     assert "New-CryptoToken -ByteCount 48" in helper
     assert "New-CryptoToken -ByteCount 32" in helper
     assert "$script:TestbotApiOverrideNames" in common
@@ -320,6 +322,141 @@ def test_local_auth_file_is_random_and_acl_protected(tmp_path: Path) -> None:
     ]
 
 
+def test_local_auth_initializes_in_current_owned_modify_only_directory(
+    tmp_path: Path,
+) -> None:
+    """Regression: hardening a file must not require WRITE_OWNER privilege."""
+    auth_directory = tmp_path / "modify-only-auth"
+    auth_directory.mkdir()
+    auth_path = auth_directory / "frequi-v2.json"
+    environment = os.environ.copy()
+    environment["TEST_AUTH_DIRECTORY"] = str(auth_directory)
+    restrict = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            r"""
+$ErrorActionPreference = "Stop"
+$path = $env:TEST_AUTH_DIRECTORY
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+try {
+    $security = [IO.Directory]::GetAccessControl($path)
+    $owner = $security.GetOwner([Security.Principal.SecurityIdentifier]).Value
+    if ($owner -ne $identity.User.Value) { throw "test directory owner mismatch" }
+    $security.SetAccessRuleProtection($true, $false)
+    @($security.GetAccessRules(
+        $true, $false, [Security.Principal.SecurityIdentifier]
+    )) | ForEach-Object { [void]$security.RemoveAccessRuleSpecific($_) }
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule(
+        $identity.User,
+        [Security.AccessControl.FileSystemRights]::Modify,
+        (
+            [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+            [Security.AccessControl.InheritanceFlags]::ObjectInherit
+        ),
+        [Security.AccessControl.PropagationFlags]::None,
+        [Security.AccessControl.AccessControlType]::Allow
+    )
+    [void]$security.AddAccessRule($rule)
+    [IO.Directory]::SetAccessControl($path, $security)
+} finally {
+    $identity.Dispose()
+}
+""",
+        ],
+        cwd=REPO_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert restrict.returncode == 0, restrict.stderr
+
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPTS / "manage-testbot-ui-auth.ps1"),
+            "-Mode",
+            "InitializeOnly",
+            "-AuthFilePath",
+            str(auth_path),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    persisted = json.loads(auth_path.read_text(encoding="utf-8"))
+    assert persisted["schema_version"] == 2
+    assert "password" not in persisted
+
+
+def test_local_auth_rejects_reparse_point_directory(tmp_path: Path) -> None:
+    target = tmp_path / "real-auth-directory"
+    junction = tmp_path / "linked-auth-directory"
+    target.mkdir()
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "TEST_JUNCTION_PATH": str(junction),
+            "TEST_JUNCTION_TARGET": str(target),
+        }
+    )
+    create_junction = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            (
+                "New-Item -ItemType Junction -Path $env:TEST_JUNCTION_PATH "
+                "-Target $env:TEST_JUNCTION_TARGET | Out-Null"
+            ),
+        ],
+        cwd=REPO_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert create_junction.returncode == 0, create_junction.stderr
+
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPTS / "manage-testbot-ui-auth.ps1"),
+            "-Mode",
+            "InitializeOnly",
+            "-AuthFilePath",
+            str(junction / "frequi-v2.json"),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "Reparse-Point" in (completed.stdout + completed.stderr)
+    assert not (target / "frequi-v2.json").exists()
+
+
 def test_local_auth_rejects_inherited_preseed_before_reading(tmp_path: Path) -> None:
     auth_path = tmp_path / ".testbot-ui-auth.json"
     original = '{"schema_version": 1, "username": "testbot", "password": "attacker-preseeded"}'
@@ -428,44 +565,16 @@ def test_acl_protected_schema1_auth_is_atomically_upgraded_to_dpapi(
     assert not list(tmp_path.glob(".testbot-ui-auth.json.bak.*"))
 
 
-def test_short_legacy_plaintext_password_is_replaced_without_blocking_upgrade(
-    tmp_path: Path,
-) -> None:
-    sandbox = tmp_path / "sandbox"
-    scripts = sandbox / "runtime" / "scripts"
-    user_data = sandbox / "runtime" / "user_data"
-    scripts.mkdir(parents=True)
-    user_data.mkdir(parents=True)
-    helper = scripts / "manage-testbot-ui-auth.ps1"
-    helper.write_bytes((SCRIPTS / "manage-testbot-ui-auth.ps1").read_bytes())
-    legacy = user_data / ".testbot-ui-password"
-    legacy.write_text("kurz", encoding="utf-8")
-
-    completed = subprocess.run(
-        [
-            "powershell.exe",
-            "-NoLogo",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(helper),
-            "-Mode",
-            "InitializeOnly",
-        ],
-        cwd=sandbox,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert completed.returncode == 0, completed.stderr
-    assert not legacy.exists()
-    persisted = json.loads(
-        (user_data / ".testbot-ui-auth.json").read_text(encoding="utf-8")
-    )
-    assert persisted["schema_version"] == 2
-    assert "password" not in persisted
-    assert len(persisted["password_dpapi"]) >= 40
+def test_default_auth_path_and_repo_legacy_policy_are_fixed_without_profile_io() -> None:
+    """Inspect the contract without creating a real per-user credential."""
+    helper = (SCRIPTS / "manage-testbot-ui-auth.ps1").read_text(encoding="utf-8")
+    assert "[Environment+SpecialFolder]::LocalApplicationData" in helper
+    assert 'Join-Path $localApplicationData "DaviddTech\\AiTradingAgent\\auth"' in helper
+    assert 'Join-Path $defaultAuthDirectoryPath "frequi-v2.json"' in helper
+    assert 'Join-Path $userDataPath ".testbot-ui-auth.json"' in helper
+    assert 'Join-Path $userDataPath ".testbot-ui-password"' in helper
+    assert "Remove-RepoLegacyCredentialsBestEffort" in helper
+    assert "Neither repository-local legacy file is ever read or imported" in helper
 
 
 def test_final_child_environment_retains_ui_auth_and_drops_unrelated_secret() -> None:

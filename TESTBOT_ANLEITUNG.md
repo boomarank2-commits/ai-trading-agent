@@ -48,10 +48,14 @@ Für die ausschließlich lokale Paper-Test-Oberfläche gelten:
 
 Die API bindet ausdrücklich nur an `127.0.0.1` und wird nicht im Netzwerk oder
 Internet veröffentlicht. Passwort und API-Schlüssel stehen nicht in der
-versionierten Konfiguration: Das Passwort wird nur DPAPI-verschlüsselt in der
-von Git ignorierten Datei `runtime/user_data/.testbot-ui-auth.json` gespeichert,
+versionierten Konfiguration: Das Passwort wird nur DPAPI-verschlüsselt unter
+`%LOCALAPPDATA%\DaviddTech\AiTradingAgent\auth\frequi-v2.json` gespeichert,
 an den aktuellen Windows-Benutzer gebunden und zusätzlich mit einer exklusiven
-Windows-Benutzer-ACL geschützt. JWT- und WebSocket-Schlüssel entstehen bei
+Windows-Benutzer-ACL geschützt. Alte Zugangsdaten-Dateien im Bot-Ordner werden
+nicht mehr als Passwortquelle gelesen. Nach erfolgreicher Anlage des neuen
+Speichers versucht der Starter lediglich, solche Altdateien aufzuräumen; eine
+gesperrte Altdatei verhindert den sicheren Botstart nicht. JWT- und
+WebSocket-Schlüssel entstehen bei
 jedem Start neu und werden nicht persistent gespeichert. Mit
 `PASSWORT_AENDERN.bat` wird das Passwort verdeckt und zweimal abgefragt; die
 Änderung gilt nach dem nächsten Botstart.
