@@ -131,6 +131,8 @@ def test_startbot_routes_ui_auth_through_hardened_powershell_helper() -> None:
     assert "SetAccessRuleProtection($true, $false)" in helper
     assert "System.Security.Cryptography.DataProtectionScope]::CurrentUser" in helper
     assert "Add-Type -AssemblyName System.Security" in helper
+    assert "[System.IO.File]::GetAccessControl($Path)" in helper
+    assert "Get-Acl -LiteralPath" not in helper
     assert "Assert-SecureLocalAuthFile -Path $AuthFilePath" in helper
     assert 'FileAttributes]::Hidden' in helper
     assert ".testbot-ui-auth.json" in helper

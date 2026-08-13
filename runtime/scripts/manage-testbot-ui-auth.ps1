@@ -141,7 +141,10 @@ function Assert-SecureLocalAuthFile {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     try {
         $currentSid = $identity.User.Value
-        $acl = Get-Acl -LiteralPath $Path
+        # Use the .NET API directly. GitHub's minimal Windows runner can fail
+        # to autoload Microsoft.PowerShell.Security for Get-Acl even though
+        # the underlying FileSecurity API is available (as it is on WinPS 5.1).
+        $acl = [System.IO.File]::GetAccessControl($Path)
         $ownerSid = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
         if ($ownerSid -ne $currentSid) {
             throw "Die lokale FreqUI-Zugangsdaten-Datei gehoert nicht dem aktuellen Windows-Benutzer."
