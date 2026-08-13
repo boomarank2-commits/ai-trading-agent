@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Testbot – Erste Anmeldung</title>
+<style>
+  body{font-family:Segoe UI,Arial,sans-serif;background:#111827;color:#e5e7eb;margin:0;padding:32px}
+  .card{max-width:760px;margin:0 auto;background:#1f2937;border:1px solid #374151;border-radius:14px;padding:26px;box-shadow:0 12px 35px rgba(0,0,0,.28)}
+  h1{margin-top:0;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:160px 1fr;gap:10px 16px;background:#111827;padding:18px;border-radius:10px;margin:18px 0}
+  code{font-family:Consolas,monospace;color:#f9fafb;word-break:break-all} details{margin-top:18px;background:#111827;border-radius:10px;padding:14px 16px} summary{cursor:pointer;font-weight:700}
+  .warning{margin-top:18px;padding:14px;border-left:4px solid #f59e0b;background:#292211}.ok{margin-top:18px;padding:14px;border-left:4px solid #10b981;background:#13261f}
+  a.button{display:inline-block;margin-top:20px;padding:11px 16px;border-radius:8px;background:#e5e7eb;color:#111827;text-decoration:none;font-weight:700}
+  li{margin:8px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>FreqUI – Erste Anmeldung</h1>
+  <p class="muted">Diese Seite gehoert nur zum lokalen Paper-Testbot. Es werden dadurch keine echten Orders freigeschaltet.</p>
+
+  <div class="grid">
+    <div>Bot Name</div><code>Testbot</code>
+    <div>API URL</div><code>http://127.0.0.1:8080</code>
+    <div>Benutzer</div><code>testbot</code>
+    <div>Erstpasswort</div><code>PaperOnly-250-USDT!</code>
+  </div>
+
+  <a class="button" href="http://127.0.0.1:8080">FreqUI oeffnen</a>
+
+  <details>
+    <summary>Kennst du dein Passwort nicht?</summary>
+    <p>Auf einem frisch heruntergeladenen Bot gilt fuer die erste Anmeldung das Erstpasswort:</p>
+    <p><code>PaperOnly-250-USDT!</code></p>
+    <p>Wenn du bereits ein eigenes lokales Passwort gesetzt hast, gilt stattdessen dieses eigene Passwort.</p>
+  </details>
+
+  <div class="ok">
+    <strong>Nach der ersten erfolgreichen Anmeldung:</strong>
+    <ol>
+      <li>Bot spaeter sauber mit <code>Strg+C</code> beenden.</li>
+      <li><code>PASSWORT_AENDERN.bat</code> im Bot-Ordner doppelklicken.</li>
+      <li>Eigenes Passwort eingeben.</li>
+      <li><code>STARTBOT.bat</code> erneut starten. Erst dann ist das neue Passwort aktiv.</li>
+    </ol>
+    Das neue Passwort wird nur auf diesem Rechner gespeichert und nicht zu GitHub hochgeladen.
+  </div>
+
+  <div class="warning">
+    <strong>Eigenes Passwort vergessen?</strong><br>
+    Fuer diesen kleinen privaten Testbot gibt es bewusst keinen Online-Reset-Dienst. Der einfache Reset ist ein frischer Download/Klon in einen neuen Ordner. Dort gilt wieder das oben angezeigte Erstpasswort.
+  </div>
+</div>
+</body>
+</html>
