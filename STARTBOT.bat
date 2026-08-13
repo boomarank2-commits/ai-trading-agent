@@ -24,15 +24,16 @@ if errorlevel 1 exit /b 1
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
+echo Anmeldung: http://127.0.0.1:8080/testbot-login
 echo Bot Name : Testbot
 echo Benutzer : testbot
-echo Passwort : wird lokal erzeugt bzw. aus dem geschuetzten Speicher geladen
+echo Passwort : wird unten bei jedem Start genau einmal angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
 echo.
 
 rem Ein versteckter lokaler Helfer wartet, bis die Freqtrade-API wirklich bereit ist,
 rem und oeffnet erst dann FreqUI. Das Konsolenfenster des Bots bleibt parallel offen.
-start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:8080'; $ping=$url + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $url; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
+start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$baseUrl='http://127.0.0.1:8080'; $loginUrl=$baseUrl + '/testbot-login'; $ping=$baseUrl + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $loginUrl; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
 
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\manage-testbot-ui-auth.ps1" -Mode Start
 set "BOT_EXIT_CODE=%ERRORLEVEL%"

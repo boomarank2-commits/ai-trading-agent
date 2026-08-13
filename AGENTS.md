@@ -29,6 +29,22 @@ Put local work in `src/local_trader/`, `runtime/`, `local-prompts/`, `research/`
   registered artifact.
 - Never copy exchange secrets into code, config, tests, logs, reports, prompts, or chat output.
 
+## Verbindlicher STARTBOT-Bedienvertrag
+
+Vor Änderungen an `STARTBOT.bat`, FreqUI, lokaler Authentifizierung oder dem Paper-Launcher ist
+der Abschnitt **„Verbindlicher Bedienvertrag für den lokalen Paper-Bot“** in
+`C:\Dev\DaviddTech\deep-research-report.md` sowie `TESTBOT_ANLEITUNG.md` zu lesen und zu erhalten.
+
+- Ein Doppelklick auf `STARTBOT.bat` ist der normale und vollständige Startweg.
+- Bei jedem normalen Start müssen Adresse, Botname, Benutzer und das aktuell gültige lokale
+  Passwort sichtbar im Botfenster stehen. Nicht-interaktive Tests dürfen das Passwort nie zeigen.
+- Nach erfolgreichem API-Ping muss sich eine frische FreqUI-Anmeldung öffnen. Abgelaufene
+  Browser-Tokens dürfen nicht zu einem leeren Dashboard führen.
+- Sicherheitsverbesserungen dürfen diesen Ablauf nicht stillschweigend verändern. Falls der
+  Ablauf nicht bewahrt werden kann, muss vor der Umsetzung der Besitzer gefragt werden.
+- Änderungen an diesem Ablauf brauchen einen echten Windows-End-to-End-Starttest bis zu
+  `RUNNING`, sichtbaren 250 virtuellen USDT, mindestens einem Heartbeat und fehlerfreiem Log.
+
 ## Research discipline
 
 - One falsifiable hypothesis and one major change per version.

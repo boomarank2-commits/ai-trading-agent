@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Testbot – Erste Anmeldung</title>
+<title>Testbot – Anmeldung</title>
 <style>
   body{font-family:Segoe UI,Arial,sans-serif;background:#111827;color:#e5e7eb;margin:0;padding:32px}
   .card{max-width:760px;margin:0 auto;background:#1f2937;border:1px solid #374151;border-radius:14px;padding:26px;box-shadow:0 12px 35px rgba(0,0,0,.28)}
@@ -16,21 +16,21 @@
 </head>
 <body>
 <div class="card">
-  <h1>FreqUI – Erste Anmeldung</h1>
+  <h1>FreqUI – Anmeldung</h1>
   <p class="muted">Diese Seite gehoert nur zum lokalen Paper-Testbot. Es werden dadurch keine echten Orders freigeschaltet.</p>
 
   <div class="grid">
     <div>Bot Name</div><code>Testbot</code>
-    <div>API URL</div><code>http://127.0.0.1:8080</code>
+    <div>Login URL</div><code>http://127.0.0.1:8080/testbot-login</code>
     <div>Benutzer</div><code>testbot</code>
-    <div>Passwort</div><code>steht beim ersten Start im STARTBOT-Fenster</code>
+    <div>Passwort</div><code>steht bei jedem Start genau einmal im STARTBOT-Fenster</code>
   </div>
 
-  <a class="button" href="http://127.0.0.1:8080">FreqUI oeffnen</a>
+  <a class="button" href="http://127.0.0.1:8080/testbot-login">FreqUI-Anmeldung oeffnen</a>
 
   <details>
     <summary>Kennst du dein Passwort nicht?</summary>
-    <p>Auf einem frisch heruntergeladenen Bot erzeugt STARTBOT einmalig ein zufaelliges Passwort und zeigt es im Konsolenfenster an.</p>
+    <p>STARTBOT zeigt das aktuell gueltige lokale Passwort bei jedem Start genau einmal im Konsolenfenster an. Beim ersten Start wird es zuvor zufaellig erzeugt.</p>
     <p>Bitte dieses Passwort notieren. Es wird unter <code>%LOCALAPPDATA%\DaviddTech\AiTradingAgent\auth\frequi-v2.json</code> mit Windows-DPAPI verschluesselt, an deinen Windows-Benutzer gebunden und durch eine exklusive Datei-ACL geschuetzt.</p>
     <p>Wenn du bereits ein eigenes lokales Passwort gesetzt hast, gilt dieses eigene Passwort.</p>
   </details>

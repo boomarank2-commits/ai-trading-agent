@@ -8,8 +8,8 @@ aber keine echten Orders auf und benötigt keine Binance-API-Schlüssel.
 
 Zusätzlich bleibt das Konsolenfenster mit den laufenden Freqtrade-Meldungen
 offen und die lokale FreqUI-Weboberfläche wird automatisch im Standardbrowser
-geöffnet. Die Oberfläche läuft ausschließlich auf diesem Rechner unter
-`http://127.0.0.1:8080`.
+mit einer frischen Anmeldeseite geöffnet. Die Oberfläche läuft ausschließlich
+auf diesem Rechner unter `http://127.0.0.1:8080/testbot-login`.
 
 Die festen Testeinstellungen sind:
 
@@ -36,15 +36,16 @@ Einstellungen kein Echtgeld handeln.
 ## FreqUI im Browser
 
 Nach dem Start wartet `STARTBOT.bat`, bis die lokale Freqtrade-API wirklich
-bereit ist, und öffnet dann automatisch `http://127.0.0.1:8080` im Browser.
+bereit ist, und öffnet dann automatisch die frische Anmeldeseite
+`http://127.0.0.1:8080/testbot-login` im Browser.
 Das Konsolenfenster bleibt gleichzeitig geöffnet und zeigt weiterhin die
 laufenden Meldungen und Heartbeats.
 
 Für die ausschließlich lokale Paper-Test-Oberfläche gelten:
 
 - Benutzer: `testbot`
-- Passwort: beim ersten Start zufällig erzeugt und einmal im STARTBOT-Fenster angezeigt
-- Adresse: `http://127.0.0.1:8080`
+- Passwort: beim ersten Start zufällig erzeugt und bei jedem Start genau einmal im STARTBOT-Fenster angezeigt
+- Adresse: `http://127.0.0.1:8080/testbot-login`
 
 Die API bindet ausdrücklich nur an `127.0.0.1` und wird nicht im Netzwerk oder
 Internet veröffentlicht. Passwort und API-Schlüssel stehen nicht in der
@@ -61,7 +62,7 @@ jedem Start neu und werden nicht persistent gespeichert. Mit
 Änderung gilt nach dem nächsten Botstart.
 
 Falls der Browser ausnahmsweise nicht automatisch
-aufgeht, kann die Adresse manuell im Browser geöffnet werden, sobald im
+aufgeht, kann die Login-Adresse manuell im Browser geöffnet werden, sobald im
 Konsolenfenster `state='RUNNING'` bzw. ein Bot-Heartbeat erscheint.
 
 FreqUI kann nicht nur Werte anzeigen, sondern besitzt auch Bedienfunktionen.

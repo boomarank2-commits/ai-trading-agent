@@ -22,7 +22,8 @@ $strategyDirectory = Split-Path -Parent $strategyPath
 $paperRuntimeOverlayPath = Join-Path $script:UserDataPath "config-paper-runtime.json"
 $lockFilePath = Join-Path $script:RepoRoot "uv.lock"
 $dryRunValidator = Join-Path $script:RuntimeRoot "validate_dryrun_config.py"
-$lockedRunner = Join-Path $script:RuntimeRoot "paper_locked_freqtrade.py"
+$lockedRunner = Join-Path $script:RuntimeRoot "paper_testbot_freqtrade.py"
+$paperLockedRunnerDependencyPath = Join-Path $script:RuntimeRoot "paper_locked_freqtrade.py"
 $pythonExe = Join-Path $script:VenvPath "Scripts\python.exe"
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
@@ -239,6 +240,7 @@ $configLock = $null
 $publicOverlayLock = $null
 $paperRuntimeOverlayLock = $null
 $runnerLock = $null
+$paperLockedRunnerDependency = $null
 $lockedRunnerDependency = $null
 $dependencyLock = $null
 
@@ -300,6 +302,7 @@ try {
     foreach ($requiredFile in @(
         $dryRunValidator,
         $lockedRunner,
+        $paperLockedRunnerDependencyPath,
         $strategyPath,
         $paperRuntimeOverlayPath,
         $lockFilePath
@@ -361,6 +364,12 @@ try {
         [System.IO.FileShare]::Read
     )
     $lockedRunnerDependencyPath = Join-Path $script:RuntimeRoot "locked_freqtrade.py"
+    $paperLockedRunnerDependency = [System.IO.File]::Open(
+        $paperLockedRunnerDependencyPath,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
     $lockedRunnerDependency = [System.IO.File]::Open(
         $lockedRunnerDependencyPath,
         [System.IO.FileMode]::Open,
@@ -685,6 +694,7 @@ finally {
     foreach ($stream in @(
         $dependencyLock,
         $runnerLock,
+        $paperLockedRunnerDependency,
         $lockedRunnerDependency,
         $paperRuntimeOverlayLock,
         $publicOverlayLock,

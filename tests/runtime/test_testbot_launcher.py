@@ -23,6 +23,10 @@ def test_double_click_launchers_are_explicitly_test_only() -> None:
     assert "250 USDT" in start
     assert "where uv.exe" in start
     assert "winget install --id=astral-sh.uv -e" in start
+    assert "http://127.0.0.1:8080/testbot-login" in start
+    assert "$loginUrl=$baseUrl + '/testbot-login'" in start
+    assert "Start-Process $loginUrl" in start
+    assert "Start-Process $url" not in start
     assert "config-live" not in start
     assert "start-live" not in start
     assert "DRYRUN_STOP_ENTRIES" in stop
@@ -53,6 +57,8 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "2147483648" in source
     assert "setup-venv.ps1" in source
     assert "validate_dryrun_config.py" in source
+    assert "paper_testbot_freqtrade.py" in source
+    assert "paper_locked_freqtrade.py" in source
     assert "locked_freqtrade.py" in source
     assert '"--strategy-sha256", $manifest.strategy.sha256' in source
     assert "show-config" in source
@@ -71,6 +77,7 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "$configLock" in source
     assert "$publicOverlayLock" in source
     assert "$dependencyLock" in source
+    assert "$paperLockedRunnerDependency" in source
     assert "freqtrade.log" in source
     assert "dryrun-report-$sessionId.json" in source
     assert source.count("Invoke-DryRunReportExporter `") == 2
@@ -144,6 +151,21 @@ def test_startbot_routes_ui_auth_through_hardened_powershell_helper() -> None:
     assert 'FileAttributes]::Hidden' in helper
     assert 'Join-Path $localApplicationData "DaviddTech\\AiTradingAgent\\auth"' in helper
     assert 'Join-Path $defaultAuthDirectoryPath "frequi-v2.json"' in helper
+    password_output = (
+        'Write-Host "FreqUI-Passwort:" '
+        "([string]$result.Auth.password) -ForegroundColor Yellow"
+    )
+    assert helper.count(password_output) == 1
+    assert 'Write-Host "Bot Name       : Testbot"' in helper
+    assert "http://127.0.0.1:8080/testbot-login" in helper
+    assert helper.index('if ($Mode -eq "InitializeOnly")') < helper.index(
+        password_output
+    )
+    assert helper.index('if ($Mode -eq "ChangePassword")') < helper.index(
+        password_output
+    )
+    assert "$loginHelpPath" not in helper
+    assert "Start-Process -FilePath" not in helper
     assert "New-CryptoToken -ByteCount 48" in helper
     assert "New-CryptoToken -ByteCount 32" in helper
     assert "$script:TestbotApiOverrideNames" in common
@@ -294,6 +316,8 @@ def test_local_auth_file_is_random_and_acl_protected(tmp_path: Path) -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
+    assert "FreqUI-Passwort:" not in completed.stdout
+    assert "http://127.0.0.1:8080" not in completed.stdout
     auth = json.loads(auth_path.read_text(encoding="utf-8"))
     assert auth["schema_version"] == 2
     assert auth["username"] == "testbot"
@@ -323,9 +347,97 @@ def test_local_auth_file_is_random_and_acl_protected(tmp_path: Path) -> None:
         check=False,
     )
     assert second.returncode == 0, second.stderr
+    assert "FreqUI-Passwort:" not in second.stdout
+    assert "http://127.0.0.1:8080" not in second.stdout
     assert json.loads(auth_path.read_text(encoding="utf-8"))["password_dpapi"] == auth[
         "password_dpapi"
     ]
+
+
+def test_start_reveals_dpapi_roundtripped_password_exactly_once(tmp_path: Path) -> None:
+    sandbox = tmp_path / "start-auth-sandbox"
+    scripts = sandbox / "runtime" / "scripts"
+    scripts.mkdir(parents=True)
+    helper = scripts / "manage-testbot-ui-auth.ps1"
+    helper.write_bytes((SCRIPTS / "manage-testbot-ui-auth.ps1").read_bytes())
+    (scripts / "start-testbot-24x7.ps1").write_text(
+        'Write-Output "TEST-LAUNCHER-STUB"\n', encoding="utf-8"
+    )
+    auth_path = sandbox / "auth" / "frequi-v2.json"
+    base_command = [
+        "powershell.exe",
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(helper),
+        "-AuthFilePath",
+        str(auth_path),
+    ]
+    initialized = subprocess.run(
+        [*base_command, "-Mode", "InitializeOnly"],
+        cwd=sandbox,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert initialized.returncode == 0, initialized.stderr
+    assert "FreqUI-Passwort:" not in initialized.stdout
+
+    known_password = "known-start-password-123"
+    legacy_json = json.dumps(
+        {
+            "schema_version": 1,
+            "username": "testbot",
+            "password": known_password,
+            "created_at_utc": "2026-01-01T00:00:00Z",
+        }
+    )
+    environment = os.environ.copy()
+    environment.update(
+        {"TEST_AUTH_PATH": str(auth_path), "TEST_AUTH_JSON": legacy_json}
+    )
+    rewrite = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoLogo",
+            "-NoProfile",
+            "-Command",
+            (
+                "$path = $env:TEST_AUTH_PATH; "
+                "$attributes = [IO.File]::GetAttributes($path); "
+                "[IO.File]::SetAttributes($path, "
+                "$attributes -band (-bnot [IO.FileAttributes]::Hidden)); "
+                "[IO.File]::WriteAllText($path, $env:TEST_AUTH_JSON, "
+                "[Text.UTF8Encoding]::new($false)); "
+                "[IO.File]::SetAttributes($path, "
+                "[IO.File]::GetAttributes($path) -bor [IO.FileAttributes]::Hidden)"
+            ),
+        ],
+        cwd=sandbox,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rewrite.returncode == 0, rewrite.stderr
+
+    started = subprocess.run(
+        [*base_command, "-Mode", "Start"],
+        cwd=sandbox,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert started.returncode == 0, started.stderr
+    assert started.stdout.count(known_password) == 1
+    assert "FreqUI-Adresse : http://127.0.0.1:8080" in started.stdout
+    assert "FreqUI-Anmeldung: http://127.0.0.1:8080/testbot-login" in started.stdout
+    assert "Bot Name       : Testbot" in started.stdout
+    assert "FreqUI-Benutzer: testbot" in started.stdout
+    assert "TEST-LAUNCHER-STUB" in started.stdout
+    assert known_password not in auth_path.read_text(encoding="utf-8")
 
 
 def test_local_auth_initializes_in_current_owned_modify_only_directory(

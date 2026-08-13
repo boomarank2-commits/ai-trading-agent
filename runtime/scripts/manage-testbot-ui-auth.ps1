@@ -12,10 +12,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $runtimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
-$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $runtimeRoot ".."))
 $userDataPath = Join-Path $runtimeRoot "user_data"
 $launcherPath = Join-Path $PSScriptRoot "start-testbot-24x7.ps1"
-$loginHelpPath = Join-Path $repoRoot "LOGIN_HILFE.html"
 $repoLegacyCredentialPaths = @(
     (Join-Path $userDataPath ".testbot-ui-auth.json"),
     (Join-Path $userDataPath ".testbot-ui-password")
@@ -660,6 +658,8 @@ if (-not (Test-Path -LiteralPath $launcherPath -PathType Leaf)) {
 }
 
 Write-Host "FreqUI-Adresse : http://127.0.0.1:8080"
+Write-Host "FreqUI-Anmeldung: http://127.0.0.1:8080/testbot-login"
+Write-Host "Bot Name       : Testbot"
 Write-Host "FreqUI-Benutzer: testbot"
 if ($result.RevealPassword) {
     Write-Host ""
@@ -673,11 +673,6 @@ if ($result.RevealPassword) {
     else {
         Write-Host "ERSTE ANMELDUNG - automatisch erzeugtes lokales Passwort:" -ForegroundColor Yellow
     }
-    Write-Host ([string]$result.Auth.password) -ForegroundColor Yellow
-    Write-Host "Dieses Passwort ist DPAPI-geschuetzt an diesen Windows-Benutzer gebunden. Bitte jetzt notieren."
-    if (Test-Path -LiteralPath $loginHelpPath -PathType Leaf) {
-        Start-Process -FilePath $loginHelpPath
-    }
 }
 elseif ($result.Migrated) {
     if ($result.MigrationKind -eq "RepoLegacyDiscarded") {
@@ -687,9 +682,8 @@ elseif ($result.Migrated) {
         Write-Host "Das bisherige lokale Passwort wurde aus Klartext in den DPAPI-Speicher migriert."
     }
 }
-else {
-    Write-Host "FreqUI-Passwort: eigenes lokales Passwort ist aktiv"
-}
+Write-Host "FreqUI-Passwort:" ([string]$result.Auth.password) -ForegroundColor Yellow
+Write-Host "Das Passwort wird bei jedem STARTBOT-Start angezeigt, aber nie in Bot-Logs oder Git gespeichert."
 Write-Host ""
 
 $overrideNames = @(
