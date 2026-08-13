@@ -20,6 +20,7 @@ runtime/user_data/backtest_results/
 runtime/user_data/hyperopt_results/
 runtime/user_data/strategies/promoted/
 runtime/user_data/DRYRUN_STOP_ENTRIES
+runtime/user_data/.testbot-ui-password
 runtime/*.private.json
 runtime/kill-switch
 runtime/user_data/live-instance.lock
