@@ -130,6 +130,8 @@ def test_startbot_routes_ui_auth_through_hardened_powershell_helper() -> None:
     assert 'Read-Host "Neues Passwort (mindestens 14 Zeichen)" -AsSecureString' in helper
     assert "SetAccessRuleProtection($true, $false)" in helper
     assert ".SetOwner(" not in helper
+    assert 'administratorsSid = "S-1-5-32-544"' in helper
+    assert "WindowsBuiltInRole]::Administrator" in helper
     assert "System.Security.Cryptography.DataProtectionScope]::CurrentUser" in helper
     assert "Add-Type -AssemblyName System.Security" in helper
     assert "[System.IO.File]::GetAccessControl($Path)" in helper
@@ -346,7 +348,14 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 try {
     $security = [IO.Directory]::GetAccessControl($path)
     $owner = $security.GetOwner([Security.Principal.SecurityIdentifier]).Value
-    if ($owner -ne $identity.User.Value) { throw "test directory owner mismatch" }
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    $trustedElevatedOwner = (
+        $owner -eq "S-1-5-32-544" -and
+        $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    )
+    if ($owner -ne $identity.User.Value -and -not $trustedElevatedOwner) {
+        throw "test directory owner mismatch"
+    }
     $security.SetAccessRuleProtection($true, $false)
     @($security.GetAccessRules(
         $true, $false, [Security.Principal.SecurityIdentifier]

@@ -124,6 +124,30 @@ function Assert-WindowsAuthStorageSupported {
     }
 }
 
+function Test-IsTrustedAuthOwner {
+    param(
+        [Parameter(Mandatory = $true)][Security.Principal.WindowsIdentity]$Identity,
+        [Parameter(Mandatory = $true)][string]$OwnerSid
+    )
+
+    if ($OwnerSid -eq $Identity.User.Value) {
+        return $true
+    }
+
+    # GitHub's elevated Windows runner can create its temporary directories
+    # with BUILTIN\Administrators as owner. Accept that owner only when this
+    # process is itself running with the active Administrator role. A normal
+    # UAC-filtered desktop process therefore still requires the user's SID.
+    $administratorsSid = "S-1-5-32-544"
+    if ($OwnerSid -ne $administratorsSid) {
+        return $false
+    }
+    $principal = New-Object Security.Principal.WindowsPrincipal($Identity)
+    return $principal.IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator
+    )
+}
+
 function Assert-SecureLocalAuthDirectory {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -141,7 +165,7 @@ function Assert-SecureLocalAuthDirectory {
         $currentSid = $identity.User.Value
         $acl = [System.IO.Directory]::GetAccessControl($Path)
         $ownerSid = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($ownerSid -ne $currentSid) {
+        if (-not (Test-IsTrustedAuthOwner -Identity $identity -OwnerSid $ownerSid)) {
             throw "Das lokale FreqUI-Zugangsdatenverzeichnis gehoert nicht dem aktuellen Windows-Benutzer."
         }
         if (-not $acl.AreAccessRulesProtected) {
@@ -192,7 +216,7 @@ function Protect-LocalAuthDirectory {
         # is important in ordinary project folders that grant only Modify.
         $security = [System.IO.Directory]::GetAccessControl($Path)
         $ownerSid = $security.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($ownerSid -ne $identity.User.Value) {
+        if (-not (Test-IsTrustedAuthOwner -Identity $identity -OwnerSid $ownerSid)) {
             throw "Das lokale FreqUI-Zugangsdatenverzeichnis gehoert nicht dem aktuellen Windows-Benutzer."
         }
         $security.SetAccessRuleProtection($true, $false)
@@ -253,7 +277,7 @@ function Protect-LocalAuthFile {
         # the already-correct owner would unnecessarily require WRITE_OWNER.
         $security = [System.IO.File]::GetAccessControl($Path)
         $ownerSid = $security.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($ownerSid -ne $identity.User.Value) {
+        if (-not (Test-IsTrustedAuthOwner -Identity $identity -OwnerSid $ownerSid)) {
             throw "Die lokale FreqUI-Zugangsdaten-Datei gehoert nicht dem aktuellen Windows-Benutzer."
         }
         $security.SetAccessRuleProtection($true, $false)
@@ -298,7 +322,7 @@ function Assert-SecureLocalAuthFile {
         # the underlying FileSecurity API is available (as it is on WinPS 5.1).
         $acl = [System.IO.File]::GetAccessControl($Path)
         $ownerSid = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($ownerSid -ne $currentSid) {
+        if (-not (Test-IsTrustedAuthOwner -Identity $identity -OwnerSid $ownerSid)) {
             throw "Die lokale FreqUI-Zugangsdaten-Datei gehoert nicht dem aktuellen Windows-Benutzer."
         }
         if (-not $acl.AreAccessRulesProtected) {
