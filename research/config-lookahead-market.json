@@ -1,0 +1,12 @@
+{
+  "entry_pricing": {
+    "price_side": "other",
+    "use_order_book": false,
+    "price_last_balance": 0.0,
+    "check_depth_of_market": {"enabled": false, "bids_to_ask_delta": 1.0}
+  },
+  "exit_pricing": {
+    "price_side": "other",
+    "use_order_book": false
+  }
+}
