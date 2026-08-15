@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -159,7 +159,7 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
     drawdown_value = _number(drawdown_ratio)
     if drawdown_value > 1.0:
         # Some historical result formats store an absolute drawdown in this field.
-        drawdown_pct = (_number(strategy.get("max_drawdown_account")) * 100.0)
+        drawdown_pct = _number(strategy.get("max_drawdown_account")) * 100.0
     else:
         drawdown_pct = drawdown_value * 100.0
 
@@ -195,7 +195,7 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
                 raise RuntimeError(f"Erforderliche Datei fehlt: {required}")
 
         strategy_hash = _sha256(_STRATEGY)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         requested_start = now - timedelta(days=365 * years)
         # Download a small warmup before the visible test window. The strategy
         # currently needs 400 x 15m startup candles (~4.2 days).
@@ -277,16 +277,16 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             status="completed",
             stage="Fertig",
             progress=100,
-            finished_at=datetime.now(timezone.utc).isoformat(),
+            finished_at=datetime.now(UTC).isoformat(),
             result=result,
             error=None,
         )
-    except Exception as exc:  # noqa: BLE001 - background job must report all failures
+    except Exception as exc:
         _set_state(
             status="failed",
             stage="Fehler",
             progress=100,
-            finished_at=datetime.now(timezone.utc).isoformat(),
+            finished_at=datetime.now(UTC).isoformat(),
             error=str(exc),
             result=None,
         )
@@ -302,7 +302,7 @@ def start_backtest(request: BacktestRequest) -> dict[str, Any]:
     if current["status"] == "running":
         raise HTTPException(status_code=409, detail="Es laeuft bereits ein Backtest.")
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     _set_state(
         status="running",
         stage="Backtest wird vorbereitet",
@@ -310,7 +310,7 @@ def start_backtest(request: BacktestRequest) -> dict[str, Any]:
         run_id=run_id,
         pair=request.pair,
         years=request.years,
-        started_at=datetime.now(timezone.utc).isoformat(),
+        started_at=datetime.now(UTC).isoformat(),
         finished_at=None,
         result=None,
         error=None,
