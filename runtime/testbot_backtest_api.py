@@ -25,6 +25,8 @@ from starlette.responses import Response
 ALLOWED_PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
+REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
+BACKTEST_WARMUP_DAYS = 75
 
 _RUNTIME_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _RUNTIME_ROOT.parent
@@ -81,6 +83,14 @@ def _clean_subprocess_environment() -> dict[str, str]:
     return env
 
 
+def _download_pairs(pair: str) -> tuple[str, ...]:
+    """Download the selected market plus BTC context needed by the strategy."""
+
+    if pair == "BTC/USDT":
+        return (pair,)
+    return (pair, "BTC/USDT")
+
+
 def _run_checked(args: list[str], log_path: Path) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8", errors="replace") as log:
@@ -121,7 +131,9 @@ def _number(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str) -> dict[str, Any]:
+def _extract_result(
+    result_file: Path, pair: str, years: int, strategy_hash: str
+) -> dict[str, Any]:
     from freqtrade.data.btanalysis import load_backtest_stats
 
     stats = load_backtest_stats(result_file)
@@ -131,7 +143,9 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         raise RuntimeError(f"Backtest-Ergebnis fuer {STRATEGY_NAME} fehlt.")
 
     trades = strategy.get("trades") or []
-    trade_count = int(strategy.get("total_trades") or strategy.get("trade_count") or len(trades))
+    trade_count = int(
+        strategy.get("total_trades") or strategy.get("trade_count") or len(trades)
+    )
     wins = strategy.get("wins")
     if wins is None:
         wins = sum(1 for trade in trades if _number(trade.get("profit_abs")) > 0)
@@ -139,7 +153,9 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
 
     starting_balance = _number(strategy.get("starting_balance"), 250.0)
     profit_abs = _number(strategy.get("profit_total_abs"))
-    final_balance = _number(strategy.get("final_balance"), starting_balance + profit_abs)
+    final_balance = _number(
+        strategy.get("final_balance"), starting_balance + profit_abs
+    )
     if profit_abs == 0.0 and final_balance != starting_balance:
         profit_abs = final_balance - starting_balance
 
@@ -197,9 +213,9 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         strategy_hash = _sha256(_STRATEGY)
         now = datetime.now(UTC)
         requested_start = now - timedelta(days=365 * years)
-        # Download a small warmup before the visible test window. The strategy
-        # currently needs 400 x 15m startup candles (~4.2 days).
-        download_start = requested_start - timedelta(days=7)
+        # 4h EMA200 informative context needs ~67 days for 400 startup
+        # candles. Keep extra margin so the visible backtest window is intact.
+        download_start = requested_start - timedelta(days=BACKTEST_WARMUP_DAYS)
         requested_timerange = requested_start.strftime("%Y%m%d") + "-"
         download_timerange = download_start.strftime("%Y%m%d") + "-"
 
@@ -216,10 +232,9 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             "--userdir",
             str(_USERDIR),
             "--timeframes",
-            "15m",
-            "1m",
+            *REQUIRED_TIMEFRAMES,
             "--pairs",
-            pair,
+            *_download_pairs(pair),
             "--trading-mode",
             "spot",
             "--timerange",
@@ -294,15 +309,21 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
 
 def start_backtest(request: BacktestRequest) -> dict[str, Any]:
     if request.pair not in ALLOWED_PAIRS:
-        raise HTTPException(status_code=400, detail="Dieses Handelspaar ist nicht freigegeben.")
+        raise HTTPException(
+            status_code=400, detail="Dieses Handelspaar ist nicht freigegeben."
+        )
     if request.years not in ALLOWED_YEARS:
-        raise HTTPException(status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein.")
+        raise HTTPException(
+            status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein."
+        )
 
     current = get_state()
     if current["status"] == "running":
         raise HTTPException(status_code=409, detail="Es laeuft bereits ein Backtest.")
 
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    run_id = (
+        datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    )
     _set_state(
         status="running",
         stage="Backtest wird vorbereitet",
