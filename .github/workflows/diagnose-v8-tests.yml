@@ -1,0 +1,33 @@
+name: Diagnose V8 candidate tests
+
+on:
+  push:
+    branches: [agent/promote-v8-paper-candidate]
+    paths: [".github/workflows/diagnose-v8-tests.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-file:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - tests/runtime/test_dryrun_report.py
+          - tests/runtime/test_locked_freqtrade.py
+          - tests/runtime/test_runtime_contract.py
+          - tests/runtime/test_strategy_guards.py
+          - tests/runtime/test_testbot_launcher.py
+          - tests/runtime/test_v8_paper_candidate.py
+          - tests/runtime/test_validate_dryrun_config.py
+          - tests/test_testbot_backtest_api.py
+          - tests/test_backtest_history_coverage.py
+          - tests/test_backtest_candle_integrity.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - name: Run one test file
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pytest -q "${{ matrix.test }}" --tb=short
