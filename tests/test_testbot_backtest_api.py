@@ -20,6 +20,14 @@ def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
     assert api.ALLOWED_PAIRS == ("BTC/USDT", "ETH/USDT", "SOL/USDT")
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
+    assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
+    assert api.BACKTEST_WARMUP_DAYS >= 70
+
+
+def test_backtest_download_adds_only_4h_btc_context_for_altcoins() -> None:
+    assert api._btc_context_pair("BTC/USDT") is None
+    assert api._btc_context_pair("ETH/USDT") == "BTC/USDT"
+    assert api._btc_context_pair("SOL/USDT") == "BTC/USDT"
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
