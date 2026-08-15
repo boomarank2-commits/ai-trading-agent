@@ -83,12 +83,10 @@ def _clean_subprocess_environment() -> dict[str, str]:
     return env
 
 
-def _download_pairs(pair: str) -> tuple[str, ...]:
-    """Download the selected market plus BTC context needed by the strategy."""
+def _btc_context_pair(pair: str) -> str | None:
+    """Return the extra market-regime pair required for altcoin backtests."""
 
-    if pair == "BTC/USDT":
-        return (pair,)
-    return (pair, "BTC/USDT")
+    return None if pair == "BTC/USDT" else "BTC/USDT"
 
 
 def _run_checked(args: list[str], log_path: Path) -> None:
@@ -234,13 +232,37 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             "--timeframes",
             *REQUIRED_TIMEFRAMES,
             "--pairs",
-            *_download_pairs(pair),
+            pair,
             "--trading-mode",
             "spot",
             "--timerange",
             download_timerange,
         ]
         _run_checked(download_args, log_path)
+
+        btc_context = _btc_context_pair(pair)
+        if btc_context:
+            context_args = [
+                sys.executable,
+                "-m",
+                "freqtrade",
+                "download-data",
+                "--config",
+                str(_CONFIG),
+                "--config",
+                str(_PUBLIC_CONFIG),
+                "--userdir",
+                str(_USERDIR),
+                "--timeframes",
+                "4h",
+                "--pairs",
+                btc_context,
+                "--trading-mode",
+                "spot",
+                "--timerange",
+                download_timerange,
+            ]
+            _run_checked(context_args, log_path)
 
         _set_state(stage="Historische Daten geladen - Backtest startet", progress=45)
         backtest_args = [
