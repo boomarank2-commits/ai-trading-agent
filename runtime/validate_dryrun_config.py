@@ -62,10 +62,12 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "strategy": "CompressionBreakout250",
         "timeframe": "15m",
         "stoploss": -0.055,
-        "db_url": "sqlite:///user_data/tradesv3.dryrun.sqlite",
+        "db_url": "sqlite:///user_data/tradesv8.dryrun.sqlite",
     }
     for key, expected in exact_values.items():
         _exact(key, config.get(key), expected)
+    _exact("minimal_roi", config.get("minimal_roi"), {"0": 0.50})
+    _exact("trailing_stop", config.get("trailing_stop"), False)
     if not math.isclose(
         float(config["stake_amount"]) * int(config["max_open_trades"]),
         240.0,

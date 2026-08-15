@@ -35,7 +35,7 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert 'FREQTRADE__INITIAL_STATE = "running"' in source
     assert "DRYRUN_STOP_ENTRIES" in source
     assert '"--db-url", $databaseUrl' in source
-    assert "tradesv3.dryrun.sqlite" in source
+    assert "tradesv8.dryrun.sqlite" in source
     assert "FileShare]::None" in source
     assert "SetThreadExecutionState" in source
     assert "2147483649" in source
