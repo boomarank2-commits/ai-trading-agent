@@ -230,6 +230,25 @@
     if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
   }
 
+  function findThemeControl(header, logsLink) {
+    if (!header) return null;
+    const controls = Array.from(header.querySelectorAll("button, [role='button']"));
+    const namedThemeControl = controls.find((control) => {
+      const label = `${control.getAttribute("aria-label") || ""} ${control.getAttribute("title") || ""}`.toLowerCase();
+      return label.includes("theme") || label.includes("dark") || label.includes("light") || label.includes("mode");
+    });
+    if (namedThemeControl) return namedThemeControl;
+
+    const logsRect = logsLink.getBoundingClientRect();
+    const controlsToRight = controls.filter(
+      (control) => control !== logsLink && control.getBoundingClientRect().left > logsRect.left
+    );
+    if (!controlsToRight.length) return null;
+    return controlsToRight.reduce((rightmost, control) =>
+      control.getBoundingClientRect().left > rightmost.getBoundingClientRect().left ? control : rightmost
+    );
+  }
+
   function installNavigation() {
     if (document.getElementById(NAV_ID)) return true;
     const logsLink = Array.from(document.querySelectorAll("a")).find(
@@ -244,7 +263,14 @@
     backtest.setAttribute("title", "Backtest");
     replaceText(backtest, "Logs", "Backtest");
     backtest.addEventListener("click", showBacktest);
-    logsLink.parentElement.insertBefore(backtest, logsLink.nextSibling);
+
+    const header = logsLink.closest("header");
+    const themeControl = findThemeControl(header, logsLink);
+    if (themeControl && themeControl.parentElement) {
+      themeControl.parentElement.insertBefore(backtest, themeControl);
+    } else {
+      logsLink.parentElement.insertBefore(backtest, logsLink.nextSibling);
+    }
 
     document.addEventListener(
       "click",
