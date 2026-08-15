@@ -6,8 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 from fastapi import HTTPException
+import pytest
 
 from runtime import testbot_backtest_api as api
 
