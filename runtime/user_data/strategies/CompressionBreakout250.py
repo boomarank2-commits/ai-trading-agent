@@ -1,9 +1,9 @@
-"""Long-only multi-timeframe volatility breakout for the 250 USDT testbot.
+"""Long-only confirmed multi-timeframe breakout for the 250 USDT testbot.
 
-The strategy keeps the existing safety envelope, but requires a stronger market
-regime and a fresh compression/expansion sequence before a 15-minute breakout
-can enter. Higher timeframes are informative only; all entry signals are still
-created from closed 15-minute candles.
+V3 keeps the existing safety envelope but no longer buys the first breakout
+candle. A strong 15-minute setup must survive one additional closed candle,
+hold its breakout support, and remain aligned with the higher-timeframe regime.
+All signals are causal and calculated from closed candles only.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """15m ATR-normalized breakout with 1h/4h regime confirmation."""
+    """15m breakout setup followed by causal one-candle confirmation."""
 
     INTERFACE_VERSION = 3
 
@@ -88,11 +88,17 @@ class CompressionBreakout250(IStrategy):
     buy_close_location = DecimalParameter(
         0.60, 0.95, default=0.75, decimals=2, space="buy", optimize=True, load=True
     )
+    buy_confirmation_hold_atr = DecimalParameter(
+        0.05, 0.35, default=0.20, decimals=2, space="buy", optimize=True, load=True
+    )
+    buy_confirmation_close_atr = DecimalParameter(
+        0.00, 0.30, default=0.05, decimals=2, space="buy", optimize=True, load=True
+    )
     buy_rsi_max = IntParameter(
         60, 76, default=70, space="buy", optimize=True, load=True
     )
     buy_atr_min = DecimalParameter(
-        0.002, 0.020, default=0.004, decimals=3, space="buy", optimize=True, load=True
+        0.004, 0.020, default=0.006, decimals=3, space="buy", optimize=True, load=True
     )
     buy_atr_max = DecimalParameter(
         0.020, 0.080, default=0.045, decimals=3, space="buy", optimize=True, load=True
@@ -270,6 +276,9 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(1)
         ).astype(int)
+        dataframe["ema_fast_rising_3"] = (
+            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
+        ).astype(int)
         return dataframe
 
     @informative("4h")
@@ -283,6 +292,9 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(1)
         ).astype(int)
+        dataframe["ema_fast_rising_3"] = (
+            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
+        ).astype(int)
         return dataframe
 
     @informative("4h", "BTC/{stake}", fmt="{base}_{column}_{timeframe}")
@@ -295,6 +307,9 @@ class CompressionBreakout250(IStrategy):
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(1)
+        ).astype(int)
+        dataframe["ema_fast_rising_3"] = (
+            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
         ).astype(int)
         return dataframe
 
@@ -316,8 +331,7 @@ class CompressionBreakout250(IStrategy):
         ) / bb_middle
 
         # A valid squeeze must be recent (3h), materially tighter than the
-        # surrounding 12h regime, and expanding now. This replaces the old
-        # "any squeeze somewhere in the last 8h" condition.
+        # surrounding 12h regime, and expanding on the setup candle.
         dataframe["compression_recent"] = (
             dataframe["bb_width"].shift(1).rolling(12, min_periods=12).min()
         )
@@ -353,6 +367,12 @@ class CompressionBreakout250(IStrategy):
             dataframe["close"] - dataframe["breakout_high"]
         ) / dataframe["atr"]
 
+        # V3 enters one candle after the breakout setup. These shifted columns
+        # are the original setup candle's support and ATR, so confirmation and
+        # later failed-breakout exits reference the same causal level.
+        dataframe["confirmation_breakout_level"] = dataframe["breakout_high"].shift(1)
+        dataframe["confirmation_atr"] = dataframe["atr"].shift(1)
+
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -377,7 +397,6 @@ class CompressionBreakout250(IStrategy):
         volatility_expanding = (
             dataframe["compression_expansion"] >= self.buy_expansion_factor.value
         ) & (dataframe["bb_width"] > dataframe["bb_width"].shift(1))
-
         confirmed_breakout = (
             dataframe["breakout_distance_atr"] >= self.buy_breakout_atr.value
         )
@@ -391,44 +410,82 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["close"] > dataframe["open"])
         )
 
+        # Requiring a multi-bar EMA slope avoids treating one isolated higher
+        # close as a higher-timeframe trend.
         one_hour_trend = (
             (dataframe["close_1h"] > dataframe["ema_fast_1h"])
             & (dataframe["ema_fast_1h"] > dataframe["ema_slow_1h"])
-            & (dataframe["ema_fast_rising_1h"] > 0)
+            & (dataframe["ema_fast_rising_3_1h"] > 0)
             & (dataframe["rsi_1h"] >= 50)
             & (dataframe["rsi_1h"] <= 72)
         )
         four_hour_trend = (
             (dataframe["close_4h"] > dataframe["ema_fast_4h"])
-            & (dataframe["ema_fast_rising_4h"] > 0)
+            & (dataframe["ema_fast_rising_3_4h"] > 0)
             & (dataframe["rsi_4h"] >= 50)
         )
         btc_market_up = (
             (dataframe["btc_close_4h"] > dataframe["btc_ema_fast_4h"])
-            & (dataframe["btc_ema_fast_rising_4h"] > 0)
+            & (dataframe["btc_ema_fast_4h"] > dataframe["btc_ema_slow_4h"])
+            & (dataframe["btc_ema_fast_rising_3_4h"] > 0)
             & (dataframe["btc_rsi_4h"] >= 50)
         )
         market_regime = four_hour_trend
         if pair != "BTC/USDT":
-            market_regime = market_regime & btc_market_up
+            market_regime = (
+                market_regime
+                & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
+                & btc_market_up
+            )
+
+        # The setup is V2's high-quality breakout, evaluated on a fully closed
+        # candle. V3 deliberately does not enter on that first breakout candle.
+        breakout_setup = (
+            trend_is_up
+            & one_hour_trend
+            & market_regime
+            & fresh_compression
+            & volatility_expanding
+            & confirmed_breakout
+            & healthy_volatility
+            & quality_candle
+            & (dataframe["volume_ratio"] >= self.buy_volume_factor.value)
+            & (dataframe["rsi"] >= 50)
+            & (dataframe["rsi"] <= self.buy_rsi_max.value)
+            & (dataframe["volume"] > 0)
+        )
+        prior_setup = breakout_setup.shift(1, fill_value=False)
+
+        support = dataframe["confirmation_breakout_level"]
+        setup_atr = dataframe["confirmation_atr"]
+        confirmation_holds = dataframe["low"] >= (
+            support - (self.buy_confirmation_hold_atr.value * setup_atr)
+        )
+        confirmation_closes_above = dataframe["close"] >= (
+            support + (self.buy_confirmation_close_atr.value * setup_atr)
+        )
+        confirmation_quality = (
+            (dataframe["close"] > dataframe["open"])
+            & (dataframe["close_location"] >= 0.60)
+            & (dataframe["volume_ratio"] >= 0.80)
+        )
 
         dataframe.loc[
             (
-                trend_is_up
+                prior_setup
+                & trend_is_up
                 & one_hour_trend
                 & market_regime
-                & fresh_compression
-                & volatility_expanding
-                & confirmed_breakout
                 & healthy_volatility
-                & quality_candle
-                & (dataframe["volume_ratio"] >= self.buy_volume_factor.value)
+                & confirmation_holds
+                & confirmation_closes_above
+                & confirmation_quality
                 & (dataframe["rsi"] >= 50)
                 & (dataframe["rsi"] <= self.buy_rsi_max.value)
                 & (dataframe["volume"] > 0)
             ),
             ["enter_long", "enter_tag"],
-        ] = (1, "regime_compression_breakout")
+        ] = (1, "confirmed_regime_breakout")
 
         return dataframe
 
@@ -444,14 +501,17 @@ class CompressionBreakout250(IStrategy):
             & rsi_crossed_below_floor
         )
         channel_breakdown = dataframe["close"] < dataframe["exit_low"]
+        has_volume = dataframe["volume"] > 0
 
+        # Separate tags keep diagnostics useful without changing exit timing.
         dataframe.loc[
-            (
-                (trend_failure | channel_breakdown)
-                & (dataframe["volume"] > 0)
-            ),
+            trend_failure & has_volume,
             ["exit_long", "exit_tag"],
-        ] = (1, "trend_or_channel_failure")
+        ] = (1, "trend_failure")
+        dataframe.loc[
+            channel_breakdown & has_volume,
+            ["exit_long", "exit_tag"],
+        ] = (1, "channel_breakdown")
 
         return dataframe
 
@@ -463,7 +523,7 @@ class CompressionBreakout250(IStrategy):
         current_time: datetime,
         **kwargs: Any,
     ) -> None:
-        """Persist the entry breakout level so false breakouts can fail fast."""
+        """Persist the confirmed setup support so false breakouts can fail fast."""
 
         del pair, current_time, kwargs
         try:
@@ -478,8 +538,8 @@ class CompressionBreakout250(IStrategy):
             if dataframe.empty:
                 return
             last_candle = dataframe.iloc[-1].squeeze()
-            breakout_level = float(last_candle["breakout_high"])
-            entry_atr = float(last_candle["atr"])
+            breakout_level = float(last_candle["confirmation_breakout_level"])
+            entry_atr = float(last_candle["confirmation_atr"])
             if math.isfinite(breakout_level) and math.isfinite(entry_atr) and entry_atr > 0:
                 trade.set_custom_data(
                     key="entry_breakout_level", value=breakout_level
@@ -498,7 +558,7 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Exit a young trade when price decisively loses its breakout support."""
+        """Exit a young trade when price decisively loses confirmed support."""
 
         del pair, kwargs
         try:
@@ -519,6 +579,7 @@ class CompressionBreakout250(IStrategy):
         except Exception:
             return None
         return None
+
 
     def custom_stake_amount(
         self,
