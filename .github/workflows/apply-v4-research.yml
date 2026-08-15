@@ -1,4 +1,4 @@
-name: Apply V4 research patch
+name: Apply V4 research transformation
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - agent/strategy-v4-trend-pullback
     paths:
       - .github/workflows/apply-v4-research.yml
-      - research/strategy-v4-trend-pullback.patch
+      - research/apply_v4.py
 
 permissions:
   contents: write
@@ -20,16 +20,18 @@ jobs:
         with:
           ref: agent/strategy-v4-trend-pullback
           fetch-depth: 0
-      - name: Apply strategy patch
+      - name: Transform strategy
         shell: bash
         run: |
-          git apply --check research/strategy-v4-trend-pullback.patch
-          git apply research/strategy-v4-trend-pullback.patch
+          python research/apply_v4.py
+          python -m py_compile runtime/user_data/strategies/CompressionBreakout250.py
+          grep -q 'trend_pullback_reclaim' runtime/user_data/strategies/CompressionBreakout250.py
       - name: Commit strategy only
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/apply_v4.py
           git rm research/strategy-v4-trend-pullback.patch
           git rm .github/workflows/apply-v4-research.yml
           git add runtime/user_data/strategies/CompressionBreakout250.py
