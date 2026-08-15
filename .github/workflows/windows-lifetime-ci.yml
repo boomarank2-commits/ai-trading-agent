@@ -1,0 +1,30 @@
+name: Windows bot lifetime guard
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "STARTBOT.bat"
+      - "runtime/scripts/run-testbot-supervised.ps1"
+      - "runtime/scripts/test-supervisor-lifetime.ps1"
+      - ".github/workflows/windows-lifetime-ci.yml"
+  pull_request:
+    paths:
+      - "STARTBOT.bat"
+      - "runtime/scripts/run-testbot-supervised.ps1"
+      - "runtime/scripts/test-supervisor-lifetime.ps1"
+      - ".github/workflows/windows-lifetime-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  lifetime-guard:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify supervisor kill-on-close contract
+        shell: powershell
+        run: .\runtime\scripts\test-supervisor-lifetime.ps1

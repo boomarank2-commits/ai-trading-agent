@@ -14,9 +14,12 @@ echo werden fortgesetzt. Es werden KEINE echten Orders aufgegeben.
 echo Bei dieser selten handelnden Strategie koennen auch 24 Stunden ohne
 echo einen einzigen Trade ein normales Ergebnis sein.
 echo.
-echo Bitte mit Strg+C beenden: Dann werden Daten sauber gespeichert und
-echo der Abschlussbericht erzeugt. Direktes Schliessen des Fensters kann
-echo den Abschlussbericht ueberspringen; TESTBOT_AUSWERTUNG.bat holt ihn nach.
+echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
+echo Strg+C beendet den Bot kontrolliert und erzeugt den Abschlussbericht.
+echo Wird dieses Fenster direkt geschlossen, der Supervisor beendet oder das
+echo ueberwachte Testbot-UI geschlossen, beendet Windows automatisch auch den
+echo gesamten Bot-Prozessbaum. Ein unsichtbar weiterlaufender Bot ist damit
+ echo nicht zulaessig.
 echo.
 
 call :ensure_uv
@@ -51,11 +54,12 @@ if "%FIRST_LOGIN_HELP%"=="1" (
 )
 echo.
 
-rem Ein versteckter lokaler Helfer wartet, bis die Freqtrade-API wirklich bereit ist,
-rem und oeffnet erst dann FreqUI. Das Konsolenfenster des Bots bleibt parallel offen.
-start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:8080'; $ping=$url + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $url; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
-
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\start-testbot-24x7.ps1"
+rem Der Supervisor setzt vor dem Botstart ein Windows Job Object mit
+rem JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE. Dadurch koennen Freqtrade/Python-
+rem Prozesse und der lokale UI-Waechter das sichtbare STARTBOT-Fenster
+rem nicht mehr ueberleben. Das UI selbst wird als separate Edge/Chrome-App
+rem gestartet und ueberwacht; wird sie geschlossen, beendet sich der Bot.
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
 echo.
