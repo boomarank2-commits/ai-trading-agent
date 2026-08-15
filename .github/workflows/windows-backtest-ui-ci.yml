@@ -1,5 +1,6 @@
 name: Testbot Backtest UI
 
+# Final V8 promotion gate for exact-strategy loading and candle/history integrity.
 on:
   push:
     branches:
