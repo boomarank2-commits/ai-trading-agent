@@ -6,11 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fastapi import HTTPException
 import pytest
+from fastapi import HTTPException
 
 from runtime import testbot_backtest_api as api
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = REPO_ROOT / "runtime"
