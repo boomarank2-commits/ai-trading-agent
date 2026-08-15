@@ -139,22 +139,21 @@ if ($LifetimeSelfTest) {
     $heartbeatPath = Join-Path $directory "child.heartbeat"
     Remove-Item -LiteralPath $childPidPath, $heartbeatPath -Force -ErrorAction SilentlyContinue
 
-    $childCommand = @'
-param([string]$PidPath, [string]$HeartbeatPath)
-Set-Content -LiteralPath $PidPath -Value $PID -Encoding ASCII
-while ($true) {
-    Set-Content -LiteralPath $HeartbeatPath -Value ([DateTimeOffset]::UtcNow.ToString("o")) -Encoding ASCII
+    $childPidLiteral = $childPidPath.Replace("'", "''")
+    $heartbeatLiteral = $heartbeatPath.Replace("'", "''")
+    $childCommand = @"
+Set-Content -LiteralPath '$childPidLiteral' -Value `$PID -Encoding ASCII
+while (`$true) {
+    Set-Content -LiteralPath '$heartbeatLiteral' -Value ([DateTimeOffset]::UtcNow.ToString('o')) -Encoding ASCII
     Start-Sleep -Milliseconds 200
 }
-'@
+"@
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
     $child = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
         "-NoLogo",
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-EncodedCommand", $encoded,
-        "-PidPath", $childPidPath,
-        "-HeartbeatPath", $heartbeatPath
+        "-EncodedCommand", $encoded
     )
     Write-Host "Lifetime-Selbsttest aktiv. Child PID: $($child.Id)"
     while (-not $child.HasExited) {
