@@ -1,6 +1,14 @@
 name: Windows bot lifetime guard
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "STARTBOT.bat"
+      - "runtime/scripts/run-testbot-supervised.ps1"
+      - "runtime/scripts/test-supervisor-lifetime.ps1"
+      - ".github/workflows/windows-lifetime-ci.yml"
   pull_request:
     paths:
       - "STARTBOT.bat"
