@@ -57,3 +57,15 @@ if (-not (Test-Path -LiteralPath $freqUiIndex -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $freqUiIndex -PathType Leaf)) {
     throw "FreqUI installation completed without creating the expected frontend: $freqUiIndex"
 }
+
+# FreqUI itself lives inside .venv and is not tracked in Git. Apply the tiny,
+# idempotent repository-owned hook on every setup so a fresh clone gets the
+# Backtest navigation automatically and a future FreqUI reinstall is repaired.
+$patchFreqUi = Join-Path $runtimeRoot "patch_frequi.py"
+if (-not (Test-Path -LiteralPath $patchFreqUi -PathType Leaf)) {
+    throw "Testbot FreqUI patcher is missing: $patchFreqUi"
+}
+& $venvPython $patchFreqUi
+if ($LASTEXITCODE -ne 0) {
+    throw "Installing the Testbot Backtest UI hook failed with code $LASTEXITCODE."
+}

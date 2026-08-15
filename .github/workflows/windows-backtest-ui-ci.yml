@@ -1,0 +1,43 @@
+name: Testbot Backtest UI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "runtime/testbot_backtest_api.py"
+      - "runtime/locked_backtest_freqtrade.py"
+      - "runtime/locked_freqtrade.py"
+      - "runtime/patch_frequi.py"
+      - "runtime/ui/testbot-backtest.js"
+      - "runtime/scripts/setup-venv.ps1"
+      - "tests/test_testbot_backtest_api.py"
+      - ".github/workflows/windows-backtest-ui-ci.yml"
+  pull_request:
+    paths:
+      - "runtime/testbot_backtest_api.py"
+      - "runtime/locked_backtest_freqtrade.py"
+      - "runtime/locked_freqtrade.py"
+      - "runtime/patch_frequi.py"
+      - "runtime/ui/testbot-backtest.js"
+      - "runtime/scripts/setup-venv.ps1"
+      - "tests/test_testbot_backtest_api.py"
+      - ".github/workflows/windows-backtest-ui-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  backtest-ui-contract:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync locked environment
+        shell: powershell
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Unit tests
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\test_testbot_backtest_api.py
+      - name: Ruff
+        shell: powershell
+        run: .\.venv\Scripts\ruff.exe check runtime\testbot_backtest_api.py runtime\locked_backtest_freqtrade.py runtime\locked_freqtrade.py runtime\patch_frequi.py tests\test_testbot_backtest_api.py
