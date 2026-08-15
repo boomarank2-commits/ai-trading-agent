@@ -6,6 +6,7 @@ on:
       - agent/strategy-v4-trend-pullback
     paths:
       - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "research/config-binance-marketdata-only.json"
       - ".github/workflows/research-v4-backtests.yml"
   workflow_dispatch:
 
@@ -25,7 +26,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: research_data
-          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v1
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v2-marketdata-only
       - name: Download exact public Binance history
         shell: bash
         run: |
@@ -33,6 +34,7 @@ jobs:
           .venv/bin/python -m freqtrade download-data \
             --config runtime/user_data/config.json \
             --config runtime/user_data/config-public.json \
+            --config research/config-binance-marketdata-only.json \
             --userdir runtime/user_data \
             --datadir "$PWD/research_data" \
             --timeframes 1m 15m 1h 4h \
@@ -41,6 +43,7 @@ jobs:
             --timerange 20230601-20260816
           .venv/bin/python -m freqtrade list-data \
             --config runtime/user_data/config.json \
+            --config research/config-binance-marketdata-only.json \
             --userdir runtime/user_data \
             --datadir "$PWD/research_data" \
             --show-timerange | tee research_results/list-data.txt
@@ -109,6 +112,7 @@ jobs:
               backtesting \
               --config runtime/user_data/config.json \
               --config runtime/user_data/config-public.json \
+              --config research/config-binance-marketdata-only.json \
               --userdir runtime/user_data \
               --datadir "$PWD/research_data" \
               --strategy CompressionBreakout250 \
