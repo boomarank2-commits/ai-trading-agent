@@ -1,0 +1,36 @@
+name: Apply candle-integrity hardening
+
+on:
+  push:
+    branches:
+      - hardening/backtest-candle-integrity
+    paths:
+      - research/apply_candle_integrity.py
+      - .github/workflows/apply-candle-integrity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/backtest-candle-integrity
+          fetch-depth: 0
+      - name: Apply hardening
+        run: |
+          python research/apply_candle_integrity.py
+          python -m py_compile runtime/testbot_backtest_api.py
+          grep -q '_validate_candle_data' runtime/testbot_backtest_api.py
+          grep -q 'data_integrity_validated' runtime/ui/testbot-backtest.js
+      - name: Commit durable code only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/apply_candle_integrity.py .github/workflows/apply-candle-integrity.yml
+          git add runtime/testbot_backtest_api.py runtime/ui/testbot-backtest.js
+          git commit -m "Fail closed on incomplete or corrupt candle data"
+          git push origin HEAD:hardening/backtest-candle-integrity
