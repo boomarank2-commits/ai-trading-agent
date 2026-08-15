@@ -182,7 +182,7 @@
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
         resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
       ].join("");
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . Tatsächlicher Freqtrade-Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage), serverseitig gegen den angeforderten Zeitraum geprüft. Ändert sich der Bot-Code, ändert sich der Hash und der nächste Backtest verwendet automatisch die neue Version.`;
+      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . Tatsächlicher Freqtrade-Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage), serverseitig gegen den angeforderten Zeitraum geprüft. Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}. Ändert sich der Bot-Code, ändert sich der Hash und der nächste Backtest verwendet automatisch die neue Version.`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
