@@ -1,9 +1,9 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
 This module deliberately does not contain a second trading strategy. Every run
-hashes and loads the exact strategy file used by STARTBOT, downloads public
-Binance candles, and launches Freqtrade backtesting with the same config plus
-1-minute detail candles for more realistic intrabar fills.
+hashes and loads the exact strategy file used by STARTBOT, keeps the required
+public Binance candles complete at both ends, and launches Freqtrade backtesting
+with the same config plus 1-minute detail candles for more realistic intrabar fills.
 """
 
 from __future__ import annotations
@@ -87,6 +87,46 @@ def _btc_context_pair(pair: str) -> str | None:
     """Return the extra market-regime pair required for altcoin backtests."""
 
     return None if pair == "BTC/USDT" else "BTC/USDT"
+
+
+def _closed_timerange(start: datetime, end: datetime) -> str:
+    """Return an absolute timerange suitable for deterministic prepending."""
+
+    return f"{start:%Y%m%d}-{end:%Y%m%d}"
+
+
+def _parse_backtest_time(value: Any) -> datetime:
+    parsed = datetime.fromisoformat(str(value))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _validate_result_coverage(
+    result: dict[str, Any],
+    requested_start: datetime,
+    requested_end: datetime,
+    years: int,
+) -> None:
+    """Fail closed if Freqtrade silently tested less history than requested."""
+
+    actual_start = _parse_backtest_time(result.get("backtest_start"))
+    actual_end = _parse_backtest_time(result.get("backtest_end"))
+    expected_start = requested_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    expected_days = 365 * years
+    actual_days = int(result.get("backtest_days") or 0)
+
+    if (
+        actual_start > expected_start + timedelta(days=1)
+        or actual_end < requested_end - timedelta(days=1)
+        or actual_days < expected_days - 2
+    ):
+        raise RuntimeError(
+            "Backtest-Zeitraum unvollstaendig: angefordert "
+            f"{years} Jahr(e) ab {expected_start:%Y-%m-%d}, tatsaechlich "
+            f"{actual_start:%Y-%m-%d} bis {actual_end:%Y-%m-%d} "
+            f"({actual_days} Tage). Ergebnis wird nicht als gueltig angezeigt."
+        )
 
 
 def _run_checked(args: list[str], log_path: Path) -> None:
@@ -195,6 +235,8 @@ def _extract_result(
         "max_drawdown_pct": round(drawdown_pct, 2),
         "backtest_start": str(strategy.get("backtest_start") or ""),
         "backtest_end": str(strategy.get("backtest_end") or ""),
+        "backtest_days": int(strategy.get("backtest_days") or 0),
+        "coverage_validated": True,
         "result_file": str(result_file),
     }
 
@@ -217,7 +259,7 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         requested_timerange = requested_start.strftime("%Y%m%d") + "-"
         download_timerange = download_start.strftime("%Y%m%d") + "-"
 
-        _set_state(stage="Binance-Daten werden geladen", progress=10)
+        _set_state(stage="Binance-Daten werden bis heute aktualisiert", progress=10)
         download_args = [
             sys.executable,
             "-m",
@@ -239,6 +281,15 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             download_timerange,
         ]
         _run_checked(download_args, log_path)
+
+        _set_state(stage="Aeltere Binance-Daten werden vervollstaendigt", progress=24)
+        prepend_args = [
+            *download_args[:-2],
+            "--timerange",
+            _closed_timerange(download_start, now),
+            "--prepend",
+        ]
+        _run_checked(prepend_args, log_path)
 
         btc_context = _btc_context_pair(pair)
         if btc_context:
@@ -263,6 +314,13 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
                 download_timerange,
             ]
             _run_checked(context_args, log_path)
+            context_prepend_args = [
+                *context_args[:-2],
+                "--timerange",
+                _closed_timerange(download_start, now),
+                "--prepend",
+            ]
+            _run_checked(context_prepend_args, log_path)
 
         _set_state(stage="Historische Daten geladen - Backtest startet", progress=45)
         backtest_args = [
@@ -310,6 +368,7 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         _set_state(stage="Ergebnis wird ausgewertet", progress=92)
         result_file = _find_result_file(run_dir)
         result = _extract_result(result_file, pair, years, strategy_hash)
+        _validate_result_coverage(result, requested_start, now, years)
         _set_state(
             status="completed",
             stage="Fertig",
