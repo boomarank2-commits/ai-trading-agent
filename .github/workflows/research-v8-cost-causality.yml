@@ -1,0 +1,123 @@
+name: V8 cost stress and causality gates
+
+on:
+  push:
+    branches: [agent/strategy-v8-slow-donchian]
+    paths:
+      - ".github/workflows/research-v8-cost-causality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  development-costs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - uses: actions/cache@v4
+        with:
+          path: research_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v2-marketdata-only
+      - name: Refresh development data
+        run: |
+          mkdir -p research_data stress_results
+          .venv/bin/python -m freqtrade download-data --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --timeframes 1m 15m 1h 4h --pairs BTC/USDT ETH/USDT SOL/USDT --trading-mode spot --timerange 20230601-20260816
+      - name: Run development cost stress
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum runtime/user_data/strategies/CompressionBreakout250.py|awk '{print $1}')
+          for FEE in 0.001 0.002 0.003 0.004; do
+            D="stress_results/dev_fee_${FEE}"; mkdir -p "$D"
+            .venv/bin/python runtime/locked_backtest_freqtrade.py --strategy-source runtime/user_data/strategies/CompressionBreakout250.py --strategy-sha256 "$SHA" --strategy-class CompressionBreakout250 -- backtesting --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --strategy CompressionBreakout250 --pairs BTC/USDT ETH/USDT SOL/USDT --timerange 20230816-20260816 --timeframe-detail 1m --fee "$FEE" --enable-protections --dry-run-wallet 250 --cache none --export trades --backtest-directory "$D" > "$D/run.log" 2>&1
+          done
+      - name: Summarize development cost stress
+        run: |
+          .venv/bin/python - <<'PY' | tee stress_results/DEV_COST_SUMMARY.md
+          import json, zipfile
+          from pathlib import Path
+          print('# V8 development cost stress\n\n| fee/side | trades | P/L USDT | return % | PF | DD % |\n|---:|---:|---:|---:|---:|---:|')
+          for d in sorted(Path('stress_results').glob('dev_fee_*')):
+              z=sorted(d.glob('backtest-result-*.zip'))[-1]
+              with zipfile.ZipFile(z) as f:
+                  n=[x for x in f.namelist() if x.endswith('.json') and 'config' not in x and 'market_change' not in x][0]; st=json.loads(f.read(n))['strategy']['CompressionBreakout250']
+              c=int(st.get('total_trades',len(st.get('trades',[])))); pnl=float(st.get('profit_total_abs',0)); ret=float(st.get('profit_total',0))*100; pf=float(st.get('profit_factor',0) or 0); dd=float(st.get('max_drawdown_account',0) or st.get('max_drawdown',0) or 0); dd=dd*100 if abs(dd)<=1 else dd
+              print(f'| {d.name.split("_")[-1]} | {c} | {pnl:.3f} | {ret:.3f} | {pf:.3f} | {dd:.2f} |')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v8-development-cost-stress
+          path: stress_results
+          retention-days: 30
+
+  holdout-costs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - uses: actions/cache@v4
+        with:
+          path: holdout_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20210601-20230817-v1
+      - name: Refresh holdout data
+        run: |
+          mkdir -p holdout_data stress_results
+          .venv/bin/python -m freqtrade download-data --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/holdout_data" --timeframes 1m 15m 1h 4h --pairs BTC/USDT ETH/USDT SOL/USDT --trading-mode spot --timerange 20210601-20230817
+      - name: Run holdout cost stress
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum runtime/user_data/strategies/CompressionBreakout250.py|awk '{print $1}')
+          for FEE in 0.001 0.002 0.003 0.004; do
+            D="stress_results/holdout_fee_${FEE}"; mkdir -p "$D"
+            .venv/bin/python runtime/locked_backtest_freqtrade.py --strategy-source runtime/user_data/strategies/CompressionBreakout250.py --strategy-sha256 "$SHA" --strategy-class CompressionBreakout250 -- backtesting --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/holdout_data" --strategy CompressionBreakout250 --pairs BTC/USDT ETH/USDT SOL/USDT --timerange 20210816-20230816 --timeframe-detail 1m --fee "$FEE" --enable-protections --dry-run-wallet 250 --cache none --export trades --backtest-directory "$D" > "$D/run.log" 2>&1
+          done
+      - name: Summarize holdout cost stress
+        run: |
+          .venv/bin/python - <<'PY' | tee stress_results/HOLDOUT_COST_SUMMARY.md
+          import json, zipfile
+          from pathlib import Path
+          print('# V8 holdout cost stress\n\n| fee/side | trades | P/L USDT | return % | PF | DD % |\n|---:|---:|---:|---:|---:|---:|')
+          for d in sorted(Path('stress_results').glob('holdout_fee_*')):
+              z=sorted(d.glob('backtest-result-*.zip'))[-1]
+              with zipfile.ZipFile(z) as f:
+                  n=[x for x in f.namelist() if x.endswith('.json') and 'config' not in x and 'market_change' not in x][0]; st=json.loads(f.read(n))['strategy']['CompressionBreakout250']
+              c=int(st.get('total_trades',len(st.get('trades',[])))); pnl=float(st.get('profit_total_abs',0)); ret=float(st.get('profit_total',0))*100; pf=float(st.get('profit_factor',0) or 0); dd=float(st.get('max_drawdown_account',0) or st.get('max_drawdown',0) or 0); dd=dd*100 if abs(dd)<=1 else dd
+              print(f'| {d.name.split("_")[-1]} | {c} | {pnl:.3f} | {ret:.3f} | {pf:.3f} | {dd:.2f} |')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v8-holdout-cost-stress
+          path: stress_results
+          retention-days: 30
+
+  causality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - uses: actions/cache@v4
+        with:
+          path: research_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v2-marketdata-only
+      - name: Refresh causality data
+        run: |
+          mkdir -p research_data causality_results
+          .venv/bin/python -m freqtrade download-data --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --timeframes 1m 15m 1h 4h --pairs BTC/USDT ETH/USDT SOL/USDT --trading-mode spot --timerange 20230601-20260816
+      - name: Freqtrade lookahead analysis
+        run: |
+          .venv/bin/python -m freqtrade lookahead-analysis --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --strategy CompressionBreakout250 --strategy-path runtime/user_data/strategies --pairs BTC/USDT ETH/USDT SOL/USDT --timerange 20230816-20260816 --timeframe-detail 1m --fee 0.002 --minimum-trade-amount 10 --targeted-trade-amount 50 --lookahead-analysis-exportfilename causality_results/lookahead.csv 2>&1 | tee causality_results/lookahead.log
+      - name: Freqtrade recursive analysis
+        run: |
+          .venv/bin/python -m freqtrade recursive-analysis --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --strategy CompressionBreakout250 --strategy-path runtime/user_data/strategies --pairs BTC/USDT --timerange 20240601-20260816 --startup-candle 399 799 999 1999 2>&1 | tee causality_results/recursive.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v8-causality-gates
+          path: causality_results
+          retention-days: 30
