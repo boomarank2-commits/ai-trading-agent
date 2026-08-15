@@ -102,6 +102,26 @@ def _install_exact_loader(
     StrategyResolver._load_strategy = staticmethod(exact_loader)
 
 
+def _install_testbot_api_routes() -> None:
+    """Expose repository-owned Backtest routes only in paper/dry-run mode."""
+    from freqtrade.rpc.api_server.webserver import ApiServer
+    from runtime.testbot_backtest_api import build_router
+
+    marker = "__daviddtech_testbot_backtest_installed__"
+    current = ApiServer.configure_app
+    if bool(getattr(current, marker, False)):
+        return
+    router = build_router()
+
+    def configure_with_backtest(self: Any, app: Any, config: dict[str, Any]) -> Any:
+        # Register before FreqUI's SPA catch-all route.
+        app.include_router(router)
+        return current(self, app, config)
+
+    setattr(configure_with_backtest, marker, True)
+    ApiServer.configure_app = configure_with_backtest
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy-source", type=Path, required=True)
@@ -130,6 +150,12 @@ def main(argv: list[str] | None = None) -> int:
         args.strategy_source, args.strategy_sha256, args.strategy_class
     )
     _install_exact_loader(strategy_type, source_text, args.strategy_class)
+
+    # STARTBOT sets this process-only value to true. The paused live launcher
+    # does not receive the Backtest endpoints or UI extension.
+    if os.environ.get("FREQTRADE__DRY_RUN", "").strip().lower() == "true":
+        _install_testbot_api_routes()
+
     freqtrade_main(freqtrade_args)
     return 0  # pragma: no cover - freqtrade_main exits
 
