@@ -1,0 +1,75 @@
+name: V7 exact three-year research
+
+on:
+  push:
+    branches: [agent/strategy-v7-early-profit-lock]
+    paths:
+      - "runtime/user_data/config.json"
+      - ".github/workflows/research-v7-backtests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - uses: actions/cache@v4
+        with:
+          path: research_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v2-marketdata-only
+      - name: Refresh data and prove integrity
+        run: |
+          mkdir -p research_data research_results
+          .venv/bin/python -m freqtrade download-data --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --timeframes 1m 15m 1h 4h --pairs BTC/USDT ETH/USDT SOL/USDT --trading-mode spot --timerange 20230601-20260816
+          .venv/bin/python - <<'PY' | tee research_results/data-integrity.txt
+          from pathlib import Path
+          import pandas as pd
+          sec={'1m':60,'15m':900,'1h':3600,'4h':14400}; fs=sorted(Path('research_data').rglob('*.feather')); assert len(fs)==12
+          for p in fs:
+              d=pd.to_datetime(pd.read_feather(p)['date'],utc=True); tf=next(t for t in sec if f'-{t}' in p.name); x=d.diff().dropna()
+              assert d.duplicated().sum()==0 and (x<=pd.Timedelta(0)).sum()==0 and (x>pd.to_timedelta(sec[tf],unit='s')).sum()==0
+              assert d.min()<=pd.Timestamp('2023-06-01',tz='UTC') and d.max()>=pd.Timestamp('2026-08-15 16:00',tz='UTC')
+              print(p.name,len(d),d.min(),d.max())
+          PY
+          .venv/bin/python -m py_compile runtime/user_data/strategies/CompressionBreakout250.py
+          .venv/bin/ruff check runtime/user_data/strategies/CompressionBreakout250.py
+          sha256sum runtime/user_data/strategies/CompressionBreakout250.py | tee research_results/strategy-sha256.txt
+      - name: Exact matrix
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum runtime/user_data/strategies/CompressionBreakout250.py|awk '{print $1}')
+          bt(){ N="$1"; R="$2"; shift 2; mkdir -p "research_results/$N"; .venv/bin/python runtime/locked_backtest_freqtrade.py --strategy-source runtime/user_data/strategies/CompressionBreakout250.py --strategy-sha256 "$SHA" --strategy-class CompressionBreakout250 -- backtesting --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --strategy CompressionBreakout250 --pairs "$@" --timerange "$R" --timeframe-detail 1m --fee 0.002 --enable-protections --dry-run-wallet 250 --cache none --export trades --backtest-directory "research_results/$N" --breakdown month > "research_results/$N/run.log" 2>&1; }
+          bt btc_full 20230816-20260816 BTC/USDT
+          bt eth_full 20230816-20260816 ETH/USDT
+          bt sol_full 20230816-20260816 SOL/USDT
+          bt portfolio_full 20230816-20260816 BTC/USDT ETH/USDT SOL/USDT
+          bt portfolio_y1 20230816-20240816 BTC/USDT ETH/USDT SOL/USDT
+          bt portfolio_y2 20240816-20250816 BTC/USDT ETH/USDT SOL/USDT
+          bt portfolio_y3 20250816-20260816 BTC/USDT ETH/USDT SOL/USDT
+      - name: Summarize
+        run: |
+          .venv/bin/python - <<'PY' | tee research_results/SUMMARY.md
+          import json,zipfile
+          from pathlib import Path
+          runs=['btc_full','eth_full','sol_full','portfolio_full','portfolio_y1','portfolio_y2','portfolio_y3']
+          print('# V7 exact research summary\n\n| run | trades | P/L USDT | return % | PF | win % | max DD % |\n|---|---:|---:|---:|---:|---:|---:|')
+          for run in runs:
+              z=sorted((Path('research_results')/run).glob('backtest-result-*.zip'))[-1]
+              with zipfile.ZipFile(z) as f:
+                  n=[x for x in f.namelist() if x.endswith('.json') and 'config' not in x and 'market_change' not in x][0]; st=json.loads(f.read(n))['strategy']['CompressionBreakout250']
+              ts=st.get('trades',[]); c=int(st.get('total_trades',len(ts))); pnl=float(st.get('profit_total_abs',0)); ret=float(st.get('profit_total',0))*100; pf=float(st.get('profit_factor',0) or 0); w=int(st.get('wins',0) or 0); dd=float(st.get('max_drawdown_account',0) or st.get('max_drawdown',0) or 0); dd=dd*100 if abs(dd)<=1 else dd
+              print(f'| {run} | {c} | {pnl:.3f} | {ret:.3f} | {pf:.3f} | {(100*w/c if c else 0):.1f} | {dd:.2f} |')
+              rs={}
+              for t in ts:
+                  r=t.get('exit_reason','unknown'); rs.setdefault(r,[0,0.]); rs[r][0]+=1; rs[r][1]+=float(t.get('profit_abs',0) or 0)
+              print(); print('## '+run+' exits'); [print(f'- {r}: {v[0]} trades, {v[1]:.3f} USDT') for r,v in sorted(rs.items(),key=lambda x:x[1][1])]; print()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v7-exact-three-year-research
+          path: research_results
+          retention-days: 30
