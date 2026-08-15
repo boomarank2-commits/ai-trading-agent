@@ -1,0 +1,32 @@
+name: Apply V8 slow Donchian strategy
+
+on:
+  push:
+    branches: [agent/strategy-v8-slow-donchian]
+    paths:
+      - research/apply_v8_donchian.py
+      - .github/workflows/apply-v8-research.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/strategy-v8-slow-donchian
+          fetch-depth: 0
+      - name: Apply transformation
+        run: |
+          python research/apply_v8_donchian.py
+          python -m py_compile runtime/user_data/strategies/CompressionBreakout250.py
+          grep -q slow_20d_donchian_breakout runtime/user_data/strategies/CompressionBreakout250.py
+      - name: Commit durable strategy only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/apply_v8_donchian.py .github/workflows/apply-v8-research.yml
+          git add runtime/user_data/strategies/CompressionBreakout250.py
+          git commit -m "Add slow Donchian trend strategy V8"
+          git push origin HEAD:agent/strategy-v8-slow-donchian
