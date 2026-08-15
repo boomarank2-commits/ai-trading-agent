@@ -3,7 +3,10 @@
     "ccxt_config": {
       "enableRateLimit": true,
       "options": {
-        "defaultType": "spot"
+        "defaultType": "spot",
+        "fetchMarkets": {
+          "types": ["spot"]
+        }
       },
       "urls": {
         "api": {
@@ -14,7 +17,10 @@
     "ccxt_async_config": {
       "enableRateLimit": true,
       "options": {
-        "defaultType": "spot"
+        "defaultType": "spot",
+        "fetchMarkets": {
+          "types": ["spot"]
+        }
       },
       "urls": {
         "api": {
