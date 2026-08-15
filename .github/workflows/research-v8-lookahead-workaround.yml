@@ -1,0 +1,50 @@
+name: V8 lookahead via 2026.7 config-key workaround
+
+on:
+  push:
+    branches: [agent/strategy-v8-slow-donchian]
+    paths:
+      - "research/config-lookahead-limit-2026-7.json"
+      - ".github/workflows/research-v8-lookahead-workaround.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lookahead:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - uses: actions/cache@v4
+        with:
+          path: research_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v2-marketdata-only
+      - name: Refresh data
+        run: |
+          mkdir -p research_data lookahead_workaround_results
+          .venv/bin/python -m freqtrade download-data --config runtime/user_data/config.json --config runtime/user_data/config-public.json --config research/config-binance-marketdata-only.json --userdir runtime/user_data --datadir "$PWD/research_data" --timeframes 1m 15m 1h 4h --pairs BTC/USDT ETH/USDT SOL/USDT --trading-mode spot --timerange 20230601-20260816
+      - name: Run Freqtrade lookahead using helper's actual 2026.7 config key
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m freqtrade lookahead-analysis \
+            --config runtime/user_data/config.json \
+            --config runtime/user_data/config-public.json \
+            --config research/config-binance-marketdata-only.json \
+            --config research/config-lookahead-limit-2026-7.json \
+            --userdir runtime/user_data --datadir "$PWD/research_data" \
+            --strategy CompressionBreakout250 --strategy-path runtime/user_data/strategies \
+            --pairs BTC/USDT ETH/USDT SOL/USDT --timerange 20230816-20260816 \
+            --timeframe-detail 1m --fee 0.002 \
+            --minimum-trade-amount 10 --targeted-trade-amount 50 \
+            --lookahead-analysis-exportfilename lookahead_workaround_results/lookahead.csv \
+            2>&1 | tee lookahead_workaround_results/lookahead.log
+          test -s lookahead_workaround_results/lookahead.csv
+          grep -q 'CompressionBreakout250' lookahead_workaround_results/lookahead.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v8-lookahead-workaround
+          path: lookahead_workaround_results
+          retention-days: 30
