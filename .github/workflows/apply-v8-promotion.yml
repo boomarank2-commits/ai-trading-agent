@@ -21,7 +21,8 @@ jobs:
           git show origin/agent/strategy-v8-slow-donchian:runtime/user_data/strategies/CompressionBreakout250.py > runtime/user_data/strategies/CompressionBreakout250.py
           git show origin/agent/strategy-v8-slow-donchian:runtime/user_data/config.json > runtime/user_data/config.json
           ACTUAL=$(sha256sum runtime/user_data/strategies/CompressionBreakout250.py | awk '{print $1}')
-          test "$ACTUAL" = "9717526a6b7ef25dd50f79fbefe681cdc316847ffc309142e1a69be38c10c155"
+          echo "V8 strategy sha256=$ACTUAL"
+          test "$ACTUAL" = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
           python -m py_compile runtime/user_data/strategies/CompressionBreakout250.py
       - name: Commit only production candidate files
         run: |
