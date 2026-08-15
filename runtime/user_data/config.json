@@ -20,12 +20,14 @@
   "position_adjustment_enable": false,
   "max_entry_position_adjustment": 0,
   "minimal_roi": {
-    "0": 0.05,
-    "120": 0.025,
-    "360": 0.0
+    "0": 0.25,
+    "10080": 0.0
   },
   "stoploss": -0.055,
-  "trailing_stop": false,
+  "trailing_stop": true,
+  "trailing_stop_positive": 0.02,
+  "trailing_stop_positive_offset": 0.04,
+  "trailing_only_offset_is_reached": true,
   "use_exit_signal": true,
   "exit_profit_only": false,
   "ignore_roi_if_entry_signal": false,
