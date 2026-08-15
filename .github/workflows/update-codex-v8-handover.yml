@@ -1,0 +1,29 @@
+name: Apply complete V8 Codex handover
+on:
+  push:
+    branches: [agent/promote-v8-paper-candidate]
+    paths:
+      - research/update_codex_v8_handover.py
+      - .github/workflows/update-codex-v8-handover.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/promote-v8-paper-candidate
+          fetch-depth: 0
+      - run: |
+          python research/update_codex_v8_handover.py
+          grep -q '# 23. Forschungsloop V4–V8' CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md
+          grep -q '9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280' CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/update_codex_v8_handover.py .github/workflows/update-codex-v8-handover.yml
+          git add CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md
+          git commit -m "Document complete V4-V8 research loop for Codex"
+          git push origin HEAD:agent/promote-v8-paper-candidate
