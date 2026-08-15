@@ -21,7 +21,9 @@ def test_invalid_pair_is_rejected_before_background_process() -> None:
     assert exc.value.status_code == 400
 
 
-def test_subprocess_environment_drops_freqtrade_and_kill_switch_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_subprocess_environment_drops_freqtrade_and_kill_switch_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("FREQTRADE__API_SERVER__PASSWORD", "secret")
     monkeypatch.setenv("FREQTRADE__API_SERVER__JWT_SECRET_KEY", "jwt")
     monkeypatch.setenv("AI_TRADING_KILL_SWITCH_FILE", "C:/secret/stop")
