@@ -24,10 +24,10 @@ def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
     assert api.BACKTEST_WARMUP_DAYS >= 70
 
 
-def test_backtest_download_adds_btc_market_context_for_altcoins() -> None:
-    assert api._download_pairs("BTC/USDT") == ("BTC/USDT",)
-    assert api._download_pairs("ETH/USDT") == ("ETH/USDT", "BTC/USDT")
-    assert api._download_pairs("SOL/USDT") == ("SOL/USDT", "BTC/USDT")
+def test_backtest_download_adds_only_4h_btc_context_for_altcoins() -> None:
+    assert api._btc_context_pair("BTC/USDT") is None
+    assert api._btc_context_pair("ETH/USDT") == "BTC/USDT"
+    assert api._btc_context_pair("SOL/USDT") == "BTC/USDT"
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
