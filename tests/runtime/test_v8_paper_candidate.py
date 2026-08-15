@@ -8,12 +8,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DATA = REPO_ROOT / "runtime" / "user_data"
 STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
 CONFIG = USER_DATA / "config.json"
-EXPECTED_V8_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
+EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
 
 
 def test_exact_validated_v8_strategy_source_is_promoted() -> None:
-    source = STRATEGY.read_bytes()
-    assert hashlib.sha256(source).hexdigest() == EXPECTED_V8_SHA256
+    # Git normalizes repository text to LF, while a Windows checkout may expose
+    # CRLF depending on core.autocrlf. Fingerprint the normalized source so the
+    # test locks strategy semantics rather than the checkout's newline policy.
+    source = STRATEGY.read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(source).hexdigest() == EXPECTED_V8_LF_SHA256
     text = source.decode("utf-8")
     assert "slow_20d_donchian_breakout" in text
     assert "failed_4h_breakout" in text
