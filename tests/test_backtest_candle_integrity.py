@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# These tests are intentionally part of the Windows Backtest UI contract CI.
 from datetime import UTC, datetime, timedelta
 
 import pandas as pd
