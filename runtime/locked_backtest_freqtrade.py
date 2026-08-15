@@ -13,7 +13,9 @@ from pathlib import Path
 
 from freqtrade.main import main as freqtrade_main
 
-from runtime.locked_freqtrade import _install_exact_loader, _load_exact_strategy
+# Executed directly from the runtime directory, therefore import the sibling
+# module without the package prefix.
+from locked_freqtrade import _install_exact_loader, _load_exact_strategy
 
 
 def main(argv: list[str] | None = None) -> int:

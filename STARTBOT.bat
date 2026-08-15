@@ -19,11 +19,22 @@ echo Strg+C beendet den Bot kontrolliert und erzeugt den Abschlussbericht.
 echo Wird dieses Fenster direkt geschlossen, der Supervisor beendet oder das
 echo ueberwachte Testbot-UI geschlossen, beendet Windows automatisch auch den
 echo gesamten Bot-Prozessbaum. Ein unsichtbar weiterlaufender Bot ist damit
- echo nicht zulaessig.
+echo nicht zulaessig.
 echo.
 
 call :ensure_uv
 if errorlevel 1 exit /b 1
+
+rem Vor jedem Start pruefen, ob eine alte Testbot-Instanz Port 8080 noch haelt.
+rem Nur eindeutig zu diesem ai-trading-agent gehoerende Altprozesse werden beendet.
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+if errorlevel 1 (
+    echo.
+    echo SICHERHEITSSTOPP: Eine alte oder fremde Runtime konnte nicht sicher bereinigt werden.
+    echo Der Testbot wird nicht gestartet.
+    pause
+    exit /b 1
+)
 
 rem FreqUI-Zugang: Auf einem frischen Download gilt das dokumentierte
 rem Erstpasswort. Ein mit PASSWORT_AENDERN.bat gesetztes Passwort bleibt
@@ -61,6 +72,15 @@ rem nicht mehr ueberleben. Das UI selbst wird als separate Edge/Chrome-App
 rem gestartet und ueberwacht; wird sie geschlossen, beendet sich der Bot.
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
+
+rem Bei jedem normalen Rueckweg aus dem Supervisor nochmals beweisen, dass
+rem kein alter Testbot Port 8080 haelt. Das ist ein zusaetzlicher Fail-closed-
+rem Schutz neben dem Windows Job Object.
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+if errorlevel 1 (
+    echo SICHERHEITSWARNUNG: Nach dem Botende ist Port 8080 nicht sicher frei.
+    set "BOT_EXIT_CODE=1"
+)
 
 echo.
 if not "%BOT_EXIT_CODE%"=="0" (
