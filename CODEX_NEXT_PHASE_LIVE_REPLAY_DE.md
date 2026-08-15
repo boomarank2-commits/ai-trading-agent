@@ -1196,9 +1196,24 @@ Die Signalmethoden verwenden keine negativen Shifts und keine absolute Last-Row-
 
 Freqtrades komplette `lookahead-analysis` ist für V8 derzeit **inconclusive**, nicht „bestanden“. Das Tool verändert absichtlich Wallet/Stake/Protections und standardmäßig die Ordertypen. In Kombination mit V8s hartem 80-USDT-Stake-Cap und Limit-Order-Modell entstand im Harness keine ausreichende Vergleichsstichprobe. Dieses fehlende Tool-Verdikt muss offen dokumentiert bleiben; es ist kein Nachweis eines Bias, aber auch kein zusätzlicher Freibrief.
 
-## 23.12 6-Jahres-Gate
+## 23.12 Durchgehender 6-Jahres-Gate-Test abgeschlossen
 
-Zum Zeitpunkt des ersten Schreibens dieses Abschnitts läuft der durchgehende 6-Jahres-Test einschließlich gemeinsamem Portfolio und zusätzlichem 0,4-%-Kostenlauf noch. **Vor Merge des V8-Paper-Kandidaten muss dieser Abschnitt mit den echten Ergebnissen ersetzt werden.**
+Exakter Zeitraum: 15.11.2020–15.08.2026, 2099 Freqtrade-Tage, unveränderter V8-SHA `9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280`.
+
+| Lauf | Trades | Rendite | PF | Max DD |
+|---|---:|---:|---:|---:|
+| BTC | 45 | +21,413 % | 1,804 | 16,10 % |
+| ETH | 44 | +56,080 % | 2,716 | 6,68 % |
+| SOL | 47 | +80,011 % | 2,781 | 7,41 % |
+| gemeinsames Portfolio | 136 | **+157,504 %** | **2,511** | **8,63 %** |
+
+Portfolio bei 0,2 % Kostenproxy je Seite: +393,76 USDT, schlechtester realisierter Close-Tag ungefähr -9,42 USDT. Portfolio bei 0,4 % je Seite: **+142,274 %, PF 2,209, MaxDD 10,17 %**, schlechtester Close-Tag ungefähr **-10,04 USDT**.
+
+Wichtige Interpretation: Der Runtime-Tagesverlustguard blockiert neue Entries nach <= -10 USDT bereits geschlossenem Tages-P/L. Der klassische Backtest reproduziert diesen DB-Guard nicht identisch. Deshalb ist besonders der 0,4-%-Stresslauf nach einem solchen Grenztag nicht als perfekte Runtime-Parität zu lesen. Bei der normalen 0,2-%-Research-Annahme wurde die -10-USDT-Schwelle im historischen Close-Day-Minimum nicht erreicht.
+
+6-Jahres-Exitbeiträge des Portfolios: 80 `failed_4h_breakout` etwa -156,33 USDT, 19 Hard-Stops etwa -89,38 USDT, 24 `slow_trend_exit` etwa +118,87 USDT, 13 ROI-Exits etwa +520,60 USDT. Die seltenen großen Gewinner bleiben damit zentral für die Edge.
+
+**Folgerung:** V8 ist historisch robust genug für einen erweiterten Paper-Forward-Test, nicht für Echtgeld. Kapital bleibt 250 virtuelle USDT.
 
 ## 23.13 Paper-Promotion nur mit frischer V8-Datenbank
 
