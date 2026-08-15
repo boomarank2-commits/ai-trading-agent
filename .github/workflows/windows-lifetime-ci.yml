@@ -1,5 +1,6 @@
 name: Windows bot lifetime guard
 
+# Final V8 promotion gate: closing the visible supervisor must still kill descendants.
 on:
   push:
     branches:
