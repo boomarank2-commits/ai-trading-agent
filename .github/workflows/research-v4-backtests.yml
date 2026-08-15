@@ -1,0 +1,181 @@
+name: V4 exact three-year research
+
+on:
+  push:
+    branches:
+      - agent/strategy-v4-trend-pullback
+    paths:
+      - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - ".github/workflows/research-v4-backtests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync locked Freqtrade environment
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Cache historical Binance data
+        uses: actions/cache@v4
+        with:
+          path: research_data
+          key: binance-spot-btc-eth-sol-1m15m1h4h-20230601-20260816-v1
+      - name: Download exact public Binance history
+        shell: bash
+        run: |
+          mkdir -p research_data research_results
+          .venv/bin/python -m freqtrade download-data \
+            --config runtime/user_data/config.json \
+            --config runtime/user_data/config-public.json \
+            --userdir runtime/user_data \
+            --datadir "$PWD/research_data" \
+            --timeframes 1m 15m 1h 4h \
+            --pairs BTC/USDT ETH/USDT SOL/USDT \
+            --trading-mode spot \
+            --timerange 20230601-20260816
+          .venv/bin/python -m freqtrade list-data \
+            --config runtime/user_data/config.json \
+            --userdir runtime/user_data \
+            --datadir "$PWD/research_data" \
+            --show-timerange | tee research_results/list-data.txt
+      - name: Validate candle coverage, duplicates and gaps
+        shell: bash
+        run: |
+          .venv/bin/python - <<'PY' | tee research_results/data-integrity.txt
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path('research_data')
+          expected = {'1m': 60, '15m': 900, '1h': 3600, '4h': 14400}
+          files = sorted(root.rglob('*.feather'))
+          if not files:
+              raise SystemExit('no feather files downloaded')
+          failures = []
+          for path in files:
+              df = pd.read_feather(path)
+              if 'date' not in df.columns:
+                  failures.append(f'{path}: missing date column')
+                  continue
+              dates = pd.to_datetime(df['date'], utc=True)
+              name = path.name
+              tf = next((t for t in expected if f'-{t}' in name), None)
+              dups = int(dates.duplicated().sum())
+              unsorted = int((dates.diff().dropna() <= pd.Timedelta(0)).sum())
+              gaps = 0
+              largest = pd.Timedelta(0)
+              if tf:
+                  delta = pd.to_timedelta(expected[tf], unit='s')
+                  diffs = dates.diff().dropna()
+                  gaps = int((diffs > delta).sum())
+                  largest = diffs.max() if not diffs.empty else pd.Timedelta(0)
+              print(f'{name}: rows={len(df)} start={dates.min()} end={dates.max()} duplicates={dups} unsorted={unsorted} gaps={gaps} largest_gap={largest}')
+              if dups or unsorted:
+                  failures.append(f'{name}: duplicates={dups}, unsorted={unsorted}')
+              if tf in {'1m', '15m'} and dates.min() > pd.Timestamp('2023-06-03', tz='UTC'):
+                  failures.append(f'{name}: starts too late at {dates.min()}')
+              if dates.max() < pd.Timestamp('2026-08-14', tz='UTC'):
+                  failures.append(f'{name}: ends too early at {dates.max()}')
+          if failures:
+              print('FAILURES:')
+              print('\n'.join(failures))
+              raise SystemExit(2)
+          PY
+      - name: Static strategy checks
+        shell: bash
+        run: |
+          .venv/bin/python -m py_compile runtime/user_data/strategies/CompressionBreakout250.py
+          .venv/bin/ruff check runtime/user_data/strategies/CompressionBreakout250.py
+          grep -q 'trend_pullback_reclaim' runtime/user_data/strategies/CompressionBreakout250.py
+          sha256sum runtime/user_data/strategies/CompressionBreakout250.py | tee research_results/strategy-sha256.txt
+      - name: Run exact Freqtrade matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum runtime/user_data/strategies/CompressionBreakout250.py | awk '{print $1}')
+          run_bt() {
+            NAME="$1"; RANGE="$2"; shift 2
+            mkdir -p "research_results/$NAME"
+            .venv/bin/python runtime/locked_backtest_freqtrade.py \
+              --strategy-source runtime/user_data/strategies/CompressionBreakout250.py \
+              --strategy-sha256 "$SHA" \
+              --strategy-class CompressionBreakout250 \
+              -- \
+              backtesting \
+              --config runtime/user_data/config.json \
+              --config runtime/user_data/config-public.json \
+              --userdir runtime/user_data \
+              --datadir "$PWD/research_data" \
+              --strategy CompressionBreakout250 \
+              --pairs "$@" \
+              --timerange "$RANGE" \
+              --timeframe-detail 1m \
+              --fee 0.002 \
+              --enable-protections \
+              --dry-run-wallet 250 \
+              --cache none \
+              --export trades \
+              --backtest-directory "research_results/$NAME" \
+              --breakdown month \
+              2>&1 | tee "research_results/$NAME/run.log"
+          }
+          run_bt btc_full 20230816-20260816 BTC/USDT
+          run_bt eth_full 20230816-20260816 ETH/USDT
+          run_bt sol_full 20230816-20260816 SOL/USDT
+          run_bt portfolio_full 20230816-20260816 BTC/USDT ETH/USDT SOL/USDT
+          run_bt portfolio_y1 20230816-20240816 BTC/USDT ETH/USDT SOL/USDT
+          run_bt portfolio_y2 20240816-20250816 BTC/USDT ETH/USDT SOL/USDT
+          run_bt portfolio_y3 20250816-20260816 BTC/USDT ETH/USDT SOL/USDT
+      - name: Summarize exact results
+        shell: bash
+        run: |
+          .venv/bin/python - <<'PY' | tee research_results/SUMMARY.md
+          import json, zipfile
+          from pathlib import Path
+
+          print('# V4 exact research summary')
+          print()
+          print('| run | trades | P/L USDT | return % | PF | win % | max DD % |')
+          print('|---|---:|---:|---:|---:|---:|---:|')
+          for run in ['btc_full','eth_full','sol_full','portfolio_full','portfolio_y1','portfolio_y2','portfolio_y3']:
+              zips = sorted((Path('research_results') / run).glob('backtest-result-*.zip'))
+              if not zips:
+                  print(f'| {run} | MISSING | | | | | |')
+                  continue
+              with zipfile.ZipFile(zips[-1]) as zf:
+                  js = [n for n in zf.namelist() if n.endswith('.json') and 'config' not in n and 'market_change' not in n]
+                  data = json.loads(zf.read(js[0]))
+              st = data['strategy']['CompressionBreakout250']
+              trades = int(st.get('total_trades', len(st.get('trades', []))))
+              pnl = float(st.get('profit_total_abs', 0))
+              ret = float(st.get('profit_total', 0)) * 100
+              pf = float(st.get('profit_factor', 0) or 0)
+              wins = int(st.get('wins', 0) or 0)
+              winp = 100 * wins / trades if trades else 0
+              dd = float(st.get('max_drawdown_account', 0) or st.get('max_drawdown', 0) or 0)
+              if abs(dd) <= 1:
+                  dd *= 100
+              print(f'| {run} | {trades} | {pnl:.3f} | {ret:.3f} | {pf:.3f} | {winp:.1f} | {dd:.2f} |')
+              reasons = {}
+              for t in st.get('trades', []):
+                  reason = t.get('exit_reason', 'unknown')
+                  reasons.setdefault(reason, [0,0.0])
+                  reasons[reason][0] += 1
+                  reasons[reason][1] += float(t.get('profit_abs', 0) or 0)
+              print()
+              print(f'## {run} exits')
+              for reason, (count, rpnl) in sorted(reasons.items(), key=lambda x: x[1][1]):
+                  print(f'- {reason}: {count} trades, {rpnl:.3f} USDT')
+              print()
+          PY
+      - name: Upload research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-exact-three-year-research
+          path: research_results
+          retention-days: 30
