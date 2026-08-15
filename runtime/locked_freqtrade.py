@@ -105,6 +105,7 @@ def _install_exact_loader(
 def _install_testbot_api_routes() -> None:
     """Expose repository-owned Backtest routes only in paper/dry-run mode."""
     from freqtrade.rpc.api_server.webserver import ApiServer
+
     from runtime.testbot_backtest_api import build_router
 
     marker = "__daviddtech_testbot_backtest_installed__"
