@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from freqtrade.enums import CandleType
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_PATH = (
     REPO_ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout250.py"
@@ -27,6 +29,7 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             "strategy": "CompressionBreakout250",
             "timeframe": "15m",
             "trading_mode": "spot",
+            "candle_type_def": CandleType.SPOT,
             "margin_mode": "",
             "stake_currency": "USDT",
             "position_adjustment_enable": False,
