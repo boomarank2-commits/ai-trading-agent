@@ -120,6 +120,37 @@ public static class DaviddTechBotLifetimeJob
 "@
 }
 
+function Find-TestbotBrowser {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $edgeCommand = Get-Command msedge.exe -ErrorAction SilentlyContinue
+    if ($null -ne $edgeCommand) {
+        $candidates.Add($edgeCommand.Source)
+    }
+    $chromeCommand = Get-Command chrome.exe -ErrorAction SilentlyContinue
+    if ($null -ne $chromeCommand) {
+        $candidates.Add($chromeCommand.Source)
+    }
+
+    foreach ($root in @(
+        ${env:ProgramFiles(x86)},
+        $env:ProgramFiles,
+        $env:LOCALAPPDATA
+    )) {
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            continue
+        }
+        $candidates.Add((Join-Path $root "Microsoft\Edge\Application\msedge.exe"))
+        $candidates.Add((Join-Path $root "Google\Chrome\Application\chrome.exe"))
+    }
+
+    foreach ($candidate in $candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+    return $null
+}
+
 $script:LifetimeJobHandle = [DaviddTechBotLifetimeJob]::CreateKillOnCloseForCurrentProcess()
 if ($script:LifetimeJobHandle -eq [IntPtr]::Zero) {
     throw "Der Windows-Lebenszeitschutz konnte nicht aktiviert werden."
@@ -163,25 +194,101 @@ while (`$true) {
     exit $child.ExitCode
 }
 
-# Start the API-ready browser helper only after this process owns the Job
-# Object, so the helper cannot become an orphan when STARTBOT is closed.
-$browserHelperCommand = @'
-$url = 'http://127.0.0.1:8080'
-$ping = $url + '/api/v1/ping'
-for ($i = 0; $i -lt 180; $i++) {
+$browserExe = Find-TestbotBrowser
+if ([string]::IsNullOrWhiteSpace($browserExe)) {
+    throw "Kein unterstuetzter lokaler Browser gefunden. Fuer den sicheren UI-Lebenszeitschutz wird Microsoft Edge oder Google Chrome benoetigt."
+}
+
+$localApplicationData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+if ([string]::IsNullOrWhiteSpace($localApplicationData)) {
+    throw "Der lokale Windows-Anwendungsdatenordner konnte nicht ermittelt werden."
+}
+$browserProfile = Join-Path $localApplicationData "DaviddTech\AiTradingAgent\browser-profile"
+[System.IO.Directory]::CreateDirectory($browserProfile) | Out-Null
+$browserProcessName = [System.IO.Path]::GetFileName($browserExe)
+
+Write-Host "UI-Lebenszeitschutz: $browserProcessName wird als eigene Testbot-App ueberwacht." -ForegroundColor Green
+Write-Host "Wird das Testbot-UI-Fenster geschlossen, wird auch der Bot beendet." -ForegroundColor Green
+Write-Host ""
+
+# The helper waits for the API, launches a dedicated app-mode browser instance
+# with its own profile, and monitors exactly that profile. If the UI disappears,
+# it force-terminates this supervisor. Closing the supervisor closes the Job
+# Object, which then kills the entire bot process tree fail-closed.
+$browserExeLiteral = $browserExe.Replace("'", "''")
+$browserProfileLiteral = $browserProfile.Replace("'", "''")
+$browserProcessNameLiteral = $browserProcessName.Replace("'", "''")
+$supervisorPid = $PID
+$browserHelperCommand = @"
+`$ErrorActionPreference = 'Stop'
+`$url = 'http://127.0.0.1:8080'
+`$ping = `$url + '/api/v1/ping'
+`$browserExe = '$browserExeLiteral'
+`$profile = '$browserProfileLiteral'
+`$browserName = '$browserProcessNameLiteral'
+`$supervisorPid = $supervisorPid
+
+for (`$i = 0; `$i -lt 180; `$i++) {
+    if (`$null -eq (Get-Process -Id `$supervisorPid -ErrorAction SilentlyContinue)) { exit 0 }
     try {
-        $response = Invoke-RestMethod -Uri $ping -TimeoutSec 2
-        if ($response.status -eq 'pong') {
-            Start-Process $url
-            exit 0
-        }
+        `$response = Invoke-RestMethod -Uri `$ping -TimeoutSec 2
+        if (`$response.status -eq 'pong') { break }
     }
     catch {
     }
     Start-Sleep -Seconds 1
 }
-exit 1
-'@
+
+try {
+    `$response = Invoke-RestMethod -Uri `$ping -TimeoutSec 2
+    if (`$response.status -ne 'pong') { throw 'API ist nicht bereit.' }
+}
+catch {
+    Stop-Process -Id `$supervisorPid -Force -ErrorAction SilentlyContinue
+    exit 2
+}
+
+Start-Process -FilePath `$browserExe -ArgumentList @(
+    ('--app=' + `$url),
+    ('--user-data-dir=' + `$profile),
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-background-mode'
+) | Out-Null
+
+`$seen = `$false
+`$startupDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+while ([DateTimeOffset]::UtcNow -lt `$startupDeadline) {
+    if (`$null -eq (Get-Process -Id `$supervisorPid -ErrorAction SilentlyContinue)) { exit 0 }
+    `$instances = @(
+        Get-CimInstance Win32_Process -Filter ("Name='" + `$browserName + "'") -ErrorAction SilentlyContinue |
+            Where-Object { `$_.CommandLine -and `$_.CommandLine.Contains(`$profile) }
+    )
+    if (`$instances.Count -gt 0) {
+        `$seen = `$true
+        break
+    }
+    Start-Sleep -Milliseconds 250
+}
+
+if (-not `$seen) {
+    Stop-Process -Id `$supervisorPid -Force -ErrorAction SilentlyContinue
+    exit 3
+}
+
+while (`$true) {
+    if (`$null -eq (Get-Process -Id `$supervisorPid -ErrorAction SilentlyContinue)) { exit 0 }
+    `$instances = @(
+        Get-CimInstance Win32_Process -Filter ("Name='" + `$browserName + "'") -ErrorAction SilentlyContinue |
+            Where-Object { `$_.CommandLine -and `$_.CommandLine.Contains(`$profile) }
+    )
+    if (`$instances.Count -eq 0) {
+        Stop-Process -Id `$supervisorPid -Force -ErrorAction SilentlyContinue
+        exit 0
+    }
+    Start-Sleep -Milliseconds 500
+}
+"@
 $browserHelperEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($browserHelperCommand))
 [void](Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @(
     "-NoLogo",
@@ -198,6 +305,6 @@ if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) {
 # Run in this supervisor process so that all subsequently created Python/
 # Freqtrade processes automatically inherit the Windows Job Object membership.
 # Normal Ctrl+C continues to use the launcher's existing graceful cleanup and
-# report path. A forced window close is fail-closed: no bot child may survive.
+# report path. A forced window/UI close is fail-closed: no bot child may survive.
 & $launcher
 exit $LASTEXITCODE
