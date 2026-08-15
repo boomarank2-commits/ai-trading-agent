@@ -35,6 +35,10 @@
     return `${sign}${number.toFixed(2)} USDT`;
   }
 
+  function balanceMoney(value) {
+    return `${Number(value || 0).toFixed(2)} USDT`;
+  }
+
   function percent(value) {
     const number = Number(value || 0);
     const sign = number > 0 ? "+" : "";
@@ -120,7 +124,7 @@
             </div>
             <button id="tb-start" class="tb-button">Backtest starten</button>
           </div>
-          <div class="tb-info">Beim Start werden die benötigten 15-Minuten- und 1-Minuten-Kerzen direkt aus öffentlichen Binance-Marktdaten geladen bzw. aktualisiert. 1m-Daten dienen nur zur genaueren Fill-/Stop-Simulation; die Strategie entscheidet weiterhin auf ihrem aktuellen 15m-Timeframe.</div>
+          <div class="tb-info">Beim Start werden 15m-, 1m-, 1h- und 4h-Kerzen direkt aus öffentlichen Binance-Marktdaten geladen bzw. aktualisiert. Für ETH/SOL wird zusätzlich BTC-4h als Marktregime benötigt. 1m dient nur zur genaueren Fill-/Stop-Simulation; Entry-/Exit-Signale entstehen weiterhin auf geschlossenen 15m-Kerzen.</div>
         </div>
 
         <div id="tb-status" class="tb-panel tb-status">
@@ -171,14 +175,14 @@
       document.getElementById("tb-grid").innerHTML = [
         resultCard("Gewinn / Verlust", money(r.profit_usdt), profitClass),
         resultCard("Rendite", percent(r.profit_pct), profitClass),
-        resultCard("Endkapital", money(r.final_balance_usdt), profitClass),
+        resultCard("Endkapital", balanceMoney(r.final_balance_usdt), profitClass),
         resultCard("Trades", String(r.trades), "tb-neutral"),
         resultCard("Profit Factor", Number(r.profit_factor || 0).toFixed(2), Number(r.profit_factor) >= 1 ? "tb-positive" : "tb-negative"),
         resultCard("Trefferquote", `${Number(r.winrate_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
         resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
       ].join("");
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . Ändert sich der Bot-Code, ändert sich dieser Hash und der nächste Backtest verwendet automatisch die neue Version.`;
+      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . Tatsächlicher Freqtrade-Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage), serverseitig gegen den angeforderten Zeitraum geprüft. Ändert sich der Bot-Code, ändert sich der Hash und der nächste Backtest verwendet automatisch die neue Version.`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
