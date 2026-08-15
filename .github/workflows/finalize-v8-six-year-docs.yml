@@ -1,0 +1,29 @@
+name: Finalize V8 six-year docs
+on:
+  push:
+    branches: [agent/promote-v8-paper-candidate]
+    paths:
+      - research/finalize_v8_six_year_docs.py
+      - .github/workflows/finalize-v8-six-year-docs.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/promote-v8-paper-candidate
+          fetch-depth: 0
+      - run: |
+          python research/finalize_v8_six_year_docs.py
+          grep -q '157,504 %' docs/V8_PAPER_CANDIDATE_REPORT_DE.md
+          grep -q 'Durchgehender 6-Jahres-Gate-Test abgeschlossen' CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/finalize_v8_six_year_docs.py .github/workflows/finalize-v8-six-year-docs.yml
+          git add docs/V8_PAPER_CANDIDATE_REPORT_DE.md CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md
+          git commit -m "Finalize V8 six-year research evidence"
+          git push origin HEAD:agent/promote-v8-paper-candidate
