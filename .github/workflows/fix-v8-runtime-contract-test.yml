@@ -1,0 +1,27 @@
+name: Refine V8 runtime contract test
+
+on:
+  push:
+    branches: [agent/promote-v8-paper-candidate]
+    paths:
+      - research/fix_v8_runtime_contract_test.py
+      - .github/workflows/fix-v8-runtime-contract-test.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/promote-v8-paper-candidate
+          fetch-depth: 0
+      - run: python research/fix_v8_runtime_contract_test.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/fix_v8_runtime_contract_test.py .github/workflows/fix-v8-runtime-contract-test.yml
+          git add tests/runtime/test_runtime_contract.py
+          git commit -m "Refine no-lookahead runtime contract test"
+          git push origin HEAD:agent/promote-v8-paper-candidate
