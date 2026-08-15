@@ -59,7 +59,6 @@ def _load_exact_strategy(
     module.__file__ = str(source_path)
     module.__package__ = ""
     code = compile(source_text, str(source_path), "exec", dont_inherit=True)
-    # Register for normal inspection/tracebacks, then execute only the exact bytes.
     sys.modules[module_name] = module
     exec(code, module.__dict__)
     candidate = module.__dict__.get(class_name)
@@ -89,10 +88,6 @@ def _install_exact_loader(
                 f"runtime requested {strategy_name!r}, not authorized class {expected_class!r}"
             )
         instance = strategy_type(config=config)
-
-        # StrategyResolver.load_strategy normally loads <Strategy>.json after this
-        # hook returns.  Bind a no-op on this exact instance so no unregistered
-        # sidecar can alter the audited artifact.
         instance.ft_set_special_params_from_file = types.MethodType(
             lambda _self: None, instance
         )
@@ -106,7 +101,10 @@ def _install_testbot_api_routes() -> None:
     """Expose repository-owned Backtest routes only in paper/dry-run mode."""
     from freqtrade.rpc.api_server.webserver import ApiServer
 
-    from runtime.testbot_backtest_api import build_router
+    # This file is executed directly as ``python runtime/locked_freqtrade.py``.
+    # In that mode Python places ``runtime`` itself on sys.path, not its parent,
+    # so sibling modules must be imported without the ``runtime.`` package prefix.
+    from testbot_backtest_api import build_router
 
     marker = "__daviddtech_testbot_backtest_installed__"
     current = ApiServer.configure_app
@@ -115,7 +113,6 @@ def _install_testbot_api_routes() -> None:
     router = build_router()
 
     def configure_with_backtest(self: Any, app: Any, config: dict[str, Any]) -> Any:
-        # Register before FreqUI's SPA catch-all route.
         app.include_router(router)
         return current(self, app, config)
 
@@ -152,8 +149,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     _install_exact_loader(strategy_type, source_text, args.strategy_class)
 
-    # STARTBOT sets this process-only value to true. The paused live launcher
-    # does not receive the Backtest endpoints or UI extension.
     if os.environ.get("FREQTRADE__DRY_RUN", "").strip().lower() == "true":
         _install_testbot_api_routes()
 
