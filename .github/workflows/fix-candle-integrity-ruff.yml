@@ -1,0 +1,28 @@
+name: Fix candle-integrity Ruff
+
+on:
+  push:
+    branches:
+      - hardening/backtest-candle-integrity
+    paths:
+      - research/fix_candle_integrity_ruff.py
+      - .github/workflows/fix-candle-integrity-ruff.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/backtest-candle-integrity
+          fetch-depth: 0
+      - run: python research/fix_candle_integrity_ruff.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm research/fix_candle_integrity_ruff.py .github/workflows/fix-candle-integrity-ruff.yml
+          git add runtime/testbot_backtest_api.py
+          git commit -m "Fix candle-integrity Ruff finding"
+          git push origin HEAD:hardening/backtest-candle-integrity
