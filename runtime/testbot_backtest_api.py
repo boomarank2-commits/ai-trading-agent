@@ -198,7 +198,7 @@ def _inspect_candle_file(
     return {
         "file": path.name,
         "timeframe": timeframe,
-        "rows_in_required_window": int(len(in_window)),
+        "rows_in_required_window": len(in_window),
         "first": first.isoformat(),
         "last": last.isoformat(),
         "duplicates": duplicates,
