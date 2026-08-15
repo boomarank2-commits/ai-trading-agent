@@ -53,13 +53,10 @@ if "%FIRST_LOGIN_HELP%"=="1" (
 )
 echo.
 
-rem Ein versteckter lokaler Helfer wartet, bis die Freqtrade-API wirklich bereit ist,
-rem und oeffnet erst dann FreqUI. Das Konsolenfenster des Bots bleibt parallel offen.
-start "" /b powershell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:8080'; $ping=$url + '/api/v1/ping'; for($i=0; $i -lt 180; $i++){ try { $response=Invoke-RestMethod -Uri $ping -TimeoutSec 2; if($response.status -eq 'pong'){ Start-Process $url; exit 0 } } catch {}; Start-Sleep -Seconds 1 }; exit 1"
-
 rem Der Supervisor setzt vor dem Botstart ein Windows Job Object mit
 rem JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE. Dadurch koennen Freqtrade/Python-
-rem Prozesse das sichtbare STARTBOT-Fenster nicht mehr ueberleben.
+rem Prozesse und der lokale Browser-Starthelfer das sichtbare STARTBOT-Fenster
+rem nicht mehr ueberleben.
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
