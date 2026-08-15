@@ -1,5 +1,6 @@
 name: V8 paper candidate contract
 
+# Final promotion gate: runtime, strategy, database isolation and backtest contracts.
 on:
   push:
     branches:
