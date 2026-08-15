@@ -37,6 +37,7 @@ _STRATEGY = _USERDIR / "strategies" / f"{STRATEGY_NAME}.py"
 _BACKTEST_RUNNER = _RUNTIME_ROOT / "locked_backtest_freqtrade.py"
 _UI_SCRIPT = _RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 _RESULTS_ROOT = _USERDIR / "backtest_results" / "ui"
+_DATA_ROOT = _USERDIR / "data" / "binance"
 
 _state_lock = threading.Lock()
 _state: dict[str, Any] = {
@@ -127,6 +128,103 @@ def _validate_result_coverage(
             f"{actual_start:%Y-%m-%d} bis {actual_end:%Y-%m-%d} "
             f"({actual_days} Tage). Ergebnis wird nicht als gueltig angezeigt."
         )
+
+
+def _timeframe_delta(timeframe: str) -> timedelta:
+    seconds = {"1m": 60, "15m": 15 * 60, "1h": 60 * 60, "4h": 4 * 60 * 60}
+    try:
+        return timedelta(seconds=seconds[timeframe])
+    except KeyError as exc:
+        raise RuntimeError(f"Unbekannter Backtest-Timeframe: {timeframe}") from exc
+
+
+def _candle_path(pair: str, timeframe: str) -> Path:
+    return _DATA_ROOT / f"{pair.replace('/', '_')}-{timeframe}.feather"
+
+
+def _inspect_candle_file(
+    path: Path,
+    timeframe: str,
+    required_start: datetime,
+    required_end: datetime,
+) -> dict[str, Any]:
+    """Validate the exact candle timestamps Freqtrade will read, fail closed on corruption."""
+
+    import pandas as pd
+
+    if not path.is_file():
+        raise RuntimeError(f"Marktdaten-Datei fehlt: {path}")
+    frame = pd.read_feather(path, columns=["date"])
+    if frame.empty:
+        raise RuntimeError(f"Marktdaten-Datei ist leer: {path}")
+
+    dates = pd.to_datetime(frame["date"], utc=True, errors="raise")
+    delta = _timeframe_delta(timeframe)
+    window_start = required_start.astimezone(UTC).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    in_window = dates[(dates >= window_start) & (dates <= required_end + delta)]
+    if in_window.empty:
+        raise RuntimeError(
+            f"Keine {timeframe}-Kerzen im benoetigten Zeitraum in {path.name}."
+        )
+
+    duplicates = int(in_window.duplicated().sum())
+    diffs = in_window.diff().dropna()
+    non_increasing = int((diffs <= timedelta(0)).sum())
+    gaps = int((diffs > delta).sum())
+    first = in_window.iloc[0].to_pydatetime()
+    last = in_window.iloc[-1].to_pydatetime()
+
+    if duplicates or non_increasing or gaps:
+        raise RuntimeError(
+            "Marktdaten-Integritaet fehlgeschlagen fuer "
+            f"{path.name}: Duplikate={duplicates}, unsortiert={non_increasing}, "
+            f"Luecken={gaps}. Backtest wird nicht gestartet."
+        )
+    if first > window_start + delta:
+        raise RuntimeError(
+            f"Marktdaten beginnen zu spaet fuer {path.name}: {first.isoformat()} "
+            f"statt spaetestens {(window_start + delta).isoformat()}."
+        )
+    # The newest still-open candle need not be present. Two completed intervals
+    # of tolerance cover exchange/update timing without accepting stale history.
+    if last < required_end - (2 * delta):
+        raise RuntimeError(
+            f"Marktdaten enden zu frueh fuer {path.name}: {last.isoformat()} "
+            f"bei Pruefzeit {required_end.isoformat()}."
+        )
+
+    return {
+        "file": path.name,
+        "timeframe": timeframe,
+        "rows_in_required_window": int(len(in_window)),
+        "first": first.isoformat(),
+        "last": last.isoformat(),
+        "duplicates": duplicates,
+        "gaps": gaps,
+    }
+
+
+def _validate_candle_data(
+    pair: str, download_start: datetime, required_end: datetime
+) -> list[dict[str, Any]]:
+    checks = [
+        _inspect_candle_file(
+            _candle_path(pair, timeframe), timeframe, download_start, required_end
+        )
+        for timeframe in REQUIRED_TIMEFRAMES
+    ]
+    btc_context = _btc_context_pair(pair)
+    if btc_context:
+        context_path = _candle_path(btc_context, "4h")
+        if context_path != _candle_path(pair, "4h"):
+            checks.append(
+                _inspect_candle_file(
+                    context_path, "4h", download_start, required_end
+                )
+            )
+    return checks
 
 
 def _run_checked(args: list[str], log_path: Path) -> None:
@@ -322,6 +420,9 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             ]
             _run_checked(context_prepend_args, log_path)
 
+        _set_state(stage="Kerzendaten werden auf Luecken und Duplikate geprueft", progress=38)
+        data_integrity = _validate_candle_data(pair, download_start, now)
+
         _set_state(stage="Historische Daten geladen - Backtest startet", progress=45)
         backtest_args = [
             sys.executable,
@@ -369,6 +470,8 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         result_file = _find_result_file(run_dir)
         result = _extract_result(result_file, pair, years, strategy_hash)
         _validate_result_coverage(result, requested_start, now, years)
+        result["data_integrity_validated"] = True
+        result["data_integrity"] = data_integrity
         _set_state(
             status="completed",
             stage="Fertig",
