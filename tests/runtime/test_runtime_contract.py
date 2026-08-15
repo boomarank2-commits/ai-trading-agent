@@ -262,8 +262,26 @@ class StrategySourceTests(unittest.TestCase):
                             True,
                             "Centered rolling windows can use future data",
                         )
-        self.assertNotIn("iloc[-1]", self.source.replace(" ", ""))
-        self.assertNotIn("iat[-1]", self.source.replace(" ", ""))
+        # Last-row access is legitimate inside post-fill callbacks such as
+        # order_filled(), where Freqtrade exposes only information available at
+        # that callback time. Keep the strict prohibition where signals and
+        # indicators are generated, because there it could leak the dataframe's
+        # future endpoint into historical rows.
+        causal_signal_methods = {
+            "populate_indicators",
+            "populate_indicators_1h",
+            "populate_indicators_4h",
+            "populate_indicators_btc_4h",
+            "populate_entry_trend",
+            "populate_exit_trend",
+        }
+        for node in self.strategy.body:
+            if not isinstance(node, ast.FunctionDef) or node.name not in causal_signal_methods:
+                continue
+            method_source = ast.get_source_segment(self.source, node) or ""
+            compact = method_source.replace(" ", "")
+            self.assertNotIn("iloc[-1]", compact, node.name)
+            self.assertNotIn("iat[-1]", compact, node.name)
 
     def test_hyperopt_parameters_have_explicit_spaces(self) -> None:
         parameter_calls = []
