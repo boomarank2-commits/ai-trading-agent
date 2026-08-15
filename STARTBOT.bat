@@ -20,7 +20,7 @@ echo Strg+C beendet den Bot kontrolliert und erzeugt den Abschlussbericht.
 echo Wird dieses Fenster direkt geschlossen, der Supervisor beendet oder das
 echo ueberwachte Testbot-UI geschlossen, beendet Windows automatisch auch den
 echo gesamten Bot-Prozessbaum. Ein unsichtbar weiterlaufender Bot ist damit
- echo nicht zulaessig.
+echo nicht zulaessig.
 echo.
 
 call :ensure_uv
