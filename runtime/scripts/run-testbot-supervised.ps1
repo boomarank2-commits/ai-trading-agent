@@ -163,6 +163,33 @@ while (`$true) {
     exit $child.ExitCode
 }
 
+# Start the API-ready browser helper only after this process owns the Job
+# Object, so the helper cannot become an orphan when STARTBOT is closed.
+$browserHelperCommand = @'
+$url = 'http://127.0.0.1:8080'
+$ping = $url + '/api/v1/ping'
+for ($i = 0; $i -lt 180; $i++) {
+    try {
+        $response = Invoke-RestMethod -Uri $ping -TimeoutSec 2
+        if ($response.status -eq 'pong') {
+            Start-Process $url
+            exit 0
+        }
+    }
+    catch {
+    }
+    Start-Sleep -Seconds 1
+}
+exit 1
+'@
+$browserHelperEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($browserHelperCommand))
+[void](Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @(
+    "-NoLogo",
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-EncodedCommand", $browserHelperEncoded
+))
+
 $launcher = Join-Path $PSScriptRoot "start-testbot-24x7.ps1"
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) {
     throw "Testbot-Launcher fehlt: $launcher"
