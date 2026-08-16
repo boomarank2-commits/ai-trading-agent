@@ -45,4 +45,5 @@ def test_golden_replay_is_stable() -> None:
     assert metrics["trade_count"] == 1
     assert engine.state.closed_trades[0].exit_reason == "roi"
     assert round(engine.state.closed_trades[0].pnl_abs, 6) == 39.6
-    assert engine.checkpoint_hash() == "910e6a708dd2a1c61049a6961ccaf7fce117636a4dc68387c2c823cd83730457"
+    # Checkpoint schema 2 intentionally fingerprints new execution/idempotency state.
+    assert engine.checkpoint_hash() == "5a9208b026bba418896a2fbd7daa42149cc5a009db21e08d683d2a65f2b13ef9"
