@@ -25,6 +25,10 @@ runtime/*.private.json
 runtime/kill-switch
 runtime/user_data/live-instance.lock
 runtime/user_data/.effective-live-*.json
+runtime/user_data/replay_results/
+runtime/user_data/paper_telemetry/
+runtime/user_data/replay_data_manifest_latest.json
+research/audit_outputs/
 research/reports/
 research/inbox/
 research/registry/
