@@ -2,8 +2,9 @@
 
 This module does not trade and does not modify strategy decisions. It validates
 that the repository follows the current Deep-Research masterplan: V8 remains
-frozen, the superseded Codex phase brief is gone, and the trial ledger keeps the
-fields required for multiple-testing-aware research.
+frozen, the superseded Codex phase brief is gone, Deep-Research architecture
+boundaries remain explicit, and the trial ledger keeps the fields required for
+multiple-testing-aware research.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from typing import Any
 
 V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
+GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
 
 REQUIRED_LEDGER_COLUMNS = (
@@ -42,6 +44,35 @@ REQUIRED_LEDGER_COLUMNS = (
 )
 
 ALLOWED_VOLUME_PARAMETER_HASHES = {"volume_ratio>=1.00", "volume_ratio>=1.25"}
+
+MASTERPLAN_REQUIRED_PHRASES = (
+    "V8 bleibt der eingefrorene Champion",
+    "`TREND/BREAKOUT`",
+    "`RANGE/MEAN_REVERSION`",
+    "`NO_TRADE` ist die Default-Aktion",
+    "Hot Path",
+    "Cold Path / Research Plane",
+    "ORB-Retest-Challenger",
+    "Bollinger-Mean-Reversion-Challenger",
+    "Ichimoku-Trend-Challenger",
+    "Walk-Forward",
+    "Partial Fills",
+    "cancel rejected",
+    "position exists at boot",
+    "keine automatische Echtgeldfreigabe",
+    "B1 = V8 + `volume_ratio >= 1.00`",
+    "B2 = V8 + `volume_ratio >= 1.25`",
+)
+
+GAP_AUDIT_REQUIRED_PHRASES = (
+    "Execution-/Cost-Simulator",
+    "Red-Team-/Fault-Injection",
+    "Partial Fills",
+    "ORB-Retest als separater Challenger",
+    "Ichimoku als separater Trend-Challenger",
+    "Walk-Forward",
+    "READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY",
+)
 
 
 def load_trial_ledger(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -116,34 +147,54 @@ def validate_trial_ledger(path: Path) -> list[str]:
     return errors
 
 
+def _require_phrases(path: Path, phrases: tuple[str, ...], label: str) -> list[str]:
+    if not path.is_file():
+        return [f"missing {label}: {path.name}"]
+    text = path.read_text(encoding="utf-8")
+    return [
+        f"{label} missing required contract phrase: {phrase}"
+        for phrase in phrases
+        if phrase not in text
+    ]
+
+
 def validate_repository(repo_root: Path) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     errors: list[str] = []
 
     masterplan = repo_root / MASTERPLAN
-    if not masterplan.is_file():
-        errors.append(f"missing authoritative masterplan: {MASTERPLAN}")
-    else:
-        text = masterplan.read_text(encoding="utf-8")
-        required_phrases = (
-            "V8 bleibt der eingefrorene Champion",
-            "B1 = V8 + `volume_ratio >= 1.00`",
-            "B2 = V8 + `volume_ratio >= 1.25`",
-            "Bollinger-Mean-Reversion-Challenger",
-            "keine automatische Echtgeldfreigabe",
-        )
-        for phrase in required_phrases:
-            if phrase not in text:
-                errors.append(
-                    f"masterplan missing required contract phrase: {phrase}"
-                )
+    errors.extend(_require_phrases(masterplan, MASTERPLAN_REQUIRED_PHRASES, "masterplan"))
+
+    audit = repo_root / GAP_AUDIT
+    errors.extend(_require_phrases(audit, GAP_AUDIT_REQUIRED_PHRASES, "gap audit"))
 
     if (repo_root / SUPERSEDED_BRIEF).exists():
         errors.append(f"superseded root brief must not be active: {SUPERSEDED_BRIEF}")
 
     agents = repo_root / "AGENTS.md"
-    if not agents.is_file() or MASTERPLAN not in agents.read_text(encoding="utf-8"):
-        errors.append("AGENTS.md does not bind agents to the authoritative masterplan")
+    if not agents.is_file():
+        errors.append("missing AGENTS.md")
+    else:
+        agents_text = agents.read_text(encoding="utf-8")
+        if MASTERPLAN not in agents_text:
+            errors.append("AGENTS.md does not bind agents to the authoritative masterplan")
+        if GAP_AUDIT not in agents_text:
+            errors.append("AGENTS.md does not bind agents to the Deep-Research gap audit")
+        stale_priority = "Bollinger mean reversion ahead of Ichimoku/ORB ideas"
+        if stale_priority in agents_text:
+            errors.append("AGENTS.md still contains the superseded challenger priority")
+        for phrase in ("ORB-Retest", "Ichimoku", "Bollinger Mean Reversion", "NO_TRADE"):
+            if phrase not in agents_text:
+                errors.append(f"AGENTS.md missing Deep-Research boundary: {phrase}")
+
+    start_here = repo_root / "START_HERE_DE.md"
+    if not start_here.is_file():
+        errors.append("missing START_HERE_DE.md")
+    else:
+        start_text = start_here.read_text(encoding="utf-8")
+        for phrase in (GAP_AUDIT, "NO_TRADE", "ORB-Retest", "Ichimoku"):
+            if phrase not in start_text:
+                errors.append(f"START_HERE_DE.md missing current architecture marker: {phrase}")
 
     errors.extend(validate_trial_ledger(repo_root / "research" / "trial_ledger.csv"))
 
@@ -151,6 +202,7 @@ def validate_repository(repo_root: Path) -> dict[str, Any]:
         "ok": not errors,
         "errors": errors,
         "masterplan": MASTERPLAN,
+        "gap_audit": GAP_AUDIT,
         "frozen_v8_lf_sha256": V8_LF_SHA256,
     }
 

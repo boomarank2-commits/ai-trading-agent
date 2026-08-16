@@ -1,4 +1,4 @@
-# Start hier: V8-Paperbot und Research-System
+# Start hier: V8-Paperbot und Deep-Research-System
 
 ## Aktueller Stand
 
@@ -16,6 +16,48 @@ V8 bleibt eingefroren und läuft ausschließlich im simulierten Paper-/Dry-run-B
 Status: **READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY.**
 
 Der verbindliche Weiterentwicklungsplan steht in [`RESEARCH_MASTERPLAN_DE.md`](RESEARCH_MASTERPLAN_DE.md). Ältere Codex-Phasen sind keine aktive Sollvorgabe mehr.
+
+Der konkrete Soll/Ist-Abgleich gegen die aktuellen Deep-Research-Berichte steht in [`docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`](docs/DEEP_RESEARCH_GAP_AUDIT_DE.md). Dort werden vorhandene, teilweise vorhandene und noch fehlende Teile ausdrücklich getrennt. Ein vorhandenes Grundgerüst darf nicht als fertige Umsetzung ausgegeben werden.
+
+## Zielbild
+
+Langfristig entsteht kein einzelner ständig handelnder Bot, sondern eine deterministische Multi-Strategy Execution Engine mit separater AI Research Plane.
+
+```text
+Market Data
+→ Normalizer / Data Quality
+→ Features
+→ Regime
+   ├─ TREND/BREAKOUT → separater Trend-Challenger
+   │                   ├─ ORB-Retest
+   │                   └─ Ichimoku
+   ├─ RANGE/MEAN_REVERSION → Bollinger MR
+   └─ unklar → NO_TRADE
+→ Signal Validator
+→ Portfolio/Risk
+→ Execution/OMS
+→ Reconciliation
+→ Telemetrie
+```
+
+`NO_TRADE` ist die Default-Aktion bei unklarer Datenqualität, unklarem Regime oder Risk-Reject.
+
+Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedliche Schwerpunkte. Deshalb werden **ORB-Retest und Ichimoku nicht miteinander vermischt und nicht stillschweigend gegeneinander entschieden**. Beide sind spätere eigenständige Trend-Challenger; Bollinger MR ist die separate Range-/Mean-Reversion-Familie. Ein Hybrid kommt erst nach Einzelvalidierung.
+
+Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
+
+```text
+Trades + Logs + Regime + Execution-Daten
+→ AI Research
+→ falsifizierbare Hypothese
+→ separater Candidate
+→ Backtest / Walk-Forward / PBO / DSR / Stress
+→ Registry
+→ Shadow / Forward
+→ manuelle Freigabe
+```
+
+Der LLM-Agent erhält keine freie Exchange-Orderfunktion und verändert nicht spontan aktive Risk-/Trading-Parameter.
 
 ## Testbot starten
 
@@ -63,6 +105,8 @@ runtime\user_data\replay_results\
 
 Für den aktuellen Research-Gate sollen Baseline-Kosten von 0,002 je Orderseite und zusätzlich ein Stresslauf mit 0,004 je Seite bewertet werden.
 
+**Wichtig:** Der vorhandene Replay ist bereits deterministisch und modelliert Gebühren, fixe Slippage, Timeouts und Risk-Zustand. Er ist aber noch **kein vollständig realistischer Exchange-/OMS-Simulator**. Spread, deterministische Latenz, Partial Fills, Cancel-Reject, vollständige duplicate/out-of-order Eventtests und Boot-/Restart-Reconciliation sind im Gap-Audit noch offen.
+
 ## Paper-vs-Replay-Parität
 
 Wenn ein tatsächlich überlappender Paper-Zeitraum vorhanden ist:
@@ -73,6 +117,12 @@ PAPER_REPLAY_PARITAET.bat
 
 Unerklärte Signal- oder Risk-Allow/Reject-Abweichungen bei identischem kausalem Input sind ein Release-Blocker für spätere Strategie-Promotion.
 
+## Red-Team-/Fault-Abdeckung
+
+Deep Research verlangt mehr als einen einzelnen Stale-Data-Test. Die Zielmatrix umfasst unter anderem Data-feed-Ausfall, Latenz, duplicate/out-of-order Events, Partial Fills, Cancel Reject, Clock-Probleme, Restarts, Position bei Boot, LLM-Ausfall und temporären DB-Ausfall.
+
+Solange nicht alle Szenarien maschinell abgedeckt oder mit einer dokumentierten konservativen Ersatzregel versehen sind, bleibt die Fault-/Execution-Schicht **PARTIAL**.
+
 ## Replay-/Research-Auswertung
 
 ```bat
@@ -81,7 +131,7 @@ HISTORISCHE_AUSWERTUNG.bat
 
 Die Auswertung dient insbesondere dazu, die `failed_4h_breakout`-Trades, Volume-Ratio, Breakout-Distanz und kausale Regime zu untersuchen, **ohne V8 dadurch automatisch zu verändern**.
 
-## Trial Ledger und Multiple Testing
+## Trial Ledger, Walk-Forward und Multiple Testing
 
 Alle Kandidaten – auch abgelehnte – bleiben in:
 
@@ -95,7 +145,13 @@ PBO/Deflated-Sharpe-Diagnostik kann über:
 STATISTIK_AUDIT.bat
 ```
 
-laufen, sobald vergleichbare Return-Serien für mehrere Trials vorliegen. Diese Kennzahlen sind Research-Gates und keine Gewinn- oder Echtgeldfreigabe.
+laufen, sobald vergleichbare Return-Serien für mehrere Trials vorliegen.
+
+Für neue Strategie-Challenger müssen außerdem Development/Validation/Holdout, Walk-Forward, Kostenstress, 1-Bar-Lag, Parameterplateau und PnL-Konzentration in den Research-Prozess aufgenommen werden. Diese Kennzahlen sind Research-Gates und keine Gewinn- oder Echtgeldfreigabe.
+
+## Offline AI Research Plane
+
+`research\Start-ResearchDesk.ps1` ist nur ein sicherheitsbewusster Prototyp. Autonome Ausführung bleibt absichtlich deaktiviert, bis eine echte Low-Privilege-/VM-/Container-Isolation besteht. Dieser fehlende aktive Loop ist **kein Bug, den man durch Entfernen des Guards beheben darf**.
 
 ## Was aktuell ausdrücklich nicht gemacht wird
 
@@ -108,8 +164,18 @@ laufen, sobald vergleichbare Return-Serien für mehrere Trials vorliegen. Diese 
 - kein LLM mit direkter Exchange-Orderfunktion
 - kein Mischen von Bollinger/Ichimoku/ORB in den eingefrorenen V8
 - kein neues Volume-Tuning nach Sicht auf B1/B2
+- kein Regime-Hybrid, bevor Einzelstrategien getrennt validiert wurden
+- keine Aussage „Execution/Fault-Suite fertig“, solange der Gap-Audit offene Punkte zeigt
 
-Bollinger Mean Reversion ist ein späterer **separater Challenger**, nicht Teil des aktuellen V8.
+## Nächste technische Reihenfolge
+
+1. V8 unverändert lassen.
+2. Replay-/Execution-/Reconciliation-/Fault-Gaps schließen.
+3. Danach echter Full-History-, Fee-Stress- und Paper-Parity-Lauf.
+4. V8-Diagnostik.
+5. Walk-Forward-/Meta-Research-Harness vervollständigen.
+6. Erst danach ORB-Retest, Bollinger MR und Ichimoku als **getrennte** Challenger vorregistrieren.
+7. Erst nach Einzelvalidierung einen Regime-Router/Hybrid testen.
 
 ## Tests
 
