@@ -44,6 +44,8 @@ Market Data
 
 Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedliche Schwerpunkte. Deshalb werden **ORB-Retest und Ichimoku nicht miteinander vermischt und nicht stillschweigend gegeneinander entschieden**. Beide sind spätere eigenständige Trend-Challenger; Bollinger MR ist die separate Range-/Mean-Reversion-Familie. Ein Hybrid kommt erst nach Einzelvalidierung.
 
+Der spätere Research-Router ist bereits als fail-closed Contract in `runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in V8 verdrahtet und verändert deshalb keine aktuelle Paper-Handelsentscheidung.
+
 Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
 
 ```text
@@ -105,7 +107,9 @@ runtime\user_data\replay_results\
 
 Für den aktuellen Research-Gate sollen Baseline-Kosten von 0,002 je Orderseite und zusätzlich ein Stresslauf mit 0,004 je Seite bewertet werden.
 
-**Wichtig:** Der vorhandene Replay ist bereits deterministisch und modelliert Gebühren, fixe Slippage, Timeouts und Risk-Zustand. Er ist aber noch **kein vollständig realistischer Exchange-/OMS-Simulator**. Spread, deterministische Latenz, Partial Fills, Cancel-Reject, vollständige duplicate/out-of-order Eventtests und Boot-/Restart-Reconciliation sind im Gap-Audit noch offen.
+Der Replay modelliert inzwischen zusätzlich zu Gebühren, fixer Slippage, Timeouts und Risk-Zustand auch **deterministischen Spread-Stress, eine auf 1-Minuten-Granularität begrenzte Execution-Verzögerung, Partial-Fill-Slices, Cancel-Reject-Stress, Duplicate-Minute-Idempotenz sowie Checkpoint-/Replay-Reconciliation**.
+
+**Wichtig:** Das macht ihn noch nicht zu einer historischen Tick-/Orderbuch-/Exchange-OMS-Rekonstruktion. Spread ist ein deterministischer Stress-Proxy, Partial Fills sind kein volumenbasiertes Queue-Modell, die Latenzauflösung bleibt 1 Minute und echte Exchange-Reconciliation bzw. asynchrones Fill-Reordering sind weiterhin offen. Der genaue Status steht im Gap-Audit.
 
 ## Paper-vs-Replay-Parität
 
@@ -119,9 +123,9 @@ Unerklärte Signal- oder Risk-Allow/Reject-Abweichungen bei identischem kausalem
 
 ## Red-Team-/Fault-Abdeckung
 
-Deep Research verlangt mehr als einen einzelnen Stale-Data-Test. Die Zielmatrix umfasst unter anderem Data-feed-Ausfall, Latenz, duplicate/out-of-order Events, Partial Fills, Cancel Reject, Clock-Probleme, Restarts, Position bei Boot, LLM-Ausfall und temporären DB-Ausfall.
+Deep Research verlangt mehr als einen einzelnen Stale-Data-Test. Bereits maschinell geprüft sind jetzt unter anderem Data-Unhealthy, Kill-Switch, rückwärts laufende Replay-Zeit, fehlausgerichtete Minute-Batches, Fill-Time-Risk-Recheck, Entry-Timeout, Duplicate/Conflicting-Minute-Events, Partial Fills, Cancel Reject und Checkpoint-Restore mit teilgefüllter offener Position.
 
-Solange nicht alle Szenarien maschinell abgedeckt oder mit einer dokumentierten konservativen Ersatzregel versehen sind, bleibt die Fault-/Execution-Schicht **PARTIAL**.
+Offen bzw. nur teilweise modelliert bleiben insbesondere echtes asynchrones Fill-/Order-Event-Reordering, reale Exchange-Positionen bei Boot, Risk-Service-/DB-Ausfall und feinere als 1-Minuten-Latenz. Die Fault-/Execution-Schicht bleibt deshalb als Gesamtpaket **PARTIAL**.
 
 ## Replay-/Research-Auswertung
 
@@ -147,7 +151,9 @@ STATISTIK_AUDIT.bat
 
 laufen, sobald vergleichbare Return-Serien für mehrere Trials vorliegen.
 
-Für neue Strategie-Challenger müssen außerdem Development/Validation/Holdout, Walk-Forward, Kostenstress, 1-Bar-Lag, Parameterplateau und PnL-Konzentration in den Research-Prozess aufgenommen werden. Diese Kennzahlen sind Research-Gates und keine Gewinn- oder Echtgeldfreigabe.
+Ein kausaler Walk-Forward-Contract ist inzwischen in `runtime/walk_forward.py` vorhanden: half-open Train/Test-Fenster, Fensterprüfung und Fold-Summary einschließlich Kostenstress- und 1-Bar-Lag-Feldern. Noch fehlt die vollständige Strategie-Runner-/Promotion-Integration; deshalb ist Walk-Forward **PARTIAL**, nicht fertig.
+
+Für neue Strategie-Challenger müssen Development/Validation/Holdout, Walk-Forward, Kostenstress, 1-Bar-Lag, Parameterplateau und PnL-Konzentration vollständig in den Research-Prozess aufgenommen werden. Diese Kennzahlen sind Research-Gates und keine Gewinn- oder Echtgeldfreigabe.
 
 ## Offline AI Research Plane
 
@@ -170,10 +176,10 @@ Für neue Strategie-Challenger müssen außerdem Development/Validation/Holdout,
 ## Nächste technische Reihenfolge
 
 1. V8 unverändert lassen.
-2. Replay-/Execution-/Reconciliation-/Fault-Gaps schließen.
+2. Verbleibende Replay-/Execution-/Reconciliation-/Fault-Gaps schließen, ohne V8 umzuschreiben.
 3. Danach echter Full-History-, Fee-Stress- und Paper-Parity-Lauf.
 4. V8-Diagnostik.
-5. Walk-Forward-/Meta-Research-Harness vervollständigen.
+5. Walk-Forward-Runner-/Meta-Research-Integration vervollständigen.
 6. Erst danach ORB-Retest, Bollinger MR und Ichimoku als **getrennte** Challenger vorregistrieren.
 7. Erst nach Einzelvalidierung einen Regime-Router/Hybrid testen.
 
