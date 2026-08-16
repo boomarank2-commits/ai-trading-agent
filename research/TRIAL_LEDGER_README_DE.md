@@ -1,7 +1,59 @@
 # Trial Ledger
 
-Das Ledger ist absichtlich append-or-update statt "nur Gewinner". Negative und abgebrochene Experimente bleiben sichtbar, damit Multiple Testing und Selection Bias später nicht unterschätzt werden.
+Das Trial Ledger ist verbindlicher Bestandteil des aktuellen Research-Masterplans. Es ist absichtlich **nicht** nur eine Gewinnerliste: negative, abgebrochene und pausierte Experimente bleiben sichtbar, damit Multiple Testing und Selection Bias später nicht unterschätzt werden.
 
-Pflichtfelder für neue Experimente sind mindestens Experiment-ID, Parent, Strategie-/Config-Hash, vorab formulierte Hypothese, Datenfenster, Pairs, Kosten, Tradezahl, Nettoergebnis, Profit Factor, Drawdown und eine begründete Entscheidung.
+Die aktuelle aktive Arbeitsgrundlage ist `RESEARCH_MASTERPLAN_DE.md`.
+
+## Pflichtfelder
+
+Neue Experimente müssen mindestens diese Felder pflegen:
+
+- `experiment_id`
+- `parent_experiment_id`
+- `strategy_version`
+- `strategy_hash`
+- `parameter_hash`
+- `hypothesis`
+- `status`
+- `date_decided`
+- `development_window`
+- `validation_window`
+- `holdout_window`
+- `pairs`
+- `fees`
+- `trade_count`
+- `net_return`
+- `profit_factor`
+- `sharpe`
+- `max_drawdown`
+- `reason_accepted_or_rejected`
+- `notes`
+
+Leere Messwerte sind für Experimente erlaubt, die noch nicht gelaufen sind. Identität, Hypothese, Status und Entscheidungsdatum dürfen nicht fehlen.
+
+## V8-Sonderregeln
+
+`V8-B0` bleibt der eingefrorene Champion mit LF-SHA256:
+
+`9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280`
+
+Die vorregistrierte globale Volume-Serie besteht nur aus:
+
+- B1: `volume_ratio >= 1.00`
+- B2: `volume_ratio >= 1.25`
+
+Nach Sicht auf B1/B2 wird keine neue Schwelle spontan ergänzt. B1 ist als globaler Filter verworfen; B2 ist bis nach Replay-/Diagnose-Gates pausiert.
+
+## PBO / DSR
 
 `runtime/statistical_audit.py` erwartet für PBO/DSR zusätzlich periodische Return-Serien aller vergleichbaren Varianten. Wenn frühere Versuche nicht vollständig rekonstruierbar sind, muss der statistische Audit das Trial-Universum ausdrücklich als unvollständig kennzeichnen.
+
+PBO und Deflated Sharpe sind Research-Diagnostik und keine Echtgeldfreigabe.
+
+## Automatischer Governance-Check
+
+```bat
+.\.venv\Scripts\python.exe runtime\research_governance.py
+```
+
+Der Check prüft unter anderem Masterplan, V8-Freeze, Ledger-Schema, Parent-Referenzen und die vorregistrierten Volume-Schwellen.
