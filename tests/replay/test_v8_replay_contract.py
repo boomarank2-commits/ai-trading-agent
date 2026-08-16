@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -10,7 +9,7 @@ V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout
 LOCKED = REPO_ROOT / "runtime" / "locked_freqtrade.py"
 
 EXPECTED_V8_LF_SHA = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
-EXPECTED_V9_LF_SHA = "b9ab4f995510b9d847e2b5c9793bb8072bd3d6a7f9c623eb8f283c85fad2a0e1"
+EXPECTED_V10_LF_SHA = "698fa520249bcb0b100fc172d2827735a4fbe9a22d01a9e484a53253ff18673c"
 
 
 def _lf_sha(path: Path) -> str:
@@ -18,22 +17,21 @@ def _lf_sha(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def test_v8_reference_is_preserved_while_v9_is_active() -> None:
+def test_v8_reference_is_preserved_while_v10_is_active() -> None:
     assert _lf_sha(V8_BASELINE) == EXPECTED_V8_LF_SHA
-    assert _lf_sha(STRATEGY) == EXPECTED_V9_LF_SHA
+    assert _lf_sha(STRATEGY) == EXPECTED_V10_LF_SHA
 
 
-def test_v9_has_btc_only_volume_ratio_entry_gate() -> None:
+def test_v10_has_no_cross_pair_btc_regime_dependency() -> None:
     text = STRATEGY.read_text(encoding="utf-8")
-    execution_match = re.search(
-        r"execution\s*=\s*\((.*?)\n\s*\)\n\s*enter_tag", text, re.DOTALL
-    )
-    assert execution_match is not None
-    execution = execution_match.group(1)
-    assert "volume_quality" in execution
-    assert 'if pair == "BTC/USDT":' in text
-    assert 'dataframe["volume_ratio"] >= self.BTC_VOLUME_RATIO_MIN' in text
-    assert "BTC_VOLUME_RATIO_MIN = 1.00" in text
+    assert 'STRATEGY_VERSION = "V10"' in text
+    assert "populate_indicators_btc_4h" not in text
+    assert "btc_market_up" not in text
+    assert "btc_close_4h" not in text
+    assert '"BTC/USDT": {' in text
+    assert '"ETH/USDT": {' in text
+    assert '"SOL/USDT": {' in text
+    assert '"only_per_pair": True' in text
 
 
 def test_replay_observability_is_installed_outside_strategy_source() -> None:
