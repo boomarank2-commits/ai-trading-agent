@@ -9,7 +9,7 @@ RUNTIME = REPO / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from research_governance import (  # noqa: E402
+from research_governance import (
     REQUIRED_LEDGER_COLUMNS,
     V8_LF_SHA256,
     validate_repository,
