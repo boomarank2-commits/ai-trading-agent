@@ -81,19 +81,26 @@ def _jsonable(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, dict):
-        return {str(key): _jsonable(item) for key, item in sorted(value.items(), key=lambda x: str(x[0]))}
+        return {
+            str(key): _jsonable(item)
+            for key, item in sorted(value.items(), key=lambda item: str(item[0]))
+        }
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
     return str(value)
 
 
 def _hash_payload(payload: dict[str, Any]) -> str:
-    raw = json.dumps(_jsonable(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    raw = json.dumps(
+        _jsonable(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _safe_config_fingerprint(config: dict[str, Any]) -> str:
-    payload = {name: config.get(name) for name in _SAFE_CONFIG_FIELDS if name in config}
+    payload = {
+        name: config.get(name) for name in _SAFE_CONFIG_FIELDS if name in config
+    }
     exchange = config.get("exchange")
     if isinstance(exchange, dict):
         payload["exchange_name"] = exchange.get("name")
@@ -105,7 +112,11 @@ def _risk_policy_fingerprint(config: dict[str, Any], strategy_sha256: str) -> st
     payload = {
         "policy_version": "v8-paper-risk-observation-v1",
         "strategy_sha256_raw": strategy_sha256,
-        **{name: config.get(name) for name in _RISK_CONFIG_FIELDS if name in config},
+        **{
+            name: config.get(name)
+            for name in _RISK_CONFIG_FIELDS
+            if name in config
+        },
     }
     return _hash_payload(payload)
 
@@ -121,7 +132,10 @@ def _git_sha() -> str | None:
             timeout=2,
         )
         value = result.stdout.strip().lower()
-        if result.returncode == 0 and len(value) == 40 and all(c in "0123456789abcdef" for c in value):
+        is_hex_sha = len(value) == 40 and all(
+            character in "0123456789abcdef" for character in value
+        )
+        if result.returncode == 0 and is_hex_sha:
             return value
     except Exception:
         return None
@@ -129,15 +143,22 @@ def _git_sha() -> str | None:
 
 
 class PaperDecisionRecorder:
-    def __init__(self, config: dict[str, Any], strategy_sha256: str, strategy_name: str) -> None:
+    def __init__(
+        self, config: dict[str, Any], strategy_sha256: str, strategy_name: str
+    ) -> None:
         root = Path(str(config.get("user_data_dir", "user_data"))) / "paper_telemetry"
         root.mkdir(parents=True, exist_ok=True)
         session = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         self.run_id = f"paper-{session}-{uuid.uuid4().hex[:12]}"
-        self.path = root / f"paper-decisions-{self.run_id}-{strategy_sha256[:12]}.jsonl"
+        self.path = root / (
+            f"paper-decisions-{self.run_id}-{strategy_sha256[:12]}.jsonl"
+        )
         self.strategy_sha256 = strategy_sha256
         self.strategy_name = strategy_name
-        self.experiment_id = os.environ.get("AI_TRADING_EXPERIMENT_ID", "V8-PAPER-FORWARD").strip() or "V8-PAPER-FORWARD"
+        configured_experiment = os.environ.get(
+            "AI_TRADING_EXPERIMENT_ID", "V8-PAPER-FORWARD"
+        ).strip()
+        self.experiment_id = configured_experiment or "V8-PAPER-FORWARD"
         self.git_sha = _git_sha()
         self.config_hash = _safe_config_fingerprint(config)
         self.risk_policy_hash = _risk_policy_fingerprint(config, strategy_sha256)
@@ -159,7 +180,9 @@ class PaperDecisionRecorder:
                 **payload,
             }
             raw = json.dumps(record, sort_keys=True, ensure_ascii=False)
-            with _WRITE_LOCK, self.path.open("a", encoding="utf-8", newline="\n") as stream:
+            with _WRITE_LOCK, self.path.open(
+                "a", encoding="utf-8", newline="\n"
+            ) as stream:
                 stream.write(raw + "\n")
         except Exception:
             return
@@ -259,7 +282,9 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
     if getattr(instance, "__paper_replay_telemetry_installed__", False):
         return
 
-    recorder = PaperDecisionRecorder(instance.config, strategy_sha256, type(instance).__name__)
+    recorder = PaperDecisionRecorder(
+        instance.config, strategy_sha256, type(instance).__name__
+    )
     original_entry = instance.populate_entry_trend
     original_exit = instance.populate_exit_trend
     original_confirm = instance.confirm_trade_entry
@@ -267,13 +292,17 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
     def entry_wrapper(self: Any, dataframe: Any, metadata: dict[str, Any]) -> Any:
         del self
         result = original_entry(dataframe, metadata)
-        recorder.signal_row(kind="entry", pair=str(metadata.get("pair", "")), frame=result)
+        recorder.signal_row(
+            kind="entry", pair=str(metadata.get("pair", "")), frame=result
+        )
         return result
 
     def exit_wrapper(self: Any, dataframe: Any, metadata: dict[str, Any]) -> Any:
         del self
         result = original_exit(dataframe, metadata)
-        recorder.signal_row(kind="exit", pair=str(metadata.get("pair", "")), frame=result)
+        recorder.signal_row(
+            kind="exit", pair=str(metadata.get("pair", "")), frame=result
+        )
         return result
 
     def confirm_wrapper(
@@ -314,7 +343,9 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
                 "amount": _safe_float(amount),
                 "entry_tag": entry_tag,
                 "entry_allowed": result,
-                "entry_rejection_reason": None if result else "v8_confirm_trade_entry_rejected",
+                "entry_rejection_reason": (
+                    None if result else "v8_confirm_trade_entry_rejected"
+                ),
                 "allowed": result,
             }
         )
