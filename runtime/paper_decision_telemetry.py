@@ -172,8 +172,13 @@ class PaperDecisionRecorder:
         )
         self.strategy_sha256 = strategy_sha256
         self.strategy_name = strategy_name
+        self.legacy_unversioned = strategy_version is None
         self.strategy_version = strategy_version or "UNKNOWN"
-        default_experiment = f"{self.strategy_version}-PAPER-FORWARD"
+        default_experiment = (
+            "V8-PAPER-FORWARD"
+            if self.legacy_unversioned
+            else f"{self.strategy_version}-PAPER-FORWARD"
+        )
         configured_experiment = os.environ.get(
             "AI_TRADING_EXPERIMENT_ID", default_experiment
         ).strip()
@@ -396,7 +401,13 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
                 "entry_tag": entry_tag,
                 "entry_allowed": result,
                 "entry_rejection_reason": (
-                    None if result else "strategy_confirm_trade_entry_rejected"
+                    None
+                    if result
+                    else (
+                        "v8_confirm_trade_entry_rejected"
+                        if recorder.legacy_unversioned
+                        else "strategy_confirm_trade_entry_rejected"
+                    )
                 ),
                 "allowed": result,
             }
