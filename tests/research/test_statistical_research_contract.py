@@ -11,7 +11,7 @@ RUNTIME = REPO / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from statistical_audit import (  # noqa: E402
+from statistical_audit import (
     annualized_sharpe,
     deflated_sharpe_probability,
     pbo_cscv,
