@@ -1,9 +1,10 @@
-"""Long-only slow Donchian trend strategy for the 250 USDT testbot.
+"""Research-only V8-B1 slow Donchian challenger for the 250 USDT testbot.
 
-V8 leaves the noisy 15-minute breakout family. It waits for a fresh 20-day
-high on closed 4-hour candles inside an established multi-timeframe uptrend,
-then manages the position with a 10-day structure exit and a causal early
-failed-breakout guard. The 15m timeframe remains the execution timeframe.
+This branch keeps the frozen V8 logic intact and changes exactly one entry
+condition: 15-minute relative volume must be at least its trailing 20-candle
+mean (``volume_ratio >= 1.00``). Runtime dry-run/live entries are deliberately
+blocked on this research branch so the existing V8 paper database cannot be
+mixed with an unvalidated challenger. Backtesting remains enabled.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """20-day 4h Donchian breakout with 10-day structure exit."""
+    """V8-B1: 20-day 4h Donchian breakout plus volume-ratio 1.00 gate."""
 
     INTERFACE_VERSION = 3
 
@@ -38,6 +39,11 @@ class CompressionBreakout250(IStrategy):
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
     MAX_DAILY_LOSS_USDT = 10.0
+
+    # Research contract: B1 is tested in historical backtesting only until it
+    # has passed its pre-registered gates. This prevents paper-DB contamination.
+    RESEARCH_BACKTEST_ONLY = True
+    VOLUME_RATIO_MIN = 1.00
 
     minimal_roi: ClassVar[dict[str, float]] = {
         "0": 0.05,
@@ -149,9 +155,7 @@ class CompressionBreakout250(IStrategy):
             and str(self.config.get("stake_currency", "")).upper() == "USDT"
             and 0.0 < stake_amount <= self.MAX_STAKE_USDT
             and 0.0 < available_capital <= self.MAX_TOTAL_CAPITAL_USDT
-            and 1
-            <= max_open_trades
-            <= self.MAX_OPEN_POSITIONS
+            and 1 <= max_open_trades <= self.MAX_OPEN_POSITIONS
             and stake_amount * max_open_trades <= self.MAX_TOTAL_EXPOSURE_USDT
             and math.isclose(float(self.stoploss), -0.055, abs_tol=1e-12)
             and order_types.get("entry") == "limit"
@@ -337,12 +341,13 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["rsi"] <= 78)
             & (dataframe["atr_pct"] >= self.buy_atr_min.value)
             & (dataframe["atr_pct"] <= self.buy_atr_max.value)
+            & (dataframe["volume_ratio"] >= self.VOLUME_RATIO_MIN)
             & (dataframe["volume"] > 0)
         )
         dataframe.loc[
             trend_4h & trend_1h & execution,
             ["enter_long", "enter_tag"],
-        ] = (1, "slow_20d_donchian_breakout")
+        ] = (1, "slow_20d_donchian_breakout_vr100")
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -461,6 +466,14 @@ class CompressionBreakout250(IStrategy):
 
         try:
             if side != "long":
+                return False
+
+            # Research branch safety: never create B1 dry-run/live trades before
+            # the pre-registered backtest gates have been evaluated.
+            if self.RESEARCH_BACKTEST_ONLY and self._runmode_value(self.config) in {
+                "live",
+                "dry_run",
+            }:
                 return False
 
             # Backtests and hyperopt already enforce the configured wallet and
