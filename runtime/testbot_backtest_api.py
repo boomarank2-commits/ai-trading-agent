@@ -1,9 +1,8 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
-This module deliberately does not contain a second trading strategy. Every run
-hashes and loads the exact strategy file used by STARTBOT, keeps the required
-public Binance candles complete at both ends, and launches Freqtrade backtesting
-with the same config plus 1-minute detail candles for more realistic intrabar fills.
+Every run hashes and loads the exact strategy file used by STARTBOT. V11
+downloads only the selected pair's 15m/1m/1h/4h candles: BTC, ETH and SOL are
+independent adaptive engines and no cross-pair market-regime data is injected.
 """
 
 from __future__ import annotations
@@ -29,7 +28,6 @@ REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
 BACKTEST_WARMUP_DAYS = 75
 
 _RUNTIME_ROOT = Path(__file__).resolve().parent
-_REPO_ROOT = _RUNTIME_ROOT.parent
 _USERDIR = _RUNTIME_ROOT / "user_data"
 _CONFIG = _USERDIR / "config.json"
 _PUBLIC_CONFIG = _USERDIR / "config-public.json"
@@ -84,15 +82,15 @@ def _clean_subprocess_environment() -> dict[str, str]:
     return env
 
 
-def _btc_context_pair(pair: str) -> str | None:
-    """Return the extra market-regime pair required for altcoin backtests."""
+def _btc_context_pair(pair: str) -> None:
+    """Compatibility hook: V11 never requests another pair as market context."""
 
-    return None if pair == "BTC/USDT" else "BTC/USDT"
+    if pair not in ALLOWED_PAIRS:
+        raise ValueError(f"unsupported pair: {pair}")
+    return None
 
 
 def _closed_timerange(start: datetime, end: datetime) -> str:
-    """Return an absolute timerange suitable for deterministic prepending."""
-
     return f"{start:%Y%m%d}-{end:%Y%m%d}"
 
 
@@ -109,8 +107,6 @@ def _validate_result_coverage(
     requested_end: datetime,
     years: int,
 ) -> None:
-    """Fail closed if Freqtrade silently tested less history than requested."""
-
     actual_start = _parse_backtest_time(result.get("backtest_start"))
     actual_end = _parse_backtest_time(result.get("backtest_end"))
     expected_start = requested_start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -139,8 +135,6 @@ def _timeframe_delta(timeframe: str) -> timedelta:
 
 
 def _timeframe_floor(value: datetime, delta: timedelta) -> datetime:
-    """Floor an UTC timestamp to the opening time of its current candle."""
-
     current = value.astimezone(UTC)
     epoch = datetime(1970, 1, 1, tzinfo=UTC)
     delta_seconds = int(delta.total_seconds())
@@ -158,8 +152,6 @@ def _inspect_candle_file(
     required_start: datetime,
     required_end: datetime,
 ) -> dict[str, Any]:
-    """Validate the exact candle timestamps Freqtrade will read, fail closed on corruption."""
-
     import pandas as pd
 
     if not path.is_file():
@@ -198,10 +190,6 @@ def _inspect_candle_file(
             f"statt spaetestens {(window_start + delta).isoformat()}."
         )
 
-    # Candle timestamps represent candle open times. Freshness must therefore be
-    # judged on timeframe boundaries, not against the wall-clock second. Allow
-    # two completed intervals of downloader/exchange lag without accepting stale
-    # history. Example: at 07:35 on 15m, 07:00 is still within this tolerance.
     freshness_floor = _timeframe_floor(required_end, delta) - (2 * delta)
     if last < freshness_floor:
         raise RuntimeError(
@@ -224,22 +212,12 @@ def _inspect_candle_file(
 def _validate_candle_data(
     pair: str, download_start: datetime, required_end: datetime
 ) -> list[dict[str, Any]]:
-    checks = [
+    return [
         _inspect_candle_file(
             _candle_path(pair, timeframe), timeframe, download_start, required_end
         )
         for timeframe in REQUIRED_TIMEFRAMES
     ]
-    btc_context = _btc_context_pair(pair)
-    if btc_context:
-        context_path = _candle_path(btc_context, "4h")
-        if context_path != _candle_path(pair, "4h"):
-            checks.append(
-                _inspect_candle_file(
-                    context_path, "4h", download_start, required_end
-                )
-            )
-    return checks
 
 
 def _run_checked(args: list[str], log_path: Path) -> None:
@@ -325,7 +303,6 @@ def _extract_result(
         drawdown_ratio = strategy.get("max_drawdown")
     drawdown_value = _number(drawdown_ratio)
     if drawdown_value > 1.0:
-        # Some historical result formats store an absolute drawdown in this field.
         drawdown_pct = _number(strategy.get("max_drawdown_account")) * 100.0
     else:
         drawdown_pct = drawdown_value * 100.0
@@ -351,6 +328,8 @@ def _extract_result(
         "backtest_days": int(strategy.get("backtest_days") or 0),
         "coverage_validated": True,
         "result_file": str(result_file),
+        "adaptive_router": True,
+        "cross_pair_context": False,
     }
 
 
@@ -366,8 +345,6 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         strategy_hash = _sha256(_STRATEGY)
         now = datetime.now(UTC)
         requested_start = now - timedelta(days=365 * years)
-        # 4h EMA200 informative context needs ~67 days for 400 startup
-        # candles. Keep extra margin so the visible backtest window is intact.
         download_start = requested_start - timedelta(days=BACKTEST_WARMUP_DAYS)
         requested_timerange = requested_start.strftime("%Y%m%d") + "-"
         download_timerange = download_start.strftime("%Y%m%d") + "-"
@@ -404,41 +381,13 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         ]
         _run_checked(prepend_args, log_path)
 
-        btc_context = _btc_context_pair(pair)
-        if btc_context:
-            context_args = [
-                sys.executable,
-                "-m",
-                "freqtrade",
-                "download-data",
-                "--config",
-                str(_CONFIG),
-                "--config",
-                str(_PUBLIC_CONFIG),
-                "--userdir",
-                str(_USERDIR),
-                "--timeframes",
-                "4h",
-                "--pairs",
-                btc_context,
-                "--trading-mode",
-                "spot",
-                "--timerange",
-                download_timerange,
-            ]
-            _run_checked(context_args, log_path)
-            context_prepend_args = [
-                *context_args[:-2],
-                "--timerange",
-                _closed_timerange(download_start, now),
-                "--prepend",
-            ]
-            _run_checked(context_prepend_args, log_path)
-
-        _set_state(stage="Kerzendaten werden auf Luecken und Duplikate geprueft", progress=38)
+        _set_state(
+            stage="Pair-eigene Kerzendaten werden auf Luecken und Duplikate geprueft",
+            progress=38,
+        )
         data_integrity = _validate_candle_data(pair, download_start, now)
 
-        _set_state(stage="Historische Daten geladen - Backtest startet", progress=45)
+        _set_state(stage="Historische Daten geladen - adaptiver Backtest startet", progress=45)
         backtest_args = [
             sys.executable,
             str(_BACKTEST_RUNNER),
@@ -478,7 +427,7 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             "--breakdown",
             "month",
         ]
-        _set_state(stage="Aktueller Bot wird historisch simuliert", progress=60)
+        _set_state(stage="Aktueller adaptiver Bot wird historisch simuliert", progress=60)
         _run_checked(backtest_args, log_path)
 
         _set_state(stage="Ergebnis wird ausgewertet", progress=92)
