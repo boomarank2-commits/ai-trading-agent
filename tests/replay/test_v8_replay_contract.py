@@ -9,7 +9,7 @@ V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout
 LOCKED = REPO_ROOT / "runtime" / "locked_freqtrade.py"
 
 EXPECTED_V8_LF_SHA = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
-EXPECTED_V10_LF_SHA = "698fa520249bcb0b100fc172d2827735a4fbe9a22d01a9e484a53253ff18673c"
+EXPECTED_V11_LF_SHA = "949716e91bf0c8389b0cdfbe00de4a988b44666647a95c9edad2433d731010a5"
 
 
 def _lf_sha(path: Path) -> str:
@@ -17,20 +17,26 @@ def _lf_sha(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def test_v8_reference_is_preserved_while_v10_is_active() -> None:
+def test_v8_reference_is_preserved_while_v11_is_active() -> None:
     assert _lf_sha(V8_BASELINE) == EXPECTED_V8_LF_SHA
-    assert _lf_sha(STRATEGY) == EXPECTED_V10_LF_SHA
+    assert _lf_sha(STRATEGY) == EXPECTED_V11_LF_SHA
 
 
-def test_v10_has_no_cross_pair_btc_regime_dependency() -> None:
+def test_v11_has_pair_local_adaptive_router_without_btc_regime_dependency() -> None:
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V10"' in text
+    assert 'STRATEGY_VERSION = "V11"' in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert "btc_close_4h" not in text
     assert '"BTC/USDT": {' in text
     assert '"ETH/USDT": {' in text
     assert '"SOL/USDT": {' in text
+    assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
+    assert 'REGIME_RANGE = "RANGE/MEAN_REVERSION"' in text
+    assert 'REGIME_NO_TRADE = "NO_TRADE"' in text
+    assert 'FAMILY_ORB = "ORB_RETEST"' in text
+    assert 'FAMILY_ICHIMOKU = "ICHIMOKU_TREND"' in text
+    assert 'FAMILY_BOLLINGER = "BOLLINGER_MR"' in text
     assert '"only_per_pair": True' in text
 
 
