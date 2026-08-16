@@ -9,7 +9,7 @@ RUNTIME = Path(__file__).resolve().parents[2] / "runtime"
 if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
-from paper_decision_telemetry import install_paper_strategy_telemetry  # noqa: E402
+from paper_decision_telemetry import install_paper_strategy_telemetry
 
 
 class FakeFrame:
@@ -78,8 +78,12 @@ def test_wrappers_preserve_original_callback_result_and_call_once(tmp_path: Path
 
     files = list((tmp_path / "paper_telemetry").glob("*.jsonl"))
     assert len(files) == 1
-    records = [json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines()]
-    confirmation = next(record for record in records if record["type"] == "runtime_entry_confirmation")
+    records = [
+        json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines()
+    ]
+    confirmation = next(
+        record for record in records if record["type"] == "runtime_entry_confirmation"
+    )
     assert confirmation["entry_allowed"] is True
     assert confirmation["entry_rejection_reason"] is None
     assert confirmation["mode"] == "paper"
@@ -95,14 +99,20 @@ def test_wrappers_preserve_original_callback_result_and_call_once(tmp_path: Path
     assert "MUST_NOT_BE_LOGGED" not in raw
 
 
-def test_rejected_entry_gets_generic_reason_without_reimplementing_risk_logic(tmp_path: Path) -> None:
+def test_rejected_entry_gets_generic_reason_without_reimplementing_risk_logic(
+    tmp_path: Path,
+) -> None:
     strategy = FakeStrategy(tmp_path)
     install_paper_strategy_telemetry(strategy, "b" * 64)
     assert _confirm(strategy, "ETH/USDT") is False
 
     file = next((tmp_path / "paper_telemetry").glob("*.jsonl"))
-    records = [json.loads(line) for line in file.read_text(encoding="utf-8").splitlines()]
-    confirmation = next(record for record in records if record["type"] == "runtime_entry_confirmation")
+    records = [
+        json.loads(line) for line in file.read_text(encoding="utf-8").splitlines()
+    ]
+    confirmation = next(
+        record for record in records if record["type"] == "runtime_entry_confirmation"
+    )
     assert confirmation["entry_allowed"] is False
     assert confirmation["entry_rejection_reason"] == "v8_confirm_trade_entry_rejected"
     assert strategy.confirm_calls == 1
