@@ -1,0 +1,48 @@
+name: V8 historical replay and parity contract
+
+on:
+  push:
+    branches:
+      - feature/replay-v8-parity-20260816
+  pull_request:
+    paths:
+      - "runtime/replay_*.py"
+      - "runtime/historical_live_replay.py"
+      - "runtime/v8_replay_adapter.py"
+      - "runtime/paper_decision_telemetry.py"
+      - "runtime/statistical_audit.py"
+      - "runtime/locked_freqtrade.py"
+      - "tests/replay/**"
+      - "HISTORISCHE_*.bat"
+      - "HISTORISCHER_BACKTEST.bat"
+      - "PAPER_REPLAY_PARITAET.bat"
+      - "STATISTIK_AUDIT.bat"
+      - "research/trial_ledger.csv"
+      - "docs/V8_FULL_SYSTEM_REPLAY_DE.md"
+      - "CODEX_COMPLETION_REPORT_DE.md"
+      - ".github/workflows/windows-v8-replay-parity-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  replay-contract:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync exact locked environment
+        shell: powershell
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Compile replay/runtime modules
+        shell: powershell
+        run: |
+          .\.venv\Scripts\python.exe -m py_compile runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\locked_freqtrade.py
+      - name: Replay, golden, parity and fault tests
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\replay
+      - name: Existing runtime/backtest contracts
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+      - name: Ruff replay changes
+        shell: powershell
+        run: .\.venv\Scripts\ruff.exe check runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\locked_freqtrade.py tests\replay

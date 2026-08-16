@@ -21,6 +21,8 @@ from freqtrade.main import main as freqtrade_main
 from freqtrade.resolvers.strategy_resolver import StrategyResolver
 from freqtrade.strategy.interface import IStrategy
 
+_PAPER_TELEMETRY_ALLOWED = False
+
 
 def _stable_read(path: Path) -> bytes:
     resolved = path.resolve(strict=True)
@@ -92,7 +94,21 @@ def _install_exact_loader(
             lambda _self: None, instance
         )
         strategy_type.__source__ = source_text
-        return original_validate(instance)
+        validated = original_validate(instance)
+        if _PAPER_TELEMETRY_ALLOWED and bool(config.get("dry_run", False)):
+            # Behavior-preserving capture for later Paper/Replay parity. Never
+            # install it in locked_backtest_freqtrade, which reuses this loader.
+            # Observability itself is fail-open and cannot block bot startup.
+            try:
+                from paper_decision_telemetry import install_paper_strategy_telemetry
+
+                authorized_sha = str(
+                    getattr(strategy_type, "__authorized_source_sha256__", "unknown")
+                )
+                install_paper_strategy_telemetry(validated, authorized_sha)
+            except Exception:
+                pass
+        return validated
 
     StrategyResolver._load_strategy = staticmethod(exact_loader)
 
@@ -121,6 +137,8 @@ def _install_testbot_api_routes() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global _PAPER_TELEMETRY_ALLOWED
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy-source", type=Path, required=True)
     parser.add_argument("--strategy-sha256", required=True)
@@ -144,6 +162,10 @@ def main(argv: list[str] | None = None) -> int:
     if any(argument in forbidden for argument in freqtrade_args):
         raise RuntimeError("strategy search-path arguments are forbidden")
 
+    # This main() only permits the real Freqtrade trade command. Therefore
+    # dry-run instances loaded through this bootstrap may be instrumented;
+    # backtesting imports the helper functions without calling this main().
+    _PAPER_TELEMETRY_ALLOWED = True
     strategy_type, source_text = _load_exact_strategy(
         args.strategy_source, args.strategy_sha256, args.strategy_class
     )

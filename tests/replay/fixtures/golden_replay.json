@@ -1,0 +1,19 @@
+{
+  "start": "2026-01-01T00:00:00+00:00",
+  "decisions": [
+    {
+      "pair": "BTC/USDT",
+      "candle_open": "2026-01-01T00:00:00+00:00",
+      "reference_price": 100.0,
+      "enter_long": true,
+      "enter_tag": "golden",
+      "breakout_level": 98.0,
+      "atr_4h": 4.0
+    }
+  ],
+  "minutes": [
+    {"open_time": "2026-01-01T00:15:00+00:00", "btc": [100, 101, 99, 100]},
+    {"open_time": "2026-01-01T00:16:00+00:00", "btc": [100, 102, 99, 101]},
+    {"open_time": "2026-01-01T00:17:00+00:00", "btc": [101, 151, 100, 150]}
+  ]
+}
