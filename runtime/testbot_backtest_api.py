@@ -138,6 +138,16 @@ def _timeframe_delta(timeframe: str) -> timedelta:
         raise RuntimeError(f"Unbekannter Backtest-Timeframe: {timeframe}") from exc
 
 
+def _timeframe_floor(value: datetime, delta: timedelta) -> datetime:
+    """Floor an UTC timestamp to the opening time of its current candle."""
+
+    current = value.astimezone(UTC)
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    delta_seconds = int(delta.total_seconds())
+    elapsed_seconds = int((current - epoch).total_seconds())
+    return epoch + timedelta(seconds=(elapsed_seconds // delta_seconds) * delta_seconds)
+
+
 def _candle_path(pair: str, timeframe: str) -> Path:
     return _DATA_ROOT / f"{pair.replace('/', '_')}-{timeframe}.feather"
 
@@ -187,12 +197,17 @@ def _inspect_candle_file(
             f"Marktdaten beginnen zu spaet fuer {path.name}: {first.isoformat()} "
             f"statt spaetestens {(window_start + delta).isoformat()}."
         )
-    # The newest still-open candle need not be present. Two completed intervals
-    # of tolerance cover exchange/update timing without accepting stale history.
-    if last < required_end - (2 * delta):
+
+    # Candle timestamps represent candle open times. Freshness must therefore be
+    # judged on timeframe boundaries, not against the wall-clock second. Allow
+    # two completed intervals of downloader/exchange lag without accepting stale
+    # history. Example: at 07:35 on 15m, 07:00 is still within this tolerance.
+    freshness_floor = _timeframe_floor(required_end, delta) - (2 * delta)
+    if last < freshness_floor:
         raise RuntimeError(
             f"Marktdaten enden zu frueh fuer {path.name}: {last.isoformat()} "
-            f"bei Pruefzeit {required_end.isoformat()}."
+            f"(Mindeststand {freshness_floor.isoformat()}, Pruefzeit "
+            f"{required_end.isoformat()})."
         )
 
     return {
