@@ -98,6 +98,18 @@ class PendingOrder:
     enter_tag: str | None = None
     breakout_level: float | None = None
     atr_4h: float | None = None
+    filled_stake: float = 0.0
+    filled_amount: float = 0.0
+    target_amount: float = 0.0
+    cancel_reject_count: int = 0
+
+    @property
+    def remaining_stake(self) -> float:
+        return max(0.0, self.stake - self.filled_stake)
+
+    @property
+    def remaining_amount(self) -> float:
+        return max(0.0, self.target_amount - self.filled_amount)
 
 
 @dataclass(slots=True)
@@ -114,6 +126,12 @@ class Position:
     atr_4h: float | None
     highest_rate: float
     lowest_rate: float
+    entry_order_id: str | None = None
+    initial_stake: float = 0.0
+    initial_amount: float = 0.0
+    exit_value_accumulated: float = 0.0
+    exit_fee_accumulated: float = 0.0
+    exit_amount_accumulated: float = 0.0
 
     @property
     def stop_price(self) -> float:
@@ -161,6 +179,10 @@ class ReplayPolicy:
     max_daily_loss: float = 10.0
     fee_per_side: float = 0.002
     slippage_bps: float = 0.0
+    spread_bps: float = 0.0
+    execution_delay_minutes: int = 0
+    fill_fraction_per_touch: float = 1.0
+    cancel_rejects_before_cancel: int = 0
     entry_timeout_minutes: int = 5
     exit_timeout_minutes: int = 5
     exit_timeout_count: int = 2
@@ -184,6 +206,16 @@ class ReplayPolicy:
             raise ValueError("max_open_positions must be in [1, 3]")
         if not (0 <= self.fee_per_side < 0.05):
             raise ValueError("fee_per_side out of range")
+        if not (0 <= self.slippage_bps <= 1_000):
+            raise ValueError("slippage_bps must be in [0, 1000]")
+        if not (0 <= self.spread_bps <= 1_000):
+            raise ValueError("spread_bps must be in [0, 1000]")
+        if not (0 <= self.execution_delay_minutes <= 60):
+            raise ValueError("execution_delay_minutes must be in [0, 60]")
+        if not (0 < self.fill_fraction_per_touch <= 1.0):
+            raise ValueError("fill_fraction_per_touch must be in (0, 1]")
+        if not (0 <= self.cancel_rejects_before_cancel <= 10):
+            raise ValueError("cancel_rejects_before_cancel must be in [0, 10]")
         if not (0 < self.max_daily_loss <= 10):
             raise ValueError("max_daily_loss must be in (0, 10]")
 
@@ -221,6 +253,8 @@ class ReplayState:
     kill_switch: bool = False
     data_healthy: bool = True
     last_prices: dict[str, float] = field(default_factory=dict)
+    last_minute_close_time: datetime | None = None
+    last_minute_fingerprint: str | None = None
     sequence: int = 0
 
 
