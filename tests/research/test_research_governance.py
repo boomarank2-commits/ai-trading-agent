@@ -10,6 +10,8 @@ if str(RUNTIME) not in sys.path:
     sys.path.insert(0, str(RUNTIME))
 
 from research_governance import (
+    GAP_AUDIT,
+    MASTERPLAN_REQUIRED_PHRASES,
     REQUIRED_LEDGER_COLUMNS,
     V8_LF_SHA256,
     validate_repository,
@@ -21,6 +23,29 @@ def test_repository_matches_authoritative_masterplan() -> None:
     result = validate_repository(REPO)
     assert result["ok"], result["errors"]
     assert result["frozen_v8_lf_sha256"] == V8_LF_SHA256
+    assert result["gap_audit"] == GAP_AUDIT
+
+
+def test_masterplan_contains_full_deep_research_contract() -> None:
+    text = (REPO / "RESEARCH_MASTERPLAN_DE.md").read_text(encoding="utf-8")
+    for phrase in MASTERPLAN_REQUIRED_PHRASES:
+        assert phrase in text
+
+    assert "ORB-Retest-Challenger" in text
+    assert "Ichimoku-Trend-Challenger" in text
+    assert "Bollinger-Mean-Reversion-Challenger" in text
+    assert "`NO_TRADE` ist die Default-Aktion" in text
+    assert "Partial Fills" in text
+    assert "Walk-Forward" in text
+
+
+def test_gap_audit_keeps_known_incomplete_layers_visible() -> None:
+    text = (REPO / GAP_AUDIT).read_text(encoding="utf-8")
+    assert "Execution-/Cost-Simulator" in text
+    assert "Partial Fills" in text
+    assert "PLANNED" in text
+    assert "Red-Team-/Fault-Injection" in text
+    assert "Die bisherige Datei `tests/replay/test_replay_fault_injection.py`" in text
 
 
 def test_trial_ledger_rejects_missing_required_columns(tmp_path: Path) -> None:
