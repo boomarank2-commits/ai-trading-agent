@@ -45,7 +45,9 @@ def test_gap_audit_keeps_known_incomplete_layers_visible() -> None:
     assert "Partial Fills" in text
     assert "PLANNED" in text
     assert "Red-Team-/Fault-Injection" in text
-    assert "Die bisherige Datei `tests/replay/test_replay_fault_injection.py`" in text
+    assert "Die Matrix ist damit wesentlich weiter, aber weiterhin **nicht vollständig**" in text
+    assert "Exchange-Reconciliation" in text
+    assert "Walk-Forward | **PARTIAL**" in text
 
 
 def test_trial_ledger_rejects_missing_required_columns(tmp_path: Path) -> None:

@@ -164,6 +164,38 @@ class ReplayRiskEngine(ReplayCheckpointMixin):
             return RiskDecision(False, "insufficient_cash")
         return RiskDecision(True, "allowed")
 
+    def partial_entry_continuation_allowed(
+        self, pair: str, when: datetime, additional_stake: float
+    ) -> RiskDecision:
+        """Re-check safety before filling the remainder of one existing entry order.
+
+        This is not DCA: only the unfilled remainder of the original immutable
+        entry order may continue. If safety state changed after the first partial
+        fill, the remainder is cancelled while the already filled position stays
+        subject to the normal exit rules.
+        """
+
+        when = self._assert_monotone(when)
+        self._refresh_global_guards(when)
+        if pair not in self.state.positions:
+            return RiskDecision(False, "partial_position_missing")
+        if self.state.kill_switch:
+            return RiskDecision(False, "kill_switch")
+        if not self.state.data_healthy:
+            return RiskDecision(False, "data_unhealthy")
+        if self._daily_closed_pnl(when) <= -self.policy.max_daily_loss:
+            return RiskDecision(False, "daily_closed_loss")
+        if self.state.stoploss_guard_until and when < self.state.stoploss_guard_until:
+            return RiskDecision(False, "stoploss_guard")
+        if self.state.maxdd_guard_until and when < self.state.maxdd_guard_until:
+            return RiskDecision(False, "maxdrawdown_guard")
+        if self._open_exposure() + additional_stake > self.policy.max_total_exposure + 1e-9:
+            return RiskDecision(False, "max_total_exposure")
+        required_cash = additional_stake * (1.0 + self.policy.fee_per_side)
+        if self.state.cash + 1e-9 < required_cash:
+            return RiskDecision(False, "insufficient_cash")
+        return RiskDecision(True, "allowed")
+
     def submit_decision(self, decision: StrategyDecision) -> None:
         when = self._assert_monotone(decision.known_at)
         payload = {
@@ -225,6 +257,7 @@ class ReplayRiskEngine(ReplayCheckpointMixin):
                 "side": order.side,
                 "kind": order.kind,
                 "price": order.limit_price,
+                "execution_delay_minutes": self.policy.execution_delay_minutes,
             }
         )
         return order.order_id
@@ -237,6 +270,20 @@ class ReplayRiskEngine(ReplayCheckpointMixin):
             for order in self.state.orders.values()
         ):
             return
+        position = self.state.positions.get(pair)
+        if position is None:
+            return
+        for order_id, order in list(self.state.orders.items()):
+            if order.pair == pair and order.side == "buy":
+                self.state.orders.pop(order_id, None)
+                self.sink.event(
+                    {
+                        "time": iso(when),
+                        "type": "order_cancelled",
+                        "order_id": order_id,
+                        "reason": "entry_remainder_cancelled_for_exit",
+                    }
+                )
         order = PendingOrder(
             order_id=self._next_id("order"),
             pair=pair,
@@ -245,6 +292,7 @@ class ReplayRiskEngine(ReplayCheckpointMixin):
             requested_at=when,
             limit_price=float(price),
             expires_at=when + timedelta(minutes=self.policy.exit_timeout_minutes),
+            target_amount=position.amount,
         )
         self.state.orders[order.order_id] = order
         self.sink.event(
@@ -256,6 +304,64 @@ class ReplayRiskEngine(ReplayCheckpointMixin):
                 "side": "sell",
                 "kind": order.kind,
                 "price": order.limit_price,
+                "target_amount": order.target_amount,
+                "execution_delay_minutes": self.policy.execution_delay_minutes,
+            }
+        )
+
+    def reconcile_state(self, reason: str = "manual") -> None:
+        """Fail closed on impossible restored/boot state.
+
+        A valid checkpoint containing an already open position is accepted. This
+        is the replay equivalent of a boot reconciliation boundary: unknown
+        pairs, orphan exits or exposure beyond the immutable safety envelope are
+        rejected rather than guessed away.
+        """
+
+        if self.state.cash < -1e-9:
+            raise RuntimeError("reconciliation failed: negative cash")
+        if self._open_exposure() > self.policy.max_total_exposure + 1e-9:
+            raise RuntimeError("reconciliation failed: exposure above safety cap")
+        if len(self.state.positions) > self.policy.max_open_positions:
+            raise RuntimeError("reconciliation failed: too many open positions")
+
+        for pair, position in self.state.positions.items():
+            if pair not in PAIRS or position.pair != pair:
+                raise RuntimeError("reconciliation failed: invalid position pair")
+            if position.stake <= 0 or position.amount <= 0:
+                raise RuntimeError("reconciliation failed: invalid open position")
+            if position.initial_stake <= 0:
+                position.initial_stake = position.stake
+            if position.initial_amount <= 0:
+                position.initial_amount = position.amount
+            if position.initial_stake + 1e-9 < position.stake:
+                raise RuntimeError("reconciliation failed: remaining stake exceeds initial")
+            if position.initial_amount + 1e-12 < position.amount:
+                raise RuntimeError("reconciliation failed: remaining amount exceeds initial")
+
+        for order_id, order in self.state.orders.items():
+            if order.order_id != order_id or order.pair not in PAIRS:
+                raise RuntimeError("reconciliation failed: invalid pending order")
+            if order.side not in {"buy", "sell"} or order.limit_price <= 0:
+                raise RuntimeError("reconciliation failed: invalid order contract")
+            position = self.state.positions.get(order.pair)
+            if order.side == "sell":
+                if position is None:
+                    raise RuntimeError("reconciliation failed: orphan sell order")
+                if order.target_amount <= 0:
+                    order.target_amount = position.amount + order.filled_amount
+            elif position is not None and position.entry_order_id != order.order_id:
+                raise RuntimeError("reconciliation failed: unrelated buy beside position")
+
+        self.sink.event(
+            {
+                "time": iso(self.state.now),
+                "type": "reconciliation_ok",
+                "reason": reason,
+                "cash": self.state.cash,
+                "open_positions": len(self.state.positions),
+                "open_exposure": self._open_exposure(),
+                "pending_orders": len(self.state.orders),
             }
         )
 

@@ -8,20 +8,20 @@ Diese Datei ist der **verbindliche technische und methodische Fahrplan** für di
 
 Sie ersetzt den früheren Auftrag `CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md` als aktive Arbeitsgrundlage. Die frühere Datei war eine Vorversion und darf nicht mehr als aktueller Sollzustand verwendet werden.
 
-Die Grundlage sind die beiden aktuellen Deep-Research-Berichte zu Hermes/OpenClaw sowie zu den vier Video-Strategien. Bei Widersprüchen zwischen älteren Notizen, alten Codex-Aufträgen und diesem Masterplan gilt **dieser Masterplan**.
+Grundlage sind die beiden aktuellen Deep-Research-Berichte zu Hermes/OpenClaw und zu den vier Video-Strategien. Bei Widersprüchen zwischen älteren Notizen, alten Codex-Aufträgen und dieser Datei gilt **dieser Masterplan**. Der aktuelle technische Soll/Ist-Status wird zusätzlich in `docs/DEEP_RESEARCH_GAP_AUDIT_DE.md` geführt.
 
 Die beiden Berichte setzen bei der Trend-Komponente unterschiedliche Schwerpunkte:
 
 - Bericht A priorisiert als Engineering-Reihenfolge zunächst eine deterministische ORB-Retest-Baseline und anschließend Bollinger Mean Reversion.
 - Bericht B empfiehlt als Zielbild insbesondere Ichimoku Trend Engine + Bollinger Mean-Reversion Engine.
 
-Diese Abweichung wird **nicht stillschweigend aufgelöst**. ORB-Retest und Ichimoku werden als getrennte Trend-Challenger-Familien behandelt. Keiner wird allein aufgrund der Reihenfolge seiner Implementierung zum Sieger erklärt. Erst vorregistrierte Out-of-Sample-, Kosten-, Walk-Forward- und Robustheitsevidenz darf entscheiden, welche Trend-Komponente später in ein Multi-Strategy-System eingeht.
+Diese Abweichung wird **nicht stillschweigend aufgelöst**. ORB-Retest und Ichimoku bleiben getrennte Trend-Challenger-Familien. Erst vorregistrierte Out-of-Sample-, Kosten-, Walk-Forward- und Robustheitsevidenz darf später entscheiden, welche Trend-Komponente für ein Multi-Strategy-System geeignet ist.
 
 ## Oberste Grundregel
 
 **V8 bleibt der eingefrorene Champion.**
 
-Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backtest entsteht. Neue Hypothesen werden als getrennte Challenger oder als reine Diagnose-/Telemetrieänderungen umgesetzt. Ein negativer Versuch bleibt im Trial Ledger erhalten.
+Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backtest entsteht. Neue Hypothesen werden als getrennte Challenger oder als reine Diagnose-/Telemetrie-/Infrastrukturänderungen umgesetzt. Ein negativer Versuch bleibt im Trial Ledger erhalten.
 
 Aktueller Sicherheitsvertrag:
 
@@ -34,7 +34,7 @@ Aktueller Sicherheitsvertrag:
 - maximal drei Positionen / 240 USDT Gesamtengagement
 - Hard-Stop -5,5 %
 - keine automatische Kapitalerhöhung
-- keine automatische Echtgeldfreigabe
+- **keine automatische Echtgeldfreigabe**
 - Research-/LLM-Code erhält keine freie Exchange-Orderfunktion
 
 Bindender LF-normalisierter V8-SHA256:
@@ -47,15 +47,13 @@ Status: **READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY.**
 
 Das langfristige Ziel ist **keine einzelne ständig handelnde Super-Strategie**, sondern eine deterministische Multi-Strategy Execution Engine mit separater AI Research Plane.
 
-Der spätere Strategie-Zustandsraum muss mindestens diese drei Zustände unterstützen:
+Der spätere Strategie-Zustandsraum muss mindestens diese Zustände unterstützen:
 
 - `TREND/BREAKOUT`
 - `RANGE/MEAN_REVERSION`
 - `NO_TRADE`
 
 **`NO_TRADE` ist die Default-Aktion**, wenn Datenqualität, Regime, Signalqualität oder Risk Policy keine belastbare Freigabe liefern.
-
-Das Zielbild ist:
 
 ```text
 Exchange WebSocket / REST
@@ -64,7 +62,7 @@ Market Data Normalizer
         ↓
 Feature Engine
         ↓
-Data Quality Gate ───────────────→ NO_TRADE bei stale/fehlerhaften Daten
+Data Quality Gate ───────────────→ NO_TRADE
         ↓
 Regime Detector
         ├─ TREND/BREAKOUT ───────→ Trend-Engine
@@ -102,7 +100,7 @@ Regime Detector
 
 ### Hot Path
 
-Im zeitkritischen Trading-Pfad gilt ausschließlich:
+Der zeitkritische Trading-Pfad bleibt deterministisch:
 
 ```text
 Market event
@@ -147,9 +145,9 @@ Trades + Logs + Regime + Execution-Daten
 4. Keine nachträgliche Holdout-Optimierung.
 5. Keine neue Strategieidee darf die laufende V8-Paperstrategie implizit verändern.
 
-### Phase 1 – Full-System-Replay, Parität und realistischer Execution-/Cost-Simulator
+### Phase 1 – Full-System-Replay, Parität und Execution-/Cost-Stress
 
-Vor Strategie-Tuning müssen folgende Infrastrukturpunkte belastbar sein:
+Vor Strategie-Tuning müssen belastbar sein:
 
 - monotone historische Simulationsuhr
 - nur vollständig abgeschlossene Candles sichtbar
@@ -166,34 +164,35 @@ Vor Strategie-Tuning müssen folgende Infrastrukturpunkte belastbar sein:
 - Paper-vs-Replay-Paritätsprüfung
 - maschinenlesbare Telemetrie
 
-Der bestehende Replay ist **noch nicht automatisch ein vollständiger realistischer Execution-Simulator**. Vor einer Behauptung vollständiger Produktionsnähe müssen zusätzlich explizit modelliert und getestet werden:
+Der Replay modelliert inzwischen zusätzlich zu Gebühren, fixer Slippage und Timeouts auch:
 
-- Gebühren
-- Spread
-- Slippage
-- deterministische Latenz-/Verspätungsannahmen
-- Order-Timeouts und Cancel-Zustände
-- Partial Fills oder eine dokumentierte konservative Ersatzannahme
-- Cancel Reject
-- duplicate/out-of-order Events
-- Position Reconciliation
-- Position bereits beim Start vorhanden
-- Restart während offener Orders/Positionen
+- deterministischen Spread-Stress als **Proxy**, nicht als historisches Orderbuch
+- deterministische Execution-Verzögerung auf 1m-Granularität
+- **Partial Fills** als deterministische Fill-Slices für Entry- und Limit-Exit-Orders
+- deterministische Cancel-Reject-Szenarien (`cancel rejected`)
+- idempotente Duplicate-Minute-Batches und fail-closed widersprüchliche Duplikate
+- Checkpoint-/Replay-Reconciliation für valide offene bzw. teilgefüllte Positionen
 
-Bis diese Punkte umgesetzt und getestet sind, ist der Execution-Teil als **PARTIAL** zu kennzeichnen.
+Diese Erweiterungen machen den Replay robuster, aber **nicht** zu einer historischen Tick-/Orderbuch-/Exchange-OMS-Rekonstruktion. Noch offen oder nur teilweise sind insbesondere:
+
+- echte sub-minute/Exchange-Latenz
+- volumen-/queue-basierte Fill-Wahrscheinlichkeit
+- echtes asynchrones out-of-order Order-/Fill-Reordering
+- reale Exchange-Reconciliation bei Prozessstart
+- vollständiger Risk-Service-/DB-Fault-Pfad
 
 **Release-Blocker:** Bei identischem kausalem Input dürfen Signal- oder Risk-Allow/Reject-Entscheidungen nicht unerklärt zwischen Paper und Replay abweichen.
 
-Lokale empirische Gates nach Download:
+Lokale empirische Gates:
 
 1. Full-History-Replay BTC/ETH/SOL gemeinsam, Baseline-Fee 0,002 je Seite.
 2. Fee-Stress 0,004 je Seite.
 3. Paper-vs-Replay-Parität auf einem tatsächlich überlappenden Paper-Zeitraum.
-4. Execution-Stress erst dann als bestanden markieren, wenn die oben genannten Order-/Reconciliation-Szenarien maschinell getestet sind.
+4. Execution-Stress mit dokumentierten Annahmen; keine Behauptung historischer Orderbuchgenauigkeit.
 
 ### Phase 1b – Red-Team-/Fault-Injection-Matrix
 
-Die Deep-Research-Red-Team-Matrix ist verbindlich als Testziel zu führen:
+Die Deep-Research-Matrix bleibt verbindliches Coverage-Ziel:
 
 - WebSocket reconnect / Datenfeed-Ausfall
 - Exchange-Antwort verspätet
@@ -209,13 +208,13 @@ Die Deep-Research-Red-Team-Matrix ist verbindlich als Testziel zu führen:
 - LLM/Research-Service unavailable
 - database temporarily unavailable
 
-Das gewünschte Verhalten lautet grundsätzlich: **bei Unsicherheit Chancen verlieren statt unkontrolliert Kapital riskieren**. Neue Entries fallen bei ungeklärter sicherheitsrelevanter Unsicherheit auf `NO_TRADE`/fail closed zurück. Ein Test darf nur als abgedeckt gelten, wenn ein automatisierter Test oder eine klar dokumentierte deterministische Ersatzregel existiert.
+Bereits automatisiert geprüft sind unter anderem Data-Unhealthy, Kill-Switch, rückwärts laufende Replay-Zeit, fehlausgerichtete Minute-Batches, Pair-Mismatch, Fill-Time-Risk-Recheck, Entry-Timeout, Duplicate/Conflicting-Minute-Events, Partial Fills, Cancel Reject und Checkpoint-Restore mit teilgefüllter Position.
+
+Noch nicht vollständig abgedeckt sind insbesondere asynchrones Fill-Reordering, echte Exchange-Positionen bei Boot, Risk-Service-/DB-Ausfall und sub-minute Latenz. Bei ungeklärter sicherheitsrelevanter Unsicherheit gilt fail closed / `NO_TRADE`.
 
 ### Phase 2 – V8-Diagnostik, noch ohne Entry-Änderung
 
-Zuerst beobachten und erklären, nicht filtern.
-
-Für jeden Entry-Kandidaten soweit technisch verfügbar protokollieren:
+Zuerst beobachten und erklären, nicht filtern. Für Entry-Kandidaten sollen soweit technisch verfügbar protokolliert werden:
 
 - `volume_ratio_15m`
 - `atr_pct_15m`
@@ -231,9 +230,7 @@ Für jeden Entry-Kandidaten soweit technisch verfügbar protokollieren:
 - MFE / MAE
 - Netto-PnL
 
-Ziel ist insbesondere die Ursachenanalyse der `failed_4h_breakout`-Trades.
-
-Regime werden zunächst **nur gelabelt**. Ein aktives neues Regime-Gate für V8 darf erst nach wiederholbar schwacher Attribution in mehreren Zeitslices und mindestens zwei Coins als eigener vorregistrierter Challenger entstehen.
+Ziel ist insbesondere die Ursachenanalyse der `failed_4h_breakout`-Trades. Regime werden zuerst gelabelt. Ein aktives neues Gate für V8 entsteht nur als eigener vorregistrierter Challenger.
 
 ### Phase 3 – Vorregistrierte V8-Challenger
 
@@ -243,70 +240,54 @@ Für die globale Volume-Hypothese sind ausschließlich diese Varianten vorgesehe
 - B1 = V8 + `volume_ratio >= 1.00`
 - B2 = V8 + `volume_ratio >= 1.25`
 
-Nach Einsicht in B1/B2 wird **keine neue Schwelle spontan erfunden**.
+B1 wurde als globaler Filter verworfen. B2 ist pausiert, bis Replay-/Diagnose-Gates belastbar sind. Nach Einsicht in B1/B2 wird **keine neue Schwelle spontan erfunden**.
 
-B1 wurde als globaler Filter verworfen. B2 ist pausiert, bis Replay-/Diagnose-Gates belastbar sind.
-
-Zusätzlich darf später maximal **ein** einfaches Regime-Gate vorregistriert werden, wenn die vorherige Attribution es rechtfertigt.
-
-Kein Challenger ersetzt V8 allein aufgrund eines Gesamt-Backtests.
+Zusätzlich darf später maximal ein einfaches Regime-Gate vorregistriert werden, wenn die Attribution es rechtfertigt. Kein Challenger ersetzt V8 allein aufgrund eines Gesamt-Backtests.
 
 ### Phase 4 – Eigenständige Strategie-Challenger
 
-Erst nach Replay-, Paritäts-, Execution-, Red-Team- und Diagnose-Gates werden neue Strategie-Familien aktiviert.
+Neue Strategie-Familien werden erst nach Replay-, Paritäts-, Execution-, Fault- und Diagnose-Gates aktiviert.
 
-#### 4A – ORB-Retest-Challenger
-
-Der erste einfache Breakout-Prototyp aus Bericht A bleibt bewusst klein:
+#### ORB-Retest-Challenger
 
 - Opening Range deterministisch definieren
 - bestätigter Ausbruch
 - zunächst nur Retest-Setup
-- FVG und BOS/Reversal ausdrücklich **noch nicht** gleichzeitig hinzufügen
+- FVG und BOS/Reversal noch nicht gleichzeitig ergänzen
 - eigene Strategy-ID
 - keine Änderung an V8
 
-#### 4B – Bollinger-Mean-Reversion-Challenger
+#### Bollinger-Mean-Reversion-Challenger
 
 - eigene Strategy-ID
 - 15m
-- Research-Default Bollinger 20 / 2,0; kein behauptetes Video-Optimum
+- Research-Default Bollinger 20/2,0; kein behauptetes Video-Optimum
 - Long nach Berührung/Unterschreitung des unteren Bands und bestätigtem Close zurück hinein
 - nur in kausal definiertem Range-Regime
 - Exit zunächst am Mittelband
 - Spot, long-only, kein Hebel, kein Short, keine Positionsaufstockung
 
-#### 4C – Ichimoku-Trend-Challenger
+#### Ichimoku-Trend-Challenger
 
-Der zweite Deep-Research-Bericht darf nicht verloren gehen. Als eigenständige Trend-Familie wird später geprüft:
-
+- eigene Strategy-ID
 - Tenkan/Kijun 9/26
 - Span-B 52 / Displacement 26 als Research-Default
 - Preis/Cloud, Tenkan/Kijun, Chikou und Future-Cloud kausal und eindeutig implementieren
 - Golden Tests für die Indikatorberechnung
 - kein ungeprüftes Übernehmen ambiger Sekundärtranskripte
-- eigene Strategy-ID
 - keine Änderung an V8
 
-Die Reihenfolge 4A/4B/4C ist eine Implementierungsreihenfolge, **keine Ergebnisrangliste**. ORB und Ichimoku sind konkurrierende bzw. ergänzende Trend-Challenger; erst die Evidenz entscheidet.
+Die Implementierungsreihenfolge ist **keine Ergebnisrangliste**. ORB und Ichimoku bleiben getrennte Trend-Hypothesen.
 
-#### 4D – Erst später Multi-Strategy/Regime-Router
+#### Späterer Multi-Strategy-/Regime-Router
 
-Ein Hybrid darf erst entstehen, wenn mindestens eine Trend-Familie und die Mean-Reversion-Familie getrennt belastbare Evidenz besitzen.
+`runtime/research_strategy_contract.py` formalisiert bereits fail-closed die drei Zustände und hält ORB, Ichimoku und Bollinger als getrennte Familien. Dieser Contract ist bewusst noch **nicht** in V8 oder einen produktiven Hybrid verdrahtet.
 
-Dann wird verglichen:
-
-- Trend-Engine allein
-- Bollinger-MR allein
-- Regime-Hybrid unter demselben Gesamt-Exposure-Cap
-- V8 als bestehender Champion/Benchmark
-- einfacher Benchmark, soweit sinnvoll
-
-Der Router darf niemals bei unklarem Regime erzwingen, dass eine der Strategien handelt. Unklar bedeutet `NO_TRADE`.
+Ein Hybrid darf erst entstehen, wenn mindestens eine Trend-Familie und die Mean-Reversion-Familie getrennt belastbare Evidenz besitzen. Bei unklarem Regime gilt `NO_TRADE`.
 
 ### Phase 5 – Walk-Forward und Meta-Research
 
-Vor jeder späteren Challenger-Promotion müssen Multiple-Testing- und Stabilitätsrisiken sichtbar sein:
+Vor jeder späteren Challenger-Promotion müssen sichtbar sein:
 
 - vollständiges Trial Ledger
 - Development / Validation / echter Holdout getrennt
@@ -320,9 +301,11 @@ Vor jeder späteren Challenger-Promotion müssen Multiple-Testing- und Stabilit�
 - PnL-Konzentration nach Instrument
 - MAE/MFE
 - Time-under-Water
-- Monte-Carlo/Block-Bootstrap-Drawdown, sobald dafür belastbare Return-Serien vorhanden sind
+- Monte-Carlo/Block-Bootstrap-DD, sobald belastbare Return-Serien vorliegen
 
-Die in Deep Research genannten Zahlen sind **Projekt-Engineering-Startgates, keine universellen wissenschaftlichen Wahrheiten**. Für neue Challenger sollen sie vor Sicht auf den Holdout als anfängliche Zielschwellen vorregistriert oder begründet ersetzt werden:
+`runtime/walk_forward.py` enthält inzwischen einen kausalen half-open Fenster-Contract, Fensterprüfung und Fold-Summary einschließlich Feldern für Kostenstress und 1-Bar-Lag. Die vollständige Strategie-Runner-/Promotion-Integration fehlt noch; Walk-Forward bleibt daher **PARTIAL**.
+
+Die in Deep Research genannten Zahlen sind **Projekt-Engineering-Startgates, keine universellen wissenschaftlichen Wahrheiten**. Für neue Challenger sollen sie vor Sicht auf den Holdout vorregistriert oder begründet ersetzt werden:
 
 ```text
 OOS Sharpe                   > 0.8
@@ -337,15 +320,11 @@ No instrument                > 30 % total PnL
 Parameter plateau            vorhanden
 ```
 
-Diese Schwellen werden **nicht rückwirkend benutzt, um V8 umzuschreiben oder zu demoten**. Sie sind ein vorregistrierbarer Prüfrahmen für neue Challenger und können nur vor einer neuen Experimentfamilie mit dokumentierter Begründung geändert werden.
-
-PBO/DSR sind Research-Gates, keine Echtgeldfreigabe.
+Diese Schwellen werden nicht rückwirkend benutzt, um V8 umzuschreiben oder zu demoten. PBO/DSR sind Research-Gates, keine Echtgeldfreigabe.
 
 ### Phase 6 – Shadow / Forward / manuelle Promotion
 
-Robuste Challenger gehen zuerst in Shadow bzw. einen äquivalenten nicht-kapitalwirksamen Forward-Modus.
-
-Danach:
+Robuste Challenger gehen zuerst in Shadow bzw. einen äquivalenten nicht-kapitalwirksamen Forward-Modus. Danach:
 
 1. frische Forward-Daten sammeln
 2. bei Schwäche zurück auf REJECT/RESEARCH
@@ -356,7 +335,7 @@ Keine automatische Echtgeldfreigabe und keine automatische Kapitalerhöhung.
 
 ### Phase 7 – Offline AI Research Agent
 
-Die Deep-Research-Zielarchitektur beinhaltet einen AI Quant Researcher. Der aktuelle autonome Research-Scheduler bleibt jedoch **fail-closed deaktiviert**, solange er nicht in einer ausreichend isolierten Umgebung läuft.
+Der autonome Research-Scheduler bleibt **fail-closed deaktiviert**, solange er nicht in einer ausreichend isolierten Umgebung läuft.
 
 Vor Aktivierung erforderlich:
 
@@ -374,8 +353,8 @@ Der Agent liefert Hypothesen und Research-Artefakte, keine Live-Orders.
 
 Jede neue Idee folgt diesem Ablauf:
 
-1. Verändert sie V8 nicht? -> Diagnose/Telemetrie.
-2. Verändert sie V8? -> separate Challenger-Branch.
+1. Diagnose/Telemetrie, wenn V8 nicht verändert wird.
+2. Separate Challenger-Branch, wenn Trading-Logik verändert wird.
 3. Hypothese vorregistrieren.
 4. Experiment-ID sowie Strategy-/Config-Hash speichern.
 5. Kausalitäts- und Datenintegritätschecks.
@@ -386,7 +365,7 @@ Jede neue Idee folgt diesem Ablauf:
 10. Parameterplateau / DSR / PBO.
 11. Lag-/Konzentrations-/Drawdown-Stress.
 12. Replay-/Determinismusprüfung.
-13. Erst dann SHADOW.
+13. Erst dann Shadow.
 14. Frische Forward-Evidenz.
 15. Manuelle Review vor jeder Promotion.
 16. Negative Ergebnisse dokumentieren, nicht löschen.
@@ -404,42 +383,33 @@ Keine Strategie-Forschungsänderung direkt auf `main`.
 
 ## Pflicht-Telemetrie
 
-Für Entry-Entscheidungen sollen – soweit im jeweiligen Pfad verfügbar – mindestens folgende Provenance-/Decision-Felder geführt werden:
+Soweit im jeweiligen Pfad verfügbar:
 
-- `experiment_id`
-- `run_id`
-- `git_sha`
-- `strategy_name`
-- `strategy_sha_lf` bzw. exakter Runtime-SHA
-- `config_hash`
-- `risk_policy_hash`
-- `data_manifest_hash` im Replay
+- `experiment_id`, `run_id`, `git_sha`
+- `strategy_name`, Strategy-/Runtime-Hash
+- `config_hash`, `risk_policy_hash`, Replay-`data_manifest_hash`
 - Modus, Pair, Candle-Close UTC
-- Datenqualitätsstatus
-- Regime-Label
-- Breakout-/Trend-/Volumen-/ATR-/RSI-/Momentum-Features
+- Datenqualitätsstatus und Regime-Label
+- Breakout-/Trend-/Volume-/ATR-/RSI-/Momentum-Features
 - BTC-Regime
-- Entry-Kandidat
-- Entry erlaubt/abgelehnt
-- Ablehnungsgrund, soweit ohne Duplikation der Trading-Logik feststellbar
-- offene Positionen / Exposure / Daily PnL / Risk-Lock, soweit verfügbar
-- Orderstatus / angeforderter Preis / Fill / Partial Fill / Slippage / Fee / Spread / Latenz, soweit verfügbar
-- Reconciliation-Status, soweit verfügbar
-- Exit-Grund / PnL / MAE / MFE, soweit verfügbar
-- Checkpoint-/Restart-Information im Replay
+- Entry-Kandidat, Allow/Reject und Grund
+- offene Positionen, Exposure, Daily PnL, Risk-Lock
+- Orderstatus, Requested Price, Fill/Partial Fill, Slippage, Fee, Spread, Latenz
+- Reconciliation-Status
+- Exit-Grund, PnL, MAE/MFE
+- Checkpoint-/Restart-Information
 
-Observability darf das Trading-Verhalten nicht verändern. Wenn ein Grund nicht ohne Duplikation der Trading-Logik ermittelt werden kann, wird er als generischer Runtime-Reject protokolliert statt die Risk-Logik ein zweites Mal nachzubauen.
+Observability darf das Trading-Verhalten nicht verändern.
 
 ## Ergebnis-Dashboard für neue Releases
 
-Sobald echte Daten vorliegen, soll die Research-Auswertung mindestens erzeugen bzw. aus Rohdaten ableiten können:
+Sobald echte Daten vorliegen, soll die Research-Auswertung mindestens erzeugen oder aus Rohdaten ableiten können:
 
-- Equity Curve netto nach Kosten
+- Equity netto nach Kosten
 - Underwater-/Drawdown-Verlauf
 - Rolling Sharpe 90/180 Tage, soweit Stichprobe sinnvoll
 - Monats-/Zeitslice-Auswertung
-- PnL nach Regime
-- PnL nach Asset
+- PnL nach Regime und Asset
 - MAE/MFE
 - Parameter-Heatmap/Plateau
 - Kosten vs. Brutto-PnL
@@ -479,7 +449,7 @@ uv sync --frozen --all-extras --python 3.12
 .\.venv\Scripts\ruff.exe check .
 ```
 
-Replay-/Research-CI muss zusätzlich die folgenden Eigenschaften abdecken:
+Replay-/Research-CI muss zusätzlich abdecken:
 
 - Clock-Causality / keine Future-Candle
 - Checkpoint-Restart-Determinismus
@@ -488,58 +458,70 @@ Replay-/Research-CI muss zusätzlich die folgenden Eigenschaften abdecken:
 - Trial-Ledger-Schema
 - Metrics-Reproduzierbarkeit
 - PBO-/DSR-Inputvalidierung
-- vollständige Red-Team-Matrix als Coverage-Ziel; fehlende Szenarien müssen im Gap-Audit sichtbar bleiben
+- Research-Router/NO_TRADE-Contract
+- Walk-Forward-Fenster-Contract
+- Execution-Stress-Tests
+- vollständige Red-Team-Matrix als Coverage-Ziel; offene Szenarien bleiben im Gap-Audit sichtbar
 
 ## Verbotene Abkürzungen
 
-Folgende Änderungen sind ausdrücklich **nicht** Teil des aktuellen Plans:
+Ausdrücklich nicht erlaubt:
 
 - V8 mit Bollinger + Ichimoku + ORB/FVG/BOS vermischen
-- Futures/Perpetuals aktivieren
-- Shorts aktivieren
-- Hebel 5x/8x oder anderer fixer Hebel
+- Futures/Perpetuals, Shorts oder Hebel aktivieren
 - Stoploss/Protections abschwächen, um Backtests zu verschönern
 - LLM ändert Live-Parameter nach Verlusten
 - LLM erhält direkten Exchange-Key oder freie Orderfunktion
-- automatisches Hochskalieren 250 -> 500 -> 750 -> 1000 USDT
+- automatisches Hochskalieren 250 → 500 → 750 → 1000 USDT
 - Holdout nach Einsicht nachoptimieren
+- deterministische Stress-Proxys als historische Orderbuchgenauigkeit ausgeben
 - fehlende Execution-/Fault-Tests als „fertig“ deklarieren
-- ORB oder Ichimoku ohne Vergleich allein wegen eines schönen Gesamt-Backtests auswählen
+- ORB oder Ichimoku allein wegen eines schönen Gesamt-Backtests auswählen
 
 ## Aktueller Implementierungsstand
 
-Bereits vorhanden:
+**Vorhanden und automatisiert geprüft:**
 
-- Full-System-Replay-Grundgerüst
-- gemeinsame Wallet-/Risk-Simulation
+- Full-System-Replay-Grundgerüst und gemeinsame Wallet-/Risk-Simulation
 - exakte V8-Hashbindung
-- Checkpoint/Restart-Grundmechanik
 - Datenmanifest/Integritätsprüfung
 - Golden Replay
-- erste Fault-Injection für ungesunde/stale Daten
-- Paper-Decision-Telemetrie
-- Paper-vs-Replay-Paritätschecker
+- Checkpoint-Schema 2 mit Restore-/Reconciliation-Prüfung
+- Gebühren, fixe Slippage, Timeouts
+- deterministischer Spread-Stress-Proxy
+- deterministische 1m-Execution-Verzögerung
+- Partial-Fill-Stress für Entry und Limit-Exit
+- Cancel-Reject-Stress
+- Duplicate-Minute-Idempotenz und conflicting-duplicate fail closed
+- Paper-Decision-Telemetrie und Paper-vs-Replay-Paritätschecker
 - Failed-Breakout-/Volume-/Regime-Diagnostik
 - Trial Ledger
 - PBO-/DSR-Diagnostik
 - Strategy Registry und manuelle Promotion-Grenzen
+- fail-closed Research-Strategy-Routing-Contract mit ORB/Ichimoku/Bollinger/NO_TRADE
+- kausaler Walk-Forward-Fenster-/Fold-Contract
 
-**Nur teilweise umgesetzt:**
+**Weiterhin teilweise oder offen:**
 
-- realistischer Execution-/Cost-Simulator: Gebühren, fixe Slippage und Timeouts existieren; Spread, deterministische Latenz, Partial Fills, Cancel-Reject und vollständige Reconciliation-Szenarien fehlen noch bzw. sind nicht vollständig getestet
-- Red-Team-Matrix: stale/data-unhealthy ist getestet; die vollständige Deep-Research-Matrix ist noch nicht abgedeckt
-- Offline AI Research Plane: Design vorhanden, autonome Ausführung aus Sicherheitsgründen absichtlich deaktiviert
-- Multi-Strategy-Regime-Architektur: Zielvertrag definiert, aber noch keine produktiven ORB-/Ichimoku-/Bollinger-Komponenten aktiv
+- echte Exchange-/Boot-Reconciliation
+- sub-minute Latenz und historisches Orderbuch/Queue-Modell
+- asynchrones out-of-order Fill-/Order-Event-Reordering
+- Risk-Service-/DB-Fault-Szenarien
+- vollständige Red-Team-Matrix
+- vollständige Walk-Forward-Strategie-Runner-/Promotion-Integration
+- Parameter-Plateau-/Lag-/Konzentrations-Release-Reports
+- Offline AI Research Plane: Design vorhanden, autonome Ausführung aus Sicherheitsgründen deaktiviert
+- produktive ORB-/Ichimoku-/Bollinger-Strategien und finaler Regime-Hybrid
 
-Noch **nicht empirisch abgenommen**:
+**Noch nicht empirisch abgenommen:**
 
 - mehrjähriger lokaler Full-History-Replay auf den echten Binance-Dateien
 - Fee-Stress-Replay
 - echte Paper-vs-Replay-Parität auf einem überlappenden Paper-Zeitraum
-- Walk-Forward der neuen Challenger
+- Walk-Forward einer echten neuen Challenger-Familie
 - vollständige PBO/DSR/Plateau-Auswertung einer echten Challenger-Familie
 
-Noch **nicht als produktive Strategieänderung umzusetzen**:
+**Noch nicht als produktive Strategieänderung umzusetzen:**
 
 - B2 Volume-Challenger
 - aktives neues Regime-Gate für V8
