@@ -20,6 +20,9 @@ from replay_models import (
     utc,
 )
 
+CHECKPOINT_SCHEMA = 2
+SUPPORTED_CHECKPOINT_SCHEMAS = {1, CHECKPOINT_SCHEMA}
+
 
 class ReplayCheckpointMixin:
     def checkpoint_payload(self) -> dict[str, Any]:
@@ -27,13 +30,15 @@ class ReplayCheckpointMixin:
             return None if value is None else iso(value)
 
         return {
-            "schema": 1,
+            "schema": CHECKPOINT_SCHEMA,
             "now": dt(self.state.now),
             "cash": self.state.cash,
             "sequence": self.state.sequence,
             "kill_switch": self.state.kill_switch,
             "data_healthy": self.state.data_healthy,
             "last_prices": self.state.last_prices,
+            "last_minute_close_time": dt(self.state.last_minute_close_time),
+            "last_minute_fingerprint": self.state.last_minute_fingerprint,
             "pair_cooldown_until": {
                 pair: dt(value) for pair, value in self.state.pair_cooldown_until.items()
             },
@@ -100,7 +105,8 @@ class ReplayCheckpointMixin:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise RuntimeError(f"invalid replay checkpoint: {path}") from exc
-        if payload.get("schema") != 1:
+        schema = int(payload.get("schema", 0))
+        if schema not in SUPPORTED_CHECKPOINT_SCHEMAS:
             raise RuntimeError("unsupported replay checkpoint schema")
 
         def parsed(value: str | None) -> datetime | None:
@@ -122,6 +128,9 @@ class ReplayCheckpointMixin:
         state.last_prices = {
             key: float(value) for key, value in payload.get("last_prices", {}).items()
         }
+        state.last_minute_close_time = parsed(payload.get("last_minute_close_time"))
+        fingerprint = payload.get("last_minute_fingerprint")
+        state.last_minute_fingerprint = str(fingerprint) if fingerprint else None
         state.pair_cooldown_until = {}
         for pair, value in payload.get("pair_cooldown_until", {}).items():
             parsed_value = parsed(value)
@@ -134,6 +143,10 @@ class ReplayCheckpointMixin:
             item = dict(item)
             item["opened_at"] = parsed(item["opened_at"])
             position = Position(**item)
+            if position.initial_stake <= 0:
+                position.initial_stake = position.stake
+            if position.initial_amount <= 0:
+                position.initial_amount = position.amount
             state.positions[position.pair] = position
         state.orders = {}
         for item in payload.get("orders", []):
@@ -149,4 +162,6 @@ class ReplayCheckpointMixin:
             item["opened_at"] = parsed(item["opened_at"])
             item["closed_at"] = parsed(item["closed_at"])
             state.closed_trades.append(ClosedTrade(**item))
+        if hasattr(engine, "reconcile_state"):
+            engine.reconcile_state("checkpoint_restore")
         return engine
