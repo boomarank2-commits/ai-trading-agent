@@ -90,24 +90,28 @@ def validate_trial_ledger(path: Path) -> list[str]:
         if parent and parent not in id_set:
             errors.append(f"{experiment_id}: unknown parent experiment {parent}")
 
-    baseline = next((row for row in rows if row.get("experiment_id") == "V8-B0"), None)
+    baseline = next(
+        (row for row in rows if row.get("experiment_id") == "V8-B0"), None
+    )
     if baseline is None:
         errors.append("V8-B0 baseline is missing from trial ledger")
     else:
         if baseline.get("strategy_hash", "").strip() != V8_LF_SHA256:
             errors.append("V8-B0 strategy hash differs from frozen V8 LF SHA256")
         if baseline.get("status", "").strip() != "FROZEN_CHAMPION":
-            errors.append("V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision")
+            errors.append(
+                "V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision"
+            )
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()
         parameter_hash = row.get("parameter_hash", "").strip()
-        if experiment_id.startswith("V8-B") and "VOLUME" in experiment_id:
-            if parameter_hash not in ALLOWED_VOLUME_PARAMETER_HASHES:
-                errors.append(
-                    f"{experiment_id}: unregistered volume threshold {parameter_hash!r}; "
-                    "only 1.00 and 1.25 are allowed by the masterplan"
-                )
+        is_volume_trial = experiment_id.startswith("V8-B") and "VOLUME" in experiment_id
+        if is_volume_trial and parameter_hash not in ALLOWED_VOLUME_PARAMETER_HASHES:
+            errors.append(
+                f"{experiment_id}: unregistered volume threshold {parameter_hash!r}; "
+                "only 1.00 and 1.25 are allowed by the masterplan"
+            )
 
     return errors
 
@@ -130,12 +134,12 @@ def validate_repository(repo_root: Path) -> dict[str, Any]:
         )
         for phrase in required_phrases:
             if phrase not in text:
-                errors.append(f"masterplan missing required contract phrase: {phrase}")
+                errors.append(
+                    f"masterplan missing required contract phrase: {phrase}"
+                )
 
     if (repo_root / SUPERSEDED_BRIEF).exists():
-        errors.append(
-            f"superseded root brief must not be active: {SUPERSEDED_BRIEF}"
-        )
+        errors.append(f"superseded root brief must not be active: {SUPERSEDED_BRIEF}")
 
     agents = repo_root / "AGENTS.md"
     if not agents.is_file() or MASTERPLAN not in agents.read_text(encoding="utf-8"):
@@ -153,7 +157,9 @@ def validate_repository(repo_root: Path) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        "--repo-root", type=Path, default=Path(__file__).resolve().parents[1]
+    )
     args = parser.parse_args(argv)
     result = validate_repository(args.repo_root)
     print(json.dumps(result, indent=2, sort_keys=True))
