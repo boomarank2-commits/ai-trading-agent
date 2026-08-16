@@ -57,6 +57,17 @@ def test_v11_router_contains_all_regimes_families_and_no_trade_fallback() -> Non
         assert value in text
 
 
+def test_v11_regime_router_defaults_to_no_trade_then_routes_range_or_trend() -> None:
+    text = _source()
+    no_trade = 'dataframe["regime_state"] = self.REGIME_NO_TRADE'
+    range_route = 'dataframe.loc[range_regime, "regime_state"] = self.REGIME_RANGE'
+    trend_route = 'dataframe.loc[trend_regime, "regime_state"] = self.REGIME_TREND'
+    assert no_trade in text
+    assert range_route in text
+    assert trend_route in text
+    assert text.index(no_trade) < text.index(range_route) < text.index(trend_route)
+
+
 def test_v11_cost_gate_requires_more_than_stressed_roundtrip_fee() -> None:
     profiles = _literal_assignment("PAIR_PROFILES")
     stressed_roundtrip_fee = 0.002 * 2.0 * 1.50
