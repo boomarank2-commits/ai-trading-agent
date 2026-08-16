@@ -13,6 +13,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from freqtrade.enums import CandleType, TradingMode
+
 from locked_freqtrade import _load_exact_strategy
 from replay_core import Position, StrategyDecision
 
@@ -45,6 +47,21 @@ class V8ReplayAdapter:
         self.strategy_sha256 = strategy_sha256
         self.strategy_class = strategy_class
         self.config = dict(config)
+        trading_mode_value = self.config.get("trading_mode", "spot")
+        try:
+            trading_mode = (
+                trading_mode_value
+                if isinstance(trading_mode_value, TradingMode)
+                else TradingMode(str(trading_mode_value))
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                f"unsupported replay trading mode: {trading_mode_value!r}"
+            ) from exc
+        # Freqtrade normally derives this field while constructing Exchange.
+        # Replay intentionally never constructs a live Exchange, so provide only
+        # this deterministic enum-derived value before instantiating IStrategy.
+        self.config.setdefault("candle_type_def", CandleType.get_default(trading_mode))
         strategy_type, source_text = _load_exact_strategy(
             strategy_source, strategy_sha256, strategy_class
         )
