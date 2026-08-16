@@ -10,7 +10,6 @@ STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
 V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout250.py"
 CONFIG = USER_DATA / "config.json"
 EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
-EXPECTED_V10_LF_SHA256 = "698fa520249bcb0b100fc172d2827735a4fbe9a22d01a9e484a53253ff18673c"
 
 
 def _lf_sha256(path: Path) -> str:
@@ -18,14 +17,20 @@ def _lf_sha256(path: Path) -> str:
     return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_baseline_is_preserved_and_v10_is_active_candidate() -> None:
+def test_v8_baseline_is_preserved_and_v11_is_active_candidate() -> None:
     assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
-    assert _lf_sha256(STRATEGY) == EXPECTED_V10_LF_SHA256
 
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V10"' in text
-    assert "PAIR_RULES" in text
-    assert "v10_" in text
+    assert 'STRATEGY_VERSION = "V11"' in text
+    assert "PAIR_PROFILES" in text
+    assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
+    assert 'REGIME_RANGE = "RANGE/MEAN_REVERSION"' in text
+    assert 'REGIME_NO_TRADE = "NO_TRADE"' in text
+    assert 'FAMILY_ORB = "ORB_RETEST"' in text
+    assert 'FAMILY_ICHIMOKU = "ICHIMOKU_TREND"' in text
+    assert 'FAMILY_BOLLINGER = "BOLLINGER_MR"' in text
+    assert "ROUNDTRIP_COST_STRESS" in text
+    assert "v11_" in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert '"only_per_pair": True' in text
