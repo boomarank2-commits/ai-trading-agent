@@ -1,10 +1,9 @@
-"""V9 paper candidate for the 250 USDT testbot.
+"""Long-only slow Donchian trend strategy for the 250 USDT testbot.
 
-V9 keeps the proven V8 Donchian trend structure, risk limits and exits, but
-promotes one Deep-Research finding into the real trading path: BTC entries
-require 15-minute relative volume >= 1.00. ETH and SOL keep the validated V8
-entry behavior because the same global volume gate reduced their 3-year PnL.
-The 15m timeframe remains the execution timeframe.
+V8 leaves the noisy 15-minute breakout family. It waits for a fresh 20-day
+high on closed 4-hour candles inside an established multi-timeframe uptrend,
+then manages the position with a 10-day structure exit and a causal early
+failed-breakout guard. The 15m timeframe remains the execution timeframe.
 """
 
 from __future__ import annotations
@@ -22,10 +21,9 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V9: V8 Donchian core plus a BTC-only relative-volume quality gate."""
+    """20-day 4h Donchian breakout with 10-day structure exit."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V9"
 
     can_short = False
     timeframe = "15m"
@@ -40,12 +38,6 @@ class CompressionBreakout250(IStrategy):
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
     MAX_DAILY_LOSS_USDT = 10.0
-
-    # Deep-Research promotion gate. Historical UI runs on 2026-08-16 showed
-    # BTC improving from +52.49 USDT / PF 3.39 / 3.07% DD to
-    # +62.66 USDT / PF 10.26 / 1.22% DD with volume_ratio >= 1.00.
-    # The same global filter hurt ETH and SOL, so V9 applies it to BTC only.
-    BTC_VOLUME_RATIO_MIN = 1.00
 
     minimal_roi: ClassVar[dict[str, float]] = {
         "0": 0.05,
@@ -72,8 +64,8 @@ class CompressionBreakout250(IStrategy):
     }
     order_time_in_force: ClassVar[dict[str, str]] = {"entry": "GTC", "exit": "GTC"}
 
-    # V9 intentionally keeps V8's fixed long-horizon windows and narrow threshold
-    # parameters. Only the pre-observed BTC volume-quality gate is promoted.
+    # V8 uses fixed long-horizon windows and only narrow threshold parameters.
+    # This keeps the hypothesis interpretable and reduces data-mining degrees of freedom.
     buy_momentum_30d = DecimalParameter(
         -0.02, 0.20, default=0.03, decimals=2, space="buy", optimize=True, load=True
     )
@@ -338,12 +330,6 @@ class CompressionBreakout250(IStrategy):
         )
         if pair != "BTC/USDT":
             trend_4h = trend_4h & btc_market_up
-        volume_quality = dataframe["volume"] > 0
-        if pair == "BTC/USDT":
-            volume_quality = volume_quality & (
-                dataframe["volume_ratio"] >= self.BTC_VOLUME_RATIO_MIN
-            )
-
         execution = (
             (dataframe["close"] > dataframe["ema_exec"])
             & (dataframe["ema_exec"] > dataframe["ema_fast"])
@@ -351,17 +337,12 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["rsi"] <= 78)
             & (dataframe["atr_pct"] >= self.buy_atr_min.value)
             & (dataframe["atr_pct"] <= self.buy_atr_max.value)
-            & volume_quality
-        )
-        enter_tag = (
-            "slow_20d_donchian_breakout_v9_btc_vr100"
-            if pair == "BTC/USDT"
-            else "slow_20d_donchian_breakout_v9"
+            & (dataframe["volume"] > 0)
         )
         dataframe.loc[
             trend_4h & trend_1h & execution,
             ["enter_long", "enter_tag"],
-        ] = (1, enter_tag)
+        ] = (1, "slow_20d_donchian_breakout")
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:

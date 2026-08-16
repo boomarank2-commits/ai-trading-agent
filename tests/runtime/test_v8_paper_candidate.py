@@ -7,25 +7,32 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DATA = REPO_ROOT / "runtime" / "user_data"
 STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
+V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout250.py"
 CONFIG = USER_DATA / "config.json"
 EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
+EXPECTED_V9_LF_SHA256 = "b9ab4f995510b9d847e2b5c9793bb8072bd3d6a7f9c623eb8f283c85fad2a0e1"
 
 
-def test_exact_validated_v8_strategy_source_is_promoted() -> None:
-    # Git normalizes repository text to LF, while a Windows checkout may expose
-    # CRLF depending on core.autocrlf. Fingerprint the normalized source so the
-    # test locks strategy semantics rather than the checkout's newline policy.
-    source = STRATEGY.read_bytes().replace(b"\r\n", b"\n")
-    assert hashlib.sha256(source).hexdigest() == EXPECTED_V8_LF_SHA256
-    text = source.decode("utf-8")
-    assert "slow_20d_donchian_breakout" in text
+def _lf_sha256(path: Path) -> str:
+    source = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(source).hexdigest()
+
+
+def test_v8_baseline_is_preserved_and_v9_is_active_candidate() -> None:
+    assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
+    assert _lf_sha256(STRATEGY) == EXPECTED_V9_LF_SHA256
+
+    text = STRATEGY.read_text(encoding="utf-8")
+    assert 'STRATEGY_VERSION = "V9"' in text
+    assert "BTC_VOLUME_RATIO_MIN = 1.00" in text
+    assert 'if pair == "BTC/USDT":' in text
+    assert 'dataframe["volume_ratio"] >= self.BTC_VOLUME_RATIO_MIN' in text
     assert "failed_4h_breakout" in text
     assert "slow_trend_exit" in text
 
 
-def test_v8_paper_configuration_keeps_validated_execution_contract() -> None:
+def test_paper_configuration_keeps_validated_execution_contract() -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    assert config["bot_name"] == "slow-donchian-v8-250-dryrun"
     assert config["dry_run"] is True
     assert config["dry_run_wallet"] == 250
     assert config["available_capital"] == 250
@@ -43,7 +50,7 @@ def test_v8_paper_configuration_keeps_validated_execution_contract() -> None:
     assert config["db_url"] == "sqlite:///user_data/tradesv8.dryrun.sqlite"
 
 
-def test_v8_forward_database_is_isolated_from_legacy_paper_history() -> None:
+def test_existing_paper_database_remains_isolated_from_legacy_v2_v3_history() -> None:
     launcher = (REPO_ROOT / "runtime" / "scripts" / "start-testbot-24x7.ps1").read_text(
         encoding="utf-8"
     )
