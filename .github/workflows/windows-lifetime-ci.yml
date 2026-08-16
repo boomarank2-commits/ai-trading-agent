@@ -1,5 +1,6 @@
 name: Windows bot lifetime guard
 
+# Final V8 promotion gate: closing the visible supervisor must still kill descendants.
 on:
   push:
     branches:
@@ -7,12 +8,14 @@ on:
     paths:
       - "STARTBOT.bat"
       - "runtime/scripts/run-testbot-supervised.ps1"
+      - "runtime/scripts/start-testbot-24x7.ps1"
       - "runtime/scripts/test-supervisor-lifetime.ps1"
       - ".github/workflows/windows-lifetime-ci.yml"
   pull_request:
     paths:
       - "STARTBOT.bat"
       - "runtime/scripts/run-testbot-supervised.ps1"
+      - "runtime/scripts/start-testbot-24x7.ps1"
       - "runtime/scripts/test-supervisor-lifetime.ps1"
       - ".github/workflows/windows-lifetime-ci.yml"
   workflow_dispatch:

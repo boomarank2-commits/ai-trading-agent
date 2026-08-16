@@ -9,9 +9,10 @@ echo   TESTBOT: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo Vorhandene Test-Trades und die bestehende Dry-run-Datenbank
-echo werden fortgesetzt. Es werden KEINE echten Orders aufgegeben.
-echo Bei dieser selten handelnden Strategie koennen auch 24 Stunden ohne
+echo V8 startet/fortsetzt eine eigene Dry-run-Datenbank fuer den sauberen
+echo Paper-Forward-Test. Alte V2/V3-Test-Trades werden NICHT vermischt und
+echo bleiben als historische Dateien erhalten. Es werden KEINE echten Orders aufgegeben.
+echo Bei dieser selten handelnden Trendstrategie koennen auch laengere Phasen ohne
 echo einen einzigen Trade ein normales Ergebnis sein.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -151,3 +152,5 @@ echo   winget install --id=astral-sh.uv -e
 echo.
 pause
 exit /b 1
+
+endlocal

@@ -1,0 +1,52 @@
+name: V8 paper candidate contract
+
+# Final promotion gate: runtime, strategy, database isolation and backtest contracts.
+on:
+  push:
+    branches:
+      - main
+      - agent/promote-v8-paper-candidate
+    paths:
+      - "runtime/user_data/config.json"
+      - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "runtime/validate_dryrun_config.py"
+      - "runtime/scripts/start-testbot-24x7.ps1"
+      - "tests/runtime/**"
+      - "tests/test_backtest_*.py"
+      - "tests/test_testbot_backtest_api.py"
+      - ".github/workflows/windows-v8-paper-candidate-ci.yml"
+  pull_request:
+    paths:
+      - "runtime/user_data/config.json"
+      - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "runtime/validate_dryrun_config.py"
+      - "runtime/scripts/start-testbot-24x7.ps1"
+      - "tests/runtime/**"
+      - "tests/test_backtest_*.py"
+      - "tests/test_testbot_backtest_api.py"
+      - ".github/workflows/windows-v8-paper-candidate-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync exact locked environment
+        shell: powershell
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Parse changed PowerShell launcher
+        shell: powershell
+        run: |
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\runtime\scripts\start-testbot-24x7.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -ne 0) { throw ($errors | Out-String) }
+      - name: Runtime and backtest contract tests
+        shell: powershell
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+      - name: Ruff
+        shell: powershell
+        run: .\.venv\Scripts\ruff.exe check runtime\validate_dryrun_config.py runtime\user_data\strategies\CompressionBreakout250.py tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py

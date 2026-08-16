@@ -133,8 +133,7 @@ Datenbank wieder aufnehmen.
 
 Die Ergebnisse bleiben lokal unter `runtime/user_data/` erhalten:
 
-- `tradesv3.dryrun.sqlite`: persistente Freqtrade-Datenbank aller simulierten
-  Trades;
+- `tradesv8.dryrun.sqlite`: eigene persistente Freqtrade-Datenbank des V8-Paper-Forward-Tests. Alte V2/V3-Datenbanken bleiben getrennt erhalten und werden nicht in die V8-Auswertung gemischt;
 - `logs/sessions/<Sitzungs-ID>/freqtrade.log`: Freqtrade-Protokoll der Sitzung;
 - `logs/sessions/<Sitzungs-ID>/supervisor.log`: Start-, Laufzeit- und
   Abschlussmeldungen;
@@ -161,9 +160,17 @@ Die Strategie handelt selten. Auch nach 24 Stunden können **null Trades** ein
 technisch normales Ergebnis sein; für eine aussagekräftigere Beobachtung kann
 der Test mehrere Tage laufen.
 
-Die vorhandene Strategie war in den bisherigen historischen Prüfungen negativ.
-Dieser Dry-run dient dazu, Funktion, Stabilität und Verhalten zu beobachten.
-Weder ein mehrtägiger Lauf noch ein zwischenzeitliches Plus beweist eine
-profitable Strategie oder rechtfertigt Echtgeldbetrieb. Der Bot ist damit
-weder als identische Kopie des Videos noch als produktionsreifer Handelsbot
-ausgewiesen.
+Der aktuelle V8-Kandidat ist eine langsame 4h-Donchian-Trendstrategie und wurde
+vor dem Paper-Start deutlich breiter geprüft als die verworfenen V1–V7-Varianten.
+Unter dem konservativen historischen Kostenproxy blieb das gemeinsame
+BTC/ETH/SOL-Portfolio unter anderem im Drei-Jahres-, älteren Holdout- und
+Fünf-Jahres-Test positiv. Die Detailzahlen und Gegenbeispiele stehen in
+`docs/V8_PAPER_CANDIDATE_REPORT_DE.md`.
+
+Das ist trotzdem **kein Profitversprechen**. Die Strategie besitzt eine niedrige
+Trefferquote, kann lange Verlustserien haben und war in einzelnen historischen
+Jahresslices negativ. Wenige große Trends tragen einen wesentlichen Teil des
+Ertrags. Genau deshalb startet V8 in einer frischen `tradesv8.dryrun.sqlite` und
+muss zuerst unverändert im Paper-Forward-Test bestehen. Ein mehrtägiges Plus,
+ein einzelner großer Gewinner oder ein guter Backtest rechtfertigt weiterhin
+keinen Echtgeldbetrieb.

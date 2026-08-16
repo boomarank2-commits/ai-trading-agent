@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 
 $runtimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $runtimeRoot ".."))
-$databasePath = Join-Path $runtimeRoot "user_data\tradesv3.dryrun.sqlite"
+$databasePath = Join-Path $runtimeRoot "user_data\tradesv8.dryrun.sqlite"
 $reporterPath = Join-Path $runtimeRoot "export_dryrun_report.py"
 $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
 

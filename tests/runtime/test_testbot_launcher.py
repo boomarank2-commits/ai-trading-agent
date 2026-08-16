@@ -11,11 +11,16 @@ SCRIPTS = REPO_ROOT / "runtime" / "scripts"
 
 def test_double_click_launchers_are_explicitly_test_only() -> None:
     start = (REPO_ROOT / "STARTBOT.bat").read_text(encoding="utf-8")
+    supervisor = (SCRIPTS / "run-testbot-supervised.ps1").read_text(encoding="utf-8")
     stop = (REPO_ROOT / "STOP_NEUE_TESTTRADES.bat").read_text(encoding="utf-8")
     resume = (REPO_ROOT / "TESTTRADES_FREIGEBEN.bat").read_text(encoding="utf-8")
     report = (REPO_ROOT / "TESTBOT_AUSWERTUNG.bat").read_text(encoding="utf-8")
 
-    assert "start-testbot-24x7.ps1" in start
+    # STARTBOT must go through the lifetime supervisor.  The supervisor then
+    # launches the persistent dry-run script.  Requiring the inner script name
+    # directly in STARTBOT would accidentally test the pre-Job-Object topology.
+    assert "run-testbot-supervised.ps1" in start
+    assert "start-testbot-24x7.ps1" in supervisor
     assert "DRY-RUN" in start
     assert "250 USDT" in start
     assert "where uv.exe" in start
@@ -35,7 +40,7 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert 'FREQTRADE__INITIAL_STATE = "running"' in source
     assert "DRYRUN_STOP_ENTRIES" in source
     assert '"--db-url", $databaseUrl' in source
-    assert "tradesv3.dryrun.sqlite" in source
+    assert "tradesv8.dryrun.sqlite" in source
     assert "FileShare]::None" in source
     assert "SetThreadExecutionState" in source
     assert "2147483649" in source

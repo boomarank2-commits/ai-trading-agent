@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "compression-breakout-250-dryrun",
+  "bot_name": "slow-donchian-v8-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,
@@ -20,9 +20,7 @@
   "position_adjustment_enable": false,
   "max_entry_position_adjustment": 0,
   "minimal_roi": {
-    "0": 0.05,
-    "120": 0.025,
-    "360": 0.0
+    "0": 0.50
   },
   "stoploss": -0.055,
   "trailing_stop": false,
@@ -111,7 +109,7 @@
   },
   "initial_state": "stopped",
   "force_entry_enable": false,
-  "db_url": "sqlite:///user_data/tradesv3.dryrun.sqlite",
+  "db_url": "sqlite:///user_data/tradesv8.dryrun.sqlite",
   "dataformat_ohlcv": "feather",
   "dataformat_trades": "feather",
   "internals": {
