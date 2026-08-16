@@ -5,6 +5,7 @@ on:
     branches:
       - feature/replay-v8-parity-20260816
       - feature/research-masterplan-20260816
+      - feature/deep-research-infra-20260816
   pull_request:
     paths:
       - "runtime/replay_*.py"
@@ -13,6 +14,8 @@ on:
       - "runtime/paper_decision_telemetry.py"
       - "runtime/statistical_audit.py"
       - "runtime/research_governance.py"
+      - "runtime/research_strategy_contract.py"
+      - "runtime/walk_forward.py"
       - "runtime/locked_freqtrade.py"
       - "tests/replay/**"
       - "tests/research/**"
@@ -23,6 +26,7 @@ on:
       - "research/trial_ledger.csv"
       - "research/TRIAL_LEDGER_README_DE.md"
       - "docs/V8_FULL_SYSTEM_REPLAY_DE.md"
+      - "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
       - "RESEARCH_MASTERPLAN_DE.md"
       - "AGENTS.md"
       - "START_HERE_DE.md"
@@ -43,7 +47,7 @@ jobs:
       - name: Compile replay/runtime modules
         shell: powershell
         run: |
-          .\.venv\Scripts\python.exe -m py_compile runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\research_governance.py runtime\locked_freqtrade.py
+          .\.venv\Scripts\python.exe -m py_compile runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\research_governance.py runtime\research_strategy_contract.py runtime\walk_forward.py runtime\locked_freqtrade.py
       - name: Authoritative research governance contract
         shell: powershell
         run: .\.venv\Scripts\python.exe runtime\research_governance.py
@@ -59,5 +63,5 @@ jobs:
       - name: Ruff replay and research changes
         shell: powershell
         run: |
-          .\.venv\Scripts\ruff.exe check runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\research_governance.py runtime\locked_freqtrade.py
+          .\.venv\Scripts\ruff.exe check runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\research_governance.py runtime\research_strategy_contract.py runtime\walk_forward.py runtime\locked_freqtrade.py
           .\.venv\Scripts\ruff.exe check tests\replay tests\research --ignore E402,E501
