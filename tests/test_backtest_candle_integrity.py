@@ -55,7 +55,7 @@ def test_inspect_candle_file_rejects_missing_candle(tmp_path) -> None:
 def test_inspect_candle_file_accepts_boundary_aligned_recent_15m_data(tmp_path) -> None:
     """07:00 is within the intended two-interval tolerance at 07:35."""
 
-    start = datetime(2026, 8, 16, 6, 0, tzinfo=UTC)
+    start = datetime(2026, 8, 16, 0, 0, tzinfo=UTC)
     check_time = datetime(2026, 8, 16, 7, 35, 24, tzinfo=UTC)
     path = tmp_path / "BTC_USDT-15m.feather"
     _write_dates(path, pd.date_range(start, datetime(2026, 8, 16, 7, 0, tzinfo=UTC), freq="15min"))
