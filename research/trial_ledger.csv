@@ -1,3 +1,4 @@
 experiment_id,parent_experiment_id,strategy_version,hypothesis,status,development_window,pairs,fee_per_side,trade_count,net_return_pct,profit_factor,max_drawdown_pct,decision
-V8-B0,,V8,"20d 4h Donchian trend-following baseline",FROZEN_BASELINE,"2023-08-17..2026-08-16","BTC/USDT;ETH/USDT;SOL/USDT",0.002,,, , ,"READY FOR EXTENDED PAPER TEST - NOT REAL MONEY"
-V8-B1-VOLUME100,V8-B0,V8-B1,"Require 15m volume_ratio >= 1.00 on otherwise unchanged V8 entry",PENDING_3Y_BACKTEST,"2023-08-17..2026-08-16","BTC/USDT;ETH/USDT;SOL/USDT",0.002,,,,,"RESEARCH ONLY"
+V8-B0,,V8,"20d 4h Donchian trend-following baseline",FROZEN_BASELINE,"2023-08-17..2026-08-16","BTC/USDT;ETH/USDT;SOL/USDT",0.002,,,,,"READY FOR EXTENDED PAPER TEST - NOT REAL MONEY"
+V8-B1-VOLUME100,V8-B0,V8-B1,"Require 15m volume_ratio >= 1.00 on otherwise unchanged V8 entry",REJECT_GLOBAL_3Y_SCREEN,"2023-08-17..2026-08-16","BTC/USDT;ETH/USDT;SOL/USDT",0.002,32,,,,"BTC: 10 trades +25.06% PF10.26 DD1.22%; ETH: 7 trades +13.16% PF3.10 DD3.78%; SOL: 15 trades +6.93% PF1.53 DD8.45%. Global filter not promoted; B2 remains the pre-registered second threshold."
+V8-B2-VOLUME125,V8-B0,V8-B2,"Require 15m volume_ratio >= 1.25 on otherwise unchanged V8 entry",PENDING_3Y_BACKTEST,"2023-08-17..2026-08-16","BTC/USDT;ETH/USDT;SOL/USDT",0.002,,,,,"RESEARCH ONLY - second and final pre-registered global volume threshold"
