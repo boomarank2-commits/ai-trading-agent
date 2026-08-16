@@ -24,10 +24,16 @@ def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
     assert api.BACKTEST_WARMUP_DAYS >= 70
 
 
-def test_backtest_download_adds_only_4h_btc_context_for_altcoins() -> None:
+def test_v11_backtest_downloads_no_cross_pair_market_context() -> None:
     assert api._btc_context_pair("BTC/USDT") is None
-    assert api._btc_context_pair("ETH/USDT") == "BTC/USDT"
-    assert api._btc_context_pair("SOL/USDT") == "BTC/USDT"
+    assert api._btc_context_pair("ETH/USDT") is None
+    assert api._btc_context_pair("SOL/USDT") is None
+
+    source = (RUNTIME / "testbot_backtest_api.py").read_text(encoding="utf-8")
+    assert "context_args" not in source
+    assert "context_prepend_args" not in source
+    assert '"cross_pair_context": False' in source
+    assert '"adaptive_router": True' in source
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
