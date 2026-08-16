@@ -1,10 +1,10 @@
-"""Research-only V8-B1 slow Donchian challenger for the 250 USDT testbot.
+"""Research-only V8-B2 slow Donchian challenger for the 250 USDT testbot.
 
 This branch keeps the frozen V8 logic intact and changes exactly one entry
-condition: 15-minute relative volume must be at least its trailing 20-candle
-mean (``volume_ratio >= 1.00``). Runtime dry-run/live entries are deliberately
-blocked on this research branch so the existing V8 paper database cannot be
-mixed with an unvalidated challenger. Backtesting remains enabled.
+condition: 15-minute relative volume must be at least 1.25x its trailing
+20-candle mean (``volume_ratio >= 1.25``). Runtime dry-run/live entries are
+deliberately blocked on this research branch so the existing V8 paper database
+cannot be mixed with an unvalidated challenger. Backtesting remains enabled.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V8-B1: 20-day 4h Donchian breakout plus volume-ratio 1.00 gate."""
+    """V8-B2: 20-day 4h Donchian breakout plus volume-ratio 1.25 gate."""
 
     INTERFACE_VERSION = 3
 
@@ -40,10 +40,10 @@ class CompressionBreakout250(IStrategy):
     MAX_OPEN_POSITIONS = 3
     MAX_DAILY_LOSS_USDT = 10.0
 
-    # Research contract: B1 is tested in historical backtesting only until it
+    # Research contract: B2 is tested in historical backtesting only until it
     # has passed its pre-registered gates. This prevents paper-DB contamination.
     RESEARCH_BACKTEST_ONLY = True
-    VOLUME_RATIO_MIN = 1.00
+    VOLUME_RATIO_MIN = 1.25
 
     minimal_roi: ClassVar[dict[str, float]] = {
         "0": 0.05,
@@ -347,7 +347,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             trend_4h & trend_1h & execution,
             ["enter_long", "enter_tag"],
-        ] = (1, "slow_20d_donchian_breakout_vr100")
+        ] = (1, "slow_20d_donchian_breakout_vr125")
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -468,7 +468,7 @@ class CompressionBreakout250(IStrategy):
             if side != "long":
                 return False
 
-            # Research branch safety: never create B1 dry-run/live trades before
+            # Research branch safety: never create B2 dry-run/live trades before
             # the pre-registered backtest gates have been evaluated.
             if self.RESEARCH_BACKTEST_ONLY and self._runmode_value(self.config) in {
                 "live",
