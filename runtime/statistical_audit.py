@@ -11,9 +11,10 @@ import csv
 import itertools
 import json
 import math
+from collections.abc import Sequence
 from pathlib import Path
 from statistics import NormalDist, fmean, pstdev
-from typing import Any, Sequence
+from typing import Any
 
 NORMAL = NormalDist()
 EULER_GAMMA = 0.5772156649015329

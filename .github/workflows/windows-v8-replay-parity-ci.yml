@@ -45,4 +45,6 @@ jobs:
         run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
       - name: Ruff replay changes
         shell: powershell
-        run: .\.venv\Scripts\ruff.exe check runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\locked_freqtrade.py tests\replay
+        run: |
+          .\.venv\Scripts\ruff.exe check runtime\replay_core.py runtime\replay_models.py runtime\replay_checkpoint.py runtime\replay_risk_engine.py runtime\replay_engine.py runtime\replay_data.py runtime\replay_telemetry.py runtime\v8_replay_adapter.py runtime\historical_live_replay.py runtime\replay_prepare_data.py runtime\replay_parity.py runtime\replay_analysis.py runtime\replay_research_analysis.py runtime\paper_decision_telemetry.py runtime\statistical_audit.py runtime\locked_freqtrade.py
+          .\.venv\Scripts\ruff.exe check tests\replay --ignore E402,E501

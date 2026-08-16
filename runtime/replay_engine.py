@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Any, Mapping
+from typing import Any
 
 from replay_models import ClosedTrade, MinuteBar, PendingOrder, Position, iso
 from replay_risk_engine import ReplayRiskEngine

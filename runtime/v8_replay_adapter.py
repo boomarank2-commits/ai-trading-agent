@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from freqtrade.enums import CandleType, TradingMode
-
 from locked_freqtrade import _load_exact_strategy
 from replay_core import Position, StrategyDecision
 

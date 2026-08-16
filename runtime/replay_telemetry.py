@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from replay_core import ClosedTrade, ReplayEngine, ReplaySink, final_metrics
 
@@ -29,10 +31,8 @@ class JsonlReplaySink(ReplaySink):
             stream.write(json.dumps(dict(payload), sort_keys=True, ensure_ascii=False))
             stream.write("\n")
             stream.flush()
-            try:
+            with contextlib.suppress(OSError):
                 os.fsync(stream.fileno())
-            except OSError:
-                pass
 
     def decision(self, payload: Mapping[str, Any]) -> None:
         self._append(self._paths["decision"], payload)

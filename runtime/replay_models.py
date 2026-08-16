@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable, Mapping
+from typing import Any
 
 PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
 

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 TIMEFRAME_SECONDS = {"1m": 60, "15m": 900, "1h": 3600, "4h": 14400}
 REQUIRED_TIMEFRAMES = ("1m", "15m", "1h", "4h")
@@ -90,8 +91,8 @@ def inspect_feather(
         "path": str(path),
         "sha256": sha256_file(path),
         "file_bytes": path.stat().st_size,
-        "rows_total": int(len(frame)),
-        "rows_selected": int(len(selected)),
+        "rows_total": len(frame),
+        "rows_selected": len(selected),
         "selected_first_open_utc": first.isoformat(),
         "selected_last_open_utc": last.isoformat(),
         "expected_interval_seconds": int(delta.total_seconds()),
