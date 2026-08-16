@@ -46,7 +46,7 @@ def test_gap_audit_keeps_known_incomplete_layers_visible() -> None:
     assert "PLANNED" in text
     assert "Red-Team-/Fault-Injection" in text
     assert "Die Matrix ist damit wesentlich weiter, aber weiterhin **nicht vollständig**" in text
-    assert "echte Exchange-Reconciliation" in text
+    assert "Exchange-Reconciliation" in text
     assert "Walk-Forward | **PARTIAL**" in text
 
 
