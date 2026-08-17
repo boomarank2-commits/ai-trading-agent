@@ -133,7 +133,8 @@ def add_tf_features(base: pd.DataFrame, rule: str, suffix: str) -> pd.DataFrame:
     x[f"ema200_{suffix}"] = ema(x["close"], 200)
     x[f"rsi_{suffix}"] = rsi(x["close"])
     x[f"mom6_{suffix}"] = x["close"].pct_change(6)
-    keep = ["date", f"ema20_{suffix}", f"ema50_{suffix}", f"ema200_{suffix}", f"rsi_{suffix}", f"mom6_{suffix}"]
+    x[f"close_{suffix}"] = x["close"]
+    keep = ["date", f"close_{suffix}", f"ema20_{suffix}", f"ema50_{suffix}", f"ema200_{suffix}", f"rsi_{suffix}", f"mom6_{suffix}"]
     return x[keep]
 
 
