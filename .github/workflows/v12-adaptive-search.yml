@@ -18,10 +18,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Sync locked environment
         run: uv sync --frozen --all-extras --python 3.12
-      - name: Run 730d training plus 365d blind search
+      - name: Run rolling 730d training plus 365d blind search
         run: |
           .venv/bin/python runtime/adaptive_pair_optimizer.py \
-            --start 2023-08-01 \
+            --start 2021-08-01 \
+            --folds 3 \
             --cache runtime/user_data/v12_public_cache \
             --out v12-results/v12_optimizer_report.json
       - name: Show compact result
@@ -33,9 +34,10 @@ jobs:
           from pathlib import Path
           p = json.loads(Path('v12-results/v12_optimizer_report.json').read_text())
           for symbol, result in p['results'].items():
-              b = result['blind']
-              s = result['blind_stress_fee_0_003']
-              print(symbol, 'specialists=', result['router_specialists'], 'blind=', b, 'stress=', s, 'families=', result['blind_family_pnl'])
+              a = result['aggregate']
+              print(symbol, 'aggregate=', a['blind'], 'positive_folds=', f"{a['positive_folds']}/{a['fold_count']}", 'stress=', a['blind_stress_fee_0_003'], 'families=', a['family_pnl'])
+              for i, fold in enumerate(result['folds'], 1):
+                  print(' ', 'fold', i, fold['blind'], 'specialists=', fold['router_specialists'], 'families=', fold['blind_family_pnl'])
           PY
           fi
       - uses: actions/upload-artifact@v4
