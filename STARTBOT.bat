@@ -9,10 +9,10 @@ echo   TESTBOT: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V8 startet/fortsetzt eine eigene Dry-run-Datenbank fuer den sauberen
-echo Paper-Forward-Test. Alte V2/V3-Test-Trades werden NICHT vermischt und
+echo V12.4 startet/fortsetzt eine eigene Dry-run-Datenbank fuer den sauberen
+echo Paper-Forward-Test. Alte V8/V11-Test-Trades werden NICHT vermischt und
 echo bleiben als historische Dateien erhalten. Es werden KEINE echten Orders aufgegeben.
-echo Bei dieser selten handelnden Trendstrategie koennen auch laengere Phasen ohne
+echo Bei dieser selten handelnden Donchian-Trendstrategie koennen auch laengere Phasen ohne
 echo einen einzigen Trade ein normales Ergebnis sein.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -20,6 +20,7 @@ echo Strg+C beendet den Bot kontrolliert und erzeugt den Abschlussbericht.
 echo Wird dieses Fenster direkt geschlossen, der Supervisor beendet oder das
 echo ueberwachte Testbot-UI geschlossen, beendet Windows automatisch auch den
 echo gesamten Bot-Prozessbaum. Ein unsichtbar weiterlaufender Bot ist damit
+
 echo nicht zulaessig.
 echo.
 
@@ -149,6 +150,7 @@ echo FEHLER: uv konnte nach der automatischen Installation nicht gefunden werden
 echo Bitte STARTBOT.bat einmal schliessen und erneut doppelklicken.
 echo Falls der Fehler bleibt, uv manuell installieren mit:
 echo   winget install --id=astral-sh.uv -e
+
 echo.
 pause
 exit /b 1
