@@ -58,11 +58,9 @@ class CompressionBreakout250(IStrategy):
     FAMILY_DONCHIAN = "DONCHIAN_TREND"
     FAMILY_NO_TRADE = "NO_TRADE"
 
-    minimal_roi: ClassVar[dict[str, float]] = {
-        "0": 0.05,
-        "120": 0.025,
-        "360": 0.0,
-    }
+    # Keep Freqtrade's global ROI effectively disabled in the runtime contract.
+    # V12.4 applies the staged V8-style profit exits causally in custom_exit.
+    minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
     use_exit_signal = True
@@ -391,6 +389,14 @@ class CompressionBreakout250(IStrategy):
             age_hours = (
                 current_time - trade.open_date_utc
             ).total_seconds() / 3600.0
+
+            if current_profit >= 0.05:
+                return "v12_4_roi_5pct"
+            if age_hours >= 2.0 and current_profit >= 0.025:
+                return "v12_4_roi_2_5pct"
+            if age_hours >= 6.0 and current_profit >= 0.0:
+                return "v12_4_roi_breakeven"
+
             if age_hours > 48 or current_profit >= 0:
                 return None
             level = trade.get_custom_data(
