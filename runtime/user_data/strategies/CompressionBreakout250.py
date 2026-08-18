@@ -1,13 +1,15 @@
-"""V12.7 pair-specific Donchian quality and failure-control candidate.
+"""V12.8 pair-specific champion core plus profit-ratchet candidate.
 
-V12.7 removes the rejected V12.6 fast-Donchian challenger and keeps one
-20-day / 4h Donchian trend family. BTC, ETH and SOL remain completely
-pair-local, but each pair uses its own quality gate and early failed-breakout
-threshold derived from the accumulated backtest history.
+V12.8 is built from the strongest pair-local evidence in the complete
+backtest archive. BTC uses the proven V9-style 15m volume-quality gate on top
+of the slow 20-day / 4h Donchian core. ETH keeps the V12.7 quality gate.
+SOL returns to the broader V12.5 pair-local slow core because V12.7 filtering
+removed major winners and admitted a bad subset.
 
-The purpose of this candidate is not to maximize hit-rate. It aims to keep
-large trend winners while preventing weak breakouts and cutting obviously
-failed entries earlier, especially SOL loss clusters.
+The only new exit experiment is a SOL profit ratchet: after a trade reaches
++5% net profit, its protective floor is raised to +1% above entry. This is
+deliberately isolated so the next exact 1m-detail backtest can tell whether
+profit giveback was a real lever without reintroducing staged take-profits.
 
 Safety: Binance Spot, long-only, 1x, max 80 USDT per position, max three
 positions / 240 USDT total exposure, hard stop -5.5%, no DCA.
@@ -23,15 +25,21 @@ from typing import Any, ClassVar
 
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
+from freqtrade.strategy import (
+    DecimalParameter,
+    IntParameter,
+    IStrategy,
+    informative,
+    stoploss_from_open,
+)
 from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.7: pair-local slow Donchian with pair-specific loss control."""
+    """V12.8: pair-specific champion slow Donchian plus SOL profit ratchet."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.7"
+    STRATEGY_VERSION = "V12.8"
 
     can_short = False
     timeframe = "15m"
@@ -122,6 +130,7 @@ class CompressionBreakout250(IStrategy):
     minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
+    use_custom_stoploss = True
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
@@ -350,6 +359,7 @@ class CompressionBreakout250(IStrategy):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """Route each pair to the strongest pair-local slow-core entry found so far."""
         pair = str(metadata.get("pair", ""))
         dataframe["regime_state"] = self.REGIME_NO_TRADE
         dataframe["route_family"] = self.FAMILY_NO_TRADE
@@ -359,10 +369,7 @@ class CompressionBreakout250(IStrategy):
             dataframe["no_trade_reason"] = "unsupported_pair"
             return dataframe
 
-        profile = self.PAIR_PROFILES[pair]
         asset = pair.split("/")[0].lower()
-        persistence_col = f"trend_persist_{int(profile['persistence_bars'])}_4h"
-
         fresh_slow = (
             (dataframe["fresh_breakout_4h"] > 0)
             & (dataframe["fresh_breakout_4h"].shift(1).fillna(0) <= 0)
@@ -372,35 +379,11 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["close_4h"] > dataframe["ema_fast_4h"])
             & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
             & (dataframe["ema_fast_rising_4h"] > 0)
-            & (dataframe["adx_4h"] >= float(profile["adx_min"]))
-            & (dataframe["momentum_30d_4h"] >= float(profile["momentum_min"]))
-            & (dataframe["rsi_4h"] >= float(profile["rsi_min"]))
-            & (dataframe["rsi_4h"] <= float(profile["rsi_max"]))
-            & (dataframe[persistence_col] > 0)
-            & (
-                dataframe["breakout_strength_atr_4h"]
-                >= float(profile["breakout_strength_min_atr"])
-            )
-            & (
-                dataframe["breakout_strength_atr_4h"]
-                <= float(profile["breakout_strength_max_atr"])
-            )
+            & (dataframe["adx_4h"] >= self.buy_adx_4h_min.value)
+            & (dataframe["momentum_30d_4h"] >= self.buy_momentum_30d.value)
+            & (dataframe["rsi_4h"] >= 50)
+            & (dataframe["rsi_4h"] <= self.buy_rsi_4h_max.value)
         )
-
-        if pair == "BTC/USDT":
-            volume_quality = (
-                (dataframe["volume_ratio_4h"] >= float(profile["volume_min"]))
-                | (
-                    (dataframe["adx_4h"] >= float(profile["volume_override_adx"]))
-                    & (
-                        dataframe["momentum_30d_4h"]
-                        >= float(profile["volume_override_momentum"])
-                    )
-                )
-            )
-        else:
-            volume_quality = dataframe["volume_ratio_4h"] >= float(profile["volume_min"])
-
         trend_1h = (
             (dataframe["close_1h"] > dataframe["ema_fast_1h"])
             & (dataframe["ema_fast_1h"] > dataframe["ema_slow_1h"])
@@ -417,7 +400,36 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["volume"] > 0)
         )
 
-        qualified_trend = base_4h & volume_quality & trend_1h
+        if pair == "BTC/USDT":
+            # V9/V8-B1 evidence: the 15m volume ratio >= 1.00 removed ten
+            # low-quality BTC breakouts and improved both net P/L and drawdown.
+            pair_quality = dataframe["volume_ratio"] >= 1.00
+        elif pair == "ETH/USDT":
+            # Preserve the V12.7 ETH gate, the best exact ETH result in the
+            # accumulated archive. Do not impose BTC's hard volume rule.
+            profile = self.PAIR_PROFILES[pair]
+            persistence_col = f"trend_persist_{int(profile['persistence_bars'])}_4h"
+            pair_quality = (
+                (dataframe["adx_4h"] >= float(profile["adx_min"]))
+                & (dataframe["momentum_30d_4h"] >= float(profile["momentum_min"]))
+                & (dataframe["rsi_4h"] >= float(profile["rsi_min"]))
+                & (dataframe["rsi_4h"] <= float(profile["rsi_max"]))
+                & (dataframe[persistence_col] > 0)
+                & (
+                    dataframe["breakout_strength_atr_4h"]
+                    >= float(profile["breakout_strength_min_atr"])
+                )
+                & (
+                    dataframe["breakout_strength_atr_4h"]
+                    <= float(profile["breakout_strength_max_atr"])
+                )
+            )
+        else:
+            # SOL V12.7's stricter quality profile selected the wrong subset and
+            # lost a major winner. Return to the V12.5 pair-local slow core.
+            pair_quality = dataframe["volume"] > 0
+
+        qualified_trend = base_4h & trend_1h & pair_quality
         signal = qualified_trend & execution
 
         dataframe.loc[qualified_trend, "regime_state"] = self.REGIME_TREND
@@ -426,7 +438,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[signal, "no_trade_reason"] = ""
         dataframe.loc[signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_7_{asset}_quality_donchian",
+            f"v12_8_{asset}_champion_donchian",
         )
         return dataframe
 
@@ -440,7 +452,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_7_slow_trend_exit")
+        ] = (1, "v12_8_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -480,27 +492,64 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Exit pair-specific failed fresh breakouts early; let winners run."""
+        """Cut fresh failed breakouts without capping profitable trends."""
         del kwargs
         try:
-            profile = self.PAIR_PROFILES.get(pair)
-            if profile is None or current_profit >= 0:
+            if current_profit >= 0:
                 return None
+            if pair == "ETH/USDT":
+                failure_atr = 0.45
+                failure_hours = 36.0
+            else:
+                failure_atr = 0.50
+                failure_hours = 48.0
+
             age_hours = (
                 current_time - trade.open_date_utc
             ).total_seconds() / 3600.0
-            if age_hours > float(profile["failure_hours"]):
+            if age_hours > failure_hours:
                 return None
             level = trade.get_custom_data(key="entry_breakout_level", default=None)
             atr = trade.get_custom_data(key="entry_atr_4h", default=None)
             if level is None or atr is None:
                 return None
-            failure = float(level) - float(profile["failure_atr"]) * float(atr)
+            failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_7_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_8_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None
+
+    def custom_stoploss(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        after_fill: bool,
+        **kwargs: Any,
+    ) -> float | None:
+        """Protect SOL winners from turning into hard-stop losers.
+
+        The full archive contains several SOL losers that had first reached
+        roughly +5% to +20% maximum favourable excursion. V12.8 therefore
+        tests one deliberately simple ratchet only on SOL: once net profit is
+        at least +5%, the stop may only rise to a floor of +1% over entry.
+        BTC/ETH retain their existing exit behaviour for clean attribution.
+        """
+        del current_time, current_rate, after_fill, kwargs
+        if pair != "SOL/USDT" or current_profit < 0.05:
+            return None
+        try:
+            return stoploss_from_open(
+                0.01,
+                current_profit,
+                is_short=trade.is_short,
+                leverage=trade.leverage,
+            ) or None
+        except Exception:
+            return None
 
     def custom_stake_amount(
         self,
