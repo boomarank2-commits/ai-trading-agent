@@ -20,7 +20,7 @@ from typing import Any, ClassVar
 
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IStrategy, informative
+from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
 from pandas import DataFrame
 
 
@@ -46,20 +46,30 @@ class CompressionBreakout250(IStrategy):
 
     ALLOWED_PAIRS = {"BTC/USDT", "ETH/USDT", "SOL/USDT"}
 
-    BUY_MOMENTUM_30D = 0.03
-    BUY_ADX_4H_MIN = 16.0
-    BUY_RSI_4H_MAX = 78.0
-    BUY_ATR_MIN = 0.003
-    BUY_ATR_MAX = 0.060
-    BUY_FAILURE_ATR = 0.50
+    buy_momentum_30d = DecimalParameter(
+        -0.02, 0.20, default=0.03, decimals=2, space="buy", optimize=True, load=True
+    )
+    buy_adx_4h_min = IntParameter(
+        12, 32, default=16, space="buy", optimize=True, load=True
+    )
+    buy_rsi_4h_max = IntParameter(
+        66, 84, default=78, space="buy", optimize=True, load=True
+    )
+    buy_atr_min = DecimalParameter(
+        0.002, 0.020, default=0.003, decimals=3, space="buy", optimize=True, load=True
+    )
+    buy_atr_max = DecimalParameter(
+        0.020, 0.080, default=0.060, decimals=3, space="buy", optimize=True, load=True
+    )
+    buy_failure_atr = DecimalParameter(
+        0.20, 1.00, default=0.50, decimals=2, space="buy", optimize=True, load=True
+    )
 
     REGIME_TREND = "TREND/BREAKOUT"
     REGIME_NO_TRADE = "NO_TRADE"
     FAMILY_DONCHIAN = "DONCHIAN_TREND"
     FAMILY_NO_TRADE = "NO_TRADE"
 
-    # Global ROI is deliberately kept effectively disabled. V12.5 lets the
-    # structural trend exit decide profitable exits instead of clipping winners.
     minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
@@ -297,10 +307,10 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["close_4h"] > dataframe["ema_fast_4h"])
             & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
             & (dataframe["ema_fast_rising_4h"] > 0)
-            & (dataframe["adx_4h"] >= self.BUY_ADX_4H_MIN)
-            & (dataframe["momentum_30d_4h"] >= self.BUY_MOMENTUM_30D)
+            & (dataframe["adx_4h"] >= self.buy_adx_4h_min.value)
+            & (dataframe["momentum_30d_4h"] >= self.buy_momentum_30d.value)
             & (dataframe["rsi_4h"] >= 50)
-            & (dataframe["rsi_4h"] <= self.BUY_RSI_4H_MAX)
+            & (dataframe["rsi_4h"] <= self.buy_rsi_4h_max.value)
         )
         trend_1h = (
             (dataframe["close_1h"] > dataframe["ema_fast_1h"])
@@ -313,8 +323,8 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["ema_exec"] > dataframe["ema_fast"])
             & (dataframe["rsi"] >= 48)
             & (dataframe["rsi"] <= 78)
-            & (dataframe["atr_pct"] >= self.BUY_ATR_MIN)
-            & (dataframe["atr_pct"] <= self.BUY_ATR_MAX)
+            & (dataframe["atr_pct"] >= self.buy_atr_min.value)
+            & (dataframe["atr_pct"] <= self.buy_atr_max.value)
             & (dataframe["volume"] > 0)
         )
         signal = trend_4h & trend_1h & execution
@@ -361,7 +371,9 @@ class CompressionBreakout250(IStrategy):
                 or self.dp is None
             ):
                 return
-            dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
+            dataframe, _ = self.dp.get_analyzed_dataframe(
+                trade.pair, self.timeframe
+            )
             if dataframe.empty:
                 return
             candle = dataframe.iloc[-1].squeeze()
@@ -382,17 +394,22 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Cut only a clearly failed fresh breakout; never cap profitable trends."""
+        """Cut only an early failed breakout; profitable trends are left alone."""
+
         del pair, kwargs
         try:
-            age_hours = (current_time - trade.open_date_utc).total_seconds() / 3600.0
+            age_hours = (
+                current_time - trade.open_date_utc
+            ).total_seconds() / 3600.0
             if age_hours > 48 or current_profit >= 0:
                 return None
-            level = trade.get_custom_data(key="entry_breakout_level", default=None)
+            level = trade.get_custom_data(
+                key="entry_breakout_level", default=None
+            )
             atr = trade.get_custom_data(key="entry_atr_4h", default=None)
             if level is None or atr is None:
                 return None
-            failure = float(level) - self.BUY_FAILURE_ATR * float(atr)
+            failure = float(level) - self.buy_failure_atr.value * float(atr)
             if float(current_rate) < failure:
                 return "v12_5_failed_4h_breakout"
         except Exception:
@@ -416,7 +433,9 @@ class CompressionBreakout250(IStrategy):
         try:
             if side != "long" or float(leverage) != 1.0:
                 return 0.0
-            capped_stake = min(float(proposed_stake), float(max_stake), self.MAX_STAKE_USDT)
+            capped_stake = min(
+                float(proposed_stake), float(max_stake), self.MAX_STAKE_USDT
+            )
             if min_stake is not None and capped_stake < float(min_stake):
                 return 0.0
             return max(0.0, capped_stake)
@@ -464,15 +483,25 @@ class CompressionBreakout250(IStrategy):
                 return False
 
             now_utc = current_time.astimezone(UTC)
-            day_start_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-            if self._closed_profit_since(day_start_utc, pair) <= -self.MAX_DAILY_LOSS_USDT_PER_PAIR:
+            day_start_utc = now_utc.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            if (
+                self._closed_profit_since(day_start_utc, pair)
+                <= -self.MAX_DAILY_LOSS_USDT_PER_PAIR
+            ):
                 return False
 
             requested_stake = max(0.0, float(amount) * float(rate))
             if requested_stake > self.MAX_STAKE_USDT + 1e-6:
                 return False
             configured_cap = min(
-                float(self.config.get("available_capital", self.MAX_TOTAL_CAPITAL_USDT)),
+                float(
+                    self.config.get(
+                        "available_capital",
+                        self.MAX_TOTAL_CAPITAL_USDT,
+                    )
+                ),
                 self.MAX_TOTAL_CAPITAL_USDT,
             )
             open_stake = float(Trade.total_open_trades_stakes())
@@ -480,7 +509,10 @@ class CompressionBreakout250(IStrategy):
             return (
                 open_positions < self.MAX_OPEN_POSITIONS
                 and (open_stake + requested_stake)
-                <= (min(configured_cap, self.MAX_TOTAL_EXPOSURE_USDT) + 1e-6)
+                <= (
+                    min(configured_cap, self.MAX_TOTAL_EXPOSURE_USDT)
+                    + 1e-6
+                )
             )
         except Exception:
             return False
