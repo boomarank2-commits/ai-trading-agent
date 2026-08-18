@@ -1,15 +1,13 @@
-"""V11 adaptive multi-strategy engine for the 250 USDT testbot.
+"""V12.4 pair-local slow Donchian candidate for the 250 USDT testbot.
 
-BTC, ETH and SOL are independent decision engines.  Each pair classifies only
-its own market into TREND/BREAKOUT, RANGE/MEAN_REVERSION or NO_TRADE and then
-routes to one of three deterministic strategy families:
+This candidate deliberately removes the three V11 entry families that failed the
+three-year local BTC/ETH/SOL backtests (ORB-Retest, Ichimoku and Bollinger MR).
+Each pair is evaluated independently. A trade is allowed only on a fresh
+20-day high of closed 4h candles inside an established 4h/1h uptrend.
+Otherwise the correct action is NO_TRADE.
 
-- ORB_RETEST
-- ICHIMOKU_TREND
-- BOLLINGER_MR
-
-The same hashed strategy source is used by paper trading and historical
-backtesting.  No cross-pair regime input is used.
+Safety remains Binance Spot, long-only, 1x, max 80 USDT per position,
+max three positions / 240 USDT total exposure and a -5.5% hard stop.
 """
 
 from __future__ import annotations
@@ -27,10 +25,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V11: pair-local adaptive regime router with three strategy families."""
+    """V12.4: pair-local 20-day 4h Donchian trend candidate."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V11"
+    STRATEGY_VERSION = "V12.4"
 
     can_short = False
     timeframe = "15m"
@@ -44,113 +42,30 @@ class CompressionBreakout250(IStrategy):
     MAX_TOTAL_CAPITAL_USDT = 250.0
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
-    MAX_DAILY_LOSS_USDT = 10.0
     MAX_DAILY_LOSS_USDT_PER_PAIR = 10.0
 
-    BASE_FEE_PER_SIDE = 0.002
-    COST_STRESS_MULTIPLIER = 1.50
-    ROUNDTRIP_COST_STRESS = BASE_FEE_PER_SIDE * 2.0 * COST_STRESS_MULTIPLIER
+    ALLOWED_PAIRS = {"BTC/USDT", "ETH/USDT", "SOL/USDT"}
+
+    BUY_MOMENTUM_30D = 0.03
+    BUY_ADX_4H_MIN = 16.0
+    BUY_RSI_4H_MAX = 78.0
+    BUY_ATR_MIN = 0.003
+    BUY_ATR_MAX = 0.060
+    BUY_FAILURE_ATR = 0.50
 
     REGIME_TREND = "TREND/BREAKOUT"
-    REGIME_RANGE = "RANGE/MEAN_REVERSION"
     REGIME_NO_TRADE = "NO_TRADE"
-
-    FAMILY_ORB = "ORB_RETEST"
-    FAMILY_ICHIMOKU = "ICHIMOKU_TREND"
-    FAMILY_BOLLINGER = "BOLLINGER_MR"
+    FAMILY_DONCHIAN = "DONCHIAN_TREND"
     FAMILY_NO_TRADE = "NO_TRADE"
 
-    # All thresholds are pair-local. They are intentionally fixed for the
-    # first V11 candidate so the initial evidence is not contaminated by
-    # implicit Hyperopt/sidecar parameters.
-    PAIR_PROFILES: ClassVar[dict[str, dict[str, float]]] = {
-        "BTC/USDT": {
-            "trend_adx_4h": 21.0,
-            "trend_adx_1h": 18.0,
-            "range_adx_4h_max": 16.0,
-            "range_adx_1h_max": 19.0,
-            "range_ema_spread_max": 0.012,
-            "range_bb_width_max": 0.035,
-            "min_gross_move": 0.008,
-            "orb_volume_min": 1.05,
-            "ichi_volume_min": 0.90,
-            "mr_volume_min": 0.65,
-            "mr_rsi_max": 38.0,
-            "orb_rsi_min": 50.0,
-            "orb_rsi_max": 72.0,
-            "ichi_rsi_min": 49.0,
-            "ichi_rsi_max": 71.0,
-            "orb_retest_atr": 0.35,
-            "orb_range_min": 0.004,
-            "orb_range_max": 0.030,
-            "orb_target_atr": 2.5,
-            "ichi_target_atr": 3.0,
-            "orb_take_profit": 0.025,
-            "ichi_take_profit": 0.035,
-            "mr_soft_stop": 0.018,
-            "orb_soft_stop": 0.025,
-            "ichi_soft_stop": 0.030,
-        },
-        "ETH/USDT": {
-            "trend_adx_4h": 20.0,
-            "trend_adx_1h": 17.0,
-            "range_adx_4h_max": 15.0,
-            "range_adx_1h_max": 18.0,
-            "range_ema_spread_max": 0.015,
-            "range_bb_width_max": 0.045,
-            "min_gross_move": 0.009,
-            "orb_volume_min": 1.00,
-            "ichi_volume_min": 0.85,
-            "mr_volume_min": 0.60,
-            "mr_rsi_max": 40.0,
-            "orb_rsi_min": 49.0,
-            "orb_rsi_max": 73.0,
-            "ichi_rsi_min": 48.0,
-            "ichi_rsi_max": 72.0,
-            "orb_retest_atr": 0.40,
-            "orb_range_min": 0.005,
-            "orb_range_max": 0.040,
-            "orb_target_atr": 2.5,
-            "ichi_target_atr": 3.0,
-            "orb_take_profit": 0.030,
-            "ichi_take_profit": 0.045,
-            "mr_soft_stop": 0.022,
-            "orb_soft_stop": 0.030,
-            "ichi_soft_stop": 0.035,
-        },
-        "SOL/USDT": {
-            "trend_adx_4h": 22.0,
-            "trend_adx_1h": 19.0,
-            "range_adx_4h_max": 16.0,
-            "range_adx_1h_max": 20.0,
-            "range_ema_spread_max": 0.020,
-            "range_bb_width_max": 0.060,
-            "min_gross_move": 0.011,
-            "orb_volume_min": 1.05,
-            "ichi_volume_min": 0.90,
-            "mr_volume_min": 0.65,
-            "mr_rsi_max": 42.0,
-            "orb_rsi_min": 50.0,
-            "orb_rsi_max": 75.0,
-            "ichi_rsi_min": 49.0,
-            "ichi_rsi_max": 74.0,
-            "orb_retest_atr": 0.45,
-            "orb_range_min": 0.006,
-            "orb_range_max": 0.055,
-            "orb_target_atr": 2.8,
-            "ichi_target_atr": 3.2,
-            "orb_take_profit": 0.040,
-            "ichi_take_profit": 0.060,
-            "mr_soft_stop": 0.028,
-            "orb_soft_stop": 0.035,
-            "ichi_soft_stop": 0.040,
-        },
+    minimal_roi: ClassVar[dict[str, float]] = {
+        "0": 0.05,
+        "120": 0.025,
+        "360": 0.0,
     }
-
-    minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
-    use_exit_signal = False
+    use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
 
@@ -168,17 +83,9 @@ class CompressionBreakout250(IStrategy):
     order_time_in_force: ClassVar[dict[str, str]] = {"entry": "GTC", "exit": "GTC"}
 
     plot_config: ClassVar[dict[str, Any]] = {
-        "main_plot": {
-            "ema_exec": {},
-            "ema_fast": {},
-            "bb_upper": {},
-            "bb_mid": {},
-            "bb_lower": {},
-            "orb_high": {},
-            "orb_low": {},
-        },
+        "main_plot": {"ema_exec": {}, "ema_fast": {}},
         "subplots": {
-            "Momentum": {"rsi": {}, "adx": {}},
+            "Momentum": {"rsi": {}},
             "Volume": {"volume_ratio": {}},
         },
     }
@@ -191,16 +98,7 @@ class CompressionBreakout250(IStrategy):
     def _runtime_entry_guards_enabled(self) -> bool:
         return self._runmode_value(self.config) in {"live", "dry_run"}
 
-    @classmethod
-    def _profile(cls, pair: str) -> dict[str, float]:
-        try:
-            return cls.PAIR_PROFILES[pair]
-        except KeyError as exc:
-            raise ValueError(f"unsupported pair: {pair}") from exc
-
     def bot_start(self, **kwargs: Any) -> None:
-        """Abort runtime startup if any execution invariant was weakened."""
-
         del kwargs
         if not self._runtime_entry_guards_enabled():
             return
@@ -209,12 +107,13 @@ class CompressionBreakout250(IStrategy):
         order_types = self.config.get("order_types", {})
         time_in_force = self.config.get("order_time_in_force", {})
         pairs = exchange.get("pair_whitelist", []) if isinstance(exchange, dict) else []
-        allowed_pairs = set(self.PAIR_PROFILES)
+
         configured_source = getattr(type(self), "__file__", None)
         if not isinstance(configured_source, str) or not configured_source:
             raise RuntimeError("Freqtrade did not expose the resolved strategy source")
         strategy_source = Path(configured_source).resolve(strict=True)
         adjacent_parameters = strategy_source.with_suffix(".json")
+
         stake_amount = float(self.config.get("stake_amount", 0.0))
         available_capital = float(self.config.get("available_capital", 0.0))
         max_open_trades = int(self.config.get("max_open_trades", -1))
@@ -270,7 +169,7 @@ class CompressionBreakout250(IStrategy):
             }
             and exchange.get("name") == "binance"
             and bool(pairs)
-            and set(pairs).issubset(allowed_pairs)
+            and set(pairs).issubset(self.ALLOWED_PAIRS)
             and len(pairs) == len(set(pairs))
             and self.config.get("force_entry_enable") is False
             and api_server_safe
@@ -288,13 +187,8 @@ class CompressionBreakout250(IStrategy):
 
     @property
     def protections(self) -> list[dict[str, Any]]:
-        """Pair-local protection locks; one asset cannot pause another."""
-
         return [
-            {
-                "method": "CooldownPeriod",
-                "stop_duration_candles": 4,
-            },
+            {"method": "CooldownPeriod", "stop_duration_candles": 4},
             {
                 "method": "StoplossGuard",
                 "lookback_period_candles": 96,
@@ -330,282 +224,158 @@ class CompressionBreakout250(IStrategy):
             if getattr(trade, "pair", None) == pair
         )
 
-    @staticmethod
-    def _add_ichimoku(dataframe: DataFrame) -> DataFrame:
-        """Add causal Ichimoku fields without using future candles.
-
-        ``cloud_a``/``cloud_b`` are the cloud visible at the current timestamp,
-        hence they are shifted from values computed 26 candles earlier.
-        ``future_cloud_*`` uses the cloud projection that is knowable now.
-        ``chikou_clear`` compares today's close with the historical price region
-        26 candles ago; it does not shift future data backward into the signal.
-        """
-
-        high9 = dataframe["high"].rolling(9, min_periods=9).max()
-        low9 = dataframe["low"].rolling(9, min_periods=9).min()
-        high26 = dataframe["high"].rolling(26, min_periods=26).max()
-        low26 = dataframe["low"].rolling(26, min_periods=26).min()
-        high52 = dataframe["high"].rolling(52, min_periods=52).max()
-        low52 = dataframe["low"].rolling(52, min_periods=52).min()
-
-        dataframe["tenkan"] = (high9 + low9) / 2.0
-        dataframe["kijun"] = (high26 + low26) / 2.0
-        projected_a = (dataframe["tenkan"] + dataframe["kijun"]) / 2.0
-        projected_b = (high52 + low52) / 2.0
-        dataframe["cloud_a"] = projected_a.shift(26)
-        dataframe["cloud_b"] = projected_b.shift(26)
-        dataframe["cloud_top"] = dataframe[["cloud_a", "cloud_b"]].max(axis=1)
-        dataframe["cloud_bottom"] = dataframe[["cloud_a", "cloud_b"]].min(axis=1)
-        dataframe["future_cloud_bull"] = (projected_a > projected_b).astype(int)
-        dataframe["chikou_clear"] = (
-            dataframe["close"] > dataframe["high"].shift(26)
-        ).astype(int)
-        return dataframe
-
-    @staticmethod
-    def _add_common_indicators(dataframe: DataFrame) -> DataFrame:
-        dataframe["ema_exec"] = ta.EMA(dataframe, timeperiod=20)
-        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
-        dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
-        dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
-        dataframe["atr_pct"] = dataframe["atr"] / dataframe["close"]
-        dataframe["ema_fast_rising"] = (
-            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
-        ).astype(int)
-
-        bands = ta.BBANDS(
-            dataframe,
-            timeperiod=20,
-            nbdevup=2.0,
-            nbdevdn=2.0,
-            matype=0,
-        )
-        dataframe["bb_upper"] = bands["upperband"]
-        dataframe["bb_mid"] = bands["middleband"]
-        dataframe["bb_lower"] = bands["lowerband"]
-        dataframe["bb_width"] = (
-            dataframe["bb_upper"] - dataframe["bb_lower"]
-        ) / dataframe["bb_mid"]
-        return CompressionBreakout250._add_ichimoku(dataframe)
-
     @informative("1h")
     def populate_indicators_1h(
         self, dataframe: DataFrame, metadata: dict
     ) -> DataFrame:
         del metadata
-        return self._add_common_indicators(dataframe)
+        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["ema_fast_rising"] = (
+            dataframe["ema_fast"] > dataframe["ema_fast"].shift(8)
+        ).astype(int)
+        return dataframe
 
     @informative("4h")
     def populate_indicators_4h(
         self, dataframe: DataFrame, metadata: dict
     ) -> DataFrame:
         del metadata
-        return self._add_common_indicators(dataframe)
+        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
+        dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
+        dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
+        dataframe["momentum_30d"] = (
+            dataframe["close"] / dataframe["close"].shift(180) - 1.0
+        )
+        dataframe["donchian_entry"] = (
+            dataframe["high"].shift(1).rolling(120, min_periods=120).max()
+        )
+        dataframe["donchian_exit"] = (
+            dataframe["low"].shift(1).rolling(60, min_periods=60).min()
+        )
+        dataframe["fresh_breakout"] = (
+            (dataframe["close"] > dataframe["donchian_entry"])
+            & (
+                dataframe["close"].shift(1)
+                <= dataframe["donchian_entry"].shift(1)
+            )
+        ).astype(int)
+        dataframe["ema_fast_rising"] = (
+            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
+        ).astype(int)
+        return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         del metadata
-        dataframe = self._add_common_indicators(dataframe)
+        dataframe["ema_exec"] = ta.EMA(dataframe, timeperiod=20)
+        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
+        dataframe["atr_pct"] = dataframe["atr"] / dataframe["close"]
+        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         dataframe["volume_mean"] = (
             dataframe["volume"].shift(1).rolling(20, min_periods=20).mean()
         )
         dataframe["volume_ratio"] = dataframe["volume"] / dataframe["volume_mean"]
-
-        candle_range = (dataframe["high"] - dataframe["low"]).replace(
-            0.0, float("nan")
-        )
-        dataframe["close_location"] = (
-            dataframe["close"] - dataframe["low"]
-        ) / candle_range
-
-        # Crypto has no exchange opening bell. V11 therefore defines the ORB
-        # deterministically as the first four closed 15m candles of each UTC day.
-        day_key = dataframe["date"].dt.floor("D")
-        minutes_utc = dataframe["date"].dt.hour * 60 + dataframe["date"].dt.minute
-        opening_mask = minutes_utc < 60
-        dataframe["orb_high"] = (
-            dataframe["high"].where(opening_mask).groupby(day_key).transform("max")
-        )
-        dataframe["orb_low"] = (
-            dataframe["low"].where(opening_mask).groupby(day_key).transform("min")
-        )
-        dataframe["orb_ready"] = (minutes_utc >= 60).astype(int)
-        dataframe["orb_range_pct"] = (
-            dataframe["orb_high"] - dataframe["orb_low"]
-        ) / dataframe["close"]
-
-        breakout_event = (
-            (dataframe["orb_ready"] > 0)
-            & (dataframe["close"] > dataframe["orb_high"])
-            & (dataframe["close"].shift(1) <= dataframe["orb_high"].shift(1))
-        ).astype(int)
-        dataframe["orb_breakout_recent"] = (
-            breakout_event.groupby(day_key)
-            .transform(lambda values: values.shift(1).rolling(8, min_periods=1).max())
-            .fillna(0)
-            .astype(int)
-        )
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         pair = str(metadata.get("pair", ""))
-        profile = self._profile(pair)
-        asset = pair.split("/")[0].lower()
+        if pair not in self.ALLOWED_PAIRS:
+            dataframe["regime_state"] = self.REGIME_NO_TRADE
+            dataframe["route_family"] = self.FAMILY_NO_TRADE
+            dataframe["no_trade_reason"] = "unsupported_pair"
+            return dataframe
 
+        asset = pair.split("/")[0].lower()
+        fresh_signal = (
+            (dataframe["fresh_breakout_4h"] > 0)
+            & (dataframe["fresh_breakout_4h"].shift(1).fillna(0) <= 0)
+        )
         trend_4h = (
-            (dataframe["close_4h"] > dataframe["ema_fast_4h"])
-            & (dataframe["ema_exec_4h"] > dataframe["ema_fast_4h"])
+            fresh_signal
+            & (dataframe["close_4h"] > dataframe["ema_fast_4h"])
+            & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
             & (dataframe["ema_fast_rising_4h"] > 0)
-            & (dataframe["adx_4h"] >= profile["trend_adx_4h"])
+            & (dataframe["adx_4h"] >= self.BUY_ADX_4H_MIN)
+            & (dataframe["momentum_30d_4h"] >= self.BUY_MOMENTUM_30D)
+            & (dataframe["rsi_4h"] >= 50)
+            & (dataframe["rsi_4h"] <= self.BUY_RSI_4H_MAX)
         )
         trend_1h = (
             (dataframe["close_1h"] > dataframe["ema_fast_1h"])
-            & (dataframe["ema_exec_1h"] > dataframe["ema_fast_1h"])
+            & (dataframe["ema_fast_1h"] > dataframe["ema_slow_1h"])
             & (dataframe["ema_fast_rising_1h"] > 0)
-            & (dataframe["adx_1h"] >= profile["trend_adx_1h"])
+            & (dataframe["rsi_1h"] >= 48)
         )
-        trend_regime = trend_4h & trend_1h
-
-        ema_spread_4h = (
-            (dataframe["ema_exec_4h"] - dataframe["ema_fast_4h"]).abs()
-            / dataframe["close_4h"]
+        execution = (
+            (dataframe["close"] > dataframe["ema_exec"])
+            & (dataframe["ema_exec"] > dataframe["ema_fast"])
+            & (dataframe["rsi"] >= 48)
+            & (dataframe["rsi"] <= 78)
+            & (dataframe["atr_pct"] >= self.BUY_ATR_MIN)
+            & (dataframe["atr_pct"] <= self.BUY_ATR_MAX)
+            & (dataframe["volume"] > 0)
         )
-        range_regime = (
-            (dataframe["adx_4h"] <= profile["range_adx_4h_max"])
-            & (dataframe["adx_1h"] <= profile["range_adx_1h_max"])
-            & (ema_spread_4h <= profile["range_ema_spread_max"])
-            & (dataframe["bb_width_1h"] <= profile["range_bb_width_max"])
-            & (dataframe["close_4h"] >= dataframe["ema_slow_4h"] * 0.96)
-        )
+        signal = trend_4h & trend_1h & execution
 
         dataframe["regime_state"] = self.REGIME_NO_TRADE
-        dataframe.loc[range_regime, "regime_state"] = self.REGIME_RANGE
-        dataframe.loc[trend_regime, "regime_state"] = self.REGIME_TREND
         dataframe["route_family"] = self.FAMILY_NO_TRADE
-        dataframe["no_trade_reason"] = "regime_unclear"
-
-        orb_projected_move = dataframe[["orb_range_pct", "atr_pct"]].max(axis=1)
-        orb_projected_move = orb_projected_move.combine(
-            dataframe["atr_pct"] * profile["orb_target_atr"], max
-        )
-        orb_raw = (
-            trend_regime
-            & (dataframe["orb_ready"] > 0)
-            & (dataframe["orb_breakout_recent"] > 0)
-            & (dataframe["orb_range_pct"] >= profile["orb_range_min"])
-            & (dataframe["orb_range_pct"] <= profile["orb_range_max"])
-            & (
-                dataframe["low"]
-                <= dataframe["orb_high"]
-                + profile["orb_retest_atr"] * dataframe["atr"]
-            )
-            & (dataframe["close"] > dataframe["orb_high"])
-            & (dataframe["close"] > dataframe["open"])
-            & (dataframe["close_location"] >= 0.58)
-            & (dataframe["volume_ratio"] >= profile["orb_volume_min"])
-            & (dataframe["rsi"] >= profile["orb_rsi_min"])
-            & (dataframe["rsi"] <= profile["orb_rsi_max"])
-            & (dataframe["volume"] > 0)
-        )
-        orb_signal = orb_raw & (
-            orb_projected_move
-            >= max(self.ROUNDTRIP_COST_STRESS, profile["min_gross_move"])
-        )
-
-        ichi_cross = (
-            (dataframe["tenkan"] > dataframe["kijun"])
-            & (dataframe["tenkan"].shift(1) <= dataframe["kijun"].shift(1))
-        )
-        ichi_raw = (
-            trend_regime
-            & ichi_cross
-            & (dataframe["close"] > dataframe["cloud_top"])
-            & (dataframe["future_cloud_bull"] > 0)
-            & (dataframe["chikou_clear"] > 0)
-            & (dataframe["close_1h"] > dataframe["cloud_top_1h"])
-            & (dataframe["tenkan_1h"] > dataframe["kijun_1h"])
-            & (dataframe["future_cloud_bull_1h"] > 0)
-            & (dataframe["chikou_clear_1h"] > 0)
-            & (dataframe["close_4h"] > dataframe["cloud_top_4h"])
-            & (dataframe["future_cloud_bull_4h"] > 0)
-            & (dataframe["volume_ratio"] >= profile["ichi_volume_min"])
-            & (dataframe["rsi"] >= profile["ichi_rsi_min"])
-            & (dataframe["rsi"] <= profile["ichi_rsi_max"])
-            & (dataframe["volume"] > 0)
-        )
-        ichi_projected_move = dataframe["atr_pct"] * profile["ichi_target_atr"]
-        ichi_signal = ichi_raw & (
-            ichi_projected_move
-            >= max(self.ROUNDTRIP_COST_STRESS, profile["min_gross_move"])
-        )
-
-        mr_projected_move = (
-            (dataframe["bb_mid"] - dataframe["close"]) / dataframe["close"]
-        ).clip(lower=0)
-        mr_raw = (
-            range_regime
-            & (dataframe["low"] <= dataframe["bb_lower"])
-            & (dataframe["close"] > dataframe["bb_lower"])
-            & (dataframe["close"].shift(1) <= dataframe["bb_lower"].shift(1))
-            & (dataframe["close"] > dataframe["open"])
-            & (dataframe["rsi"] <= profile["mr_rsi_max"])
-            & (dataframe["rsi"] > dataframe["rsi"].shift(1))
-            & (dataframe["volume_ratio"] >= profile["mr_volume_min"])
-            & (dataframe["volume"] > 0)
-        )
-        mr_signal = mr_raw & (
-            mr_projected_move
-            >= max(self.ROUNDTRIP_COST_STRESS, profile["min_gross_move"])
-        )
-
-        dataframe.loc[trend_regime, "no_trade_reason"] = "trend_wait_setup"
-        dataframe.loc[range_regime, "no_trade_reason"] = "range_wait_setup"
+        dataframe["no_trade_reason"] = "wait_fresh_4h_donchian"
+        dataframe.loc[trend_4h & trend_1h, "regime_state"] = self.REGIME_TREND
+        dataframe.loc[trend_4h & trend_1h, "no_trade_reason"] = "wait_execution_gate"
+        dataframe.loc[signal, "route_family"] = self.FAMILY_DONCHIAN
+        dataframe.loc[signal, "no_trade_reason"] = ""
         dataframe.loc[
-            (orb_raw | ichi_raw | mr_raw) & ~(orb_signal | ichi_signal | mr_signal),
-            "no_trade_reason",
-        ] = "cost_gate"
-
-        dataframe.loc[orb_signal, "route_family"] = self.FAMILY_ORB
-        dataframe.loc[orb_signal, "no_trade_reason"] = ""
-        dataframe.loc[
-            orb_signal,
+            signal,
             ["enter_long", "enter_tag"],
-        ] = (1, f"v11_{asset}_orb_retest")
-
-        ichi_selected = ichi_signal & (dataframe.get("enter_long", 0) != 1)
-        dataframe.loc[ichi_selected, "route_family"] = self.FAMILY_ICHIMOKU
-        dataframe.loc[ichi_selected, "no_trade_reason"] = ""
-        dataframe.loc[
-            ichi_selected,
-            ["enter_long", "enter_tag"],
-        ] = (1, f"v11_{asset}_ichimoku")
-
-        mr_selected = mr_signal & (dataframe.get("enter_long", 0) != 1)
-        dataframe.loc[mr_selected, "route_family"] = self.FAMILY_BOLLINGER
-        dataframe.loc[mr_selected, "no_trade_reason"] = ""
-        dataframe.loc[
-            mr_selected,
-            ["enter_long", "enter_tag"],
-        ] = (1, f"v11_{asset}_bollinger_mr")
+        ] = (1, f"v12_4_{asset}_donchian")
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         del metadata
-        dataframe["exit_long"] = 0
+        structure_exit = dataframe["close_4h"] < dataframe["donchian_exit_4h"]
+        regime_exit = (
+            (dataframe["close_4h"] < dataframe["ema_fast_4h"])
+            & (dataframe["momentum_30d_4h"] < 0.0)
+        )
+        dataframe.loc[
+            (structure_exit | regime_exit) & (dataframe["volume"] > 0),
+            ["exit_long", "exit_tag"],
+        ] = (1, "v12_4_slow_trend_exit")
         return dataframe
 
-    def _latest_causal_row(self, pair: str, current_time: datetime) -> Any | None:
+    def order_filled(
+        self,
+        pair: str,
+        trade: Trade,
+        order: Any,
+        current_time: datetime,
+        **kwargs: Any,
+    ) -> None:
+        del pair, current_time, kwargs
         try:
-            if self.dp is None:
-                return None
-            frame, _ = self.dp.get_analyzed_dataframe(pair=pair, timeframe=self.timeframe)
-            if frame is None or frame.empty or "date" not in frame.columns:
-                return None
-            eligible = frame.loc[frame["date"] <= current_time]
-            return None if eligible.empty else eligible.iloc[-1]
+            if (
+                trade.nr_of_successful_entries != 1
+                or getattr(order, "ft_order_side", None) != trade.entry_side
+                or self.dp is None
+            ):
+                return
+            dataframe, _ = self.dp.get_analyzed_dataframe(
+                trade.pair, self.timeframe
+            )
+            if dataframe.empty:
+                return
+            candle = dataframe.iloc[-1].squeeze()
+            level = float(candle["donchian_entry_4h"])
+            atr = float(candle["atr_4h"])
+            if math.isfinite(level) and math.isfinite(atr) and atr > 0:
+                trade.set_custom_data(key="entry_breakout_level", value=level)
+                trade.set_custom_data(key="entry_atr_4h", value=atr)
         except Exception:
-            return None
+            return
 
     def custom_exit(
         self,
@@ -616,64 +386,22 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Exit according to the family that actually opened the trade."""
-
-        del kwargs
+        del pair, kwargs
         try:
-            profile = self._profile(pair)
-            asset = pair.split("/")[0].lower()
-            tag = str(getattr(trade, "enter_tag", "") or "")
-            age_hours = (current_time - trade.open_date_utc).total_seconds() / 3600.0
-            row = self._latest_causal_row(pair, current_time)
-
-            if "_bollinger_mr" in tag:
-                if row is not None and current_rate >= float(row["bb_mid"]):
-                    return f"v11_{asset}_mr_midband"
-                if current_profit <= -profile["mr_soft_stop"]:
-                    return f"v11_{asset}_mr_soft_stop"
-                if age_hours >= 24:
-                    return f"v11_{asset}_mr_timeout"
+            age_hours = (
+                current_time - trade.open_date_utc
+            ).total_seconds() / 3600.0
+            if age_hours > 48 or current_profit >= 0:
                 return None
-
-            if "_orb_retest" in tag:
-                if current_profit >= profile["orb_take_profit"]:
-                    return f"v11_{asset}_orb_take_profit"
-                if (
-                    row is not None
-                    and age_hours >= 2
-                    and current_rate < float(row["orb_high"])
-                ):
-                    return f"v11_{asset}_orb_invalidation"
-                if age_hours >= 6 and current_profit <= -profile["orb_soft_stop"]:
-                    return f"v11_{asset}_orb_soft_stop"
-                if age_hours >= 36:
-                    return f"v11_{asset}_orb_timeout"
+            level = trade.get_custom_data(
+                key="entry_breakout_level", default=None
+            )
+            atr = trade.get_custom_data(key="entry_atr_4h", default=None)
+            if level is None or atr is None:
                 return None
-
-            if "_ichimoku" in tag:
-                if current_profit >= profile["ichi_take_profit"]:
-                    return f"v11_{asset}_ichi_take_profit"
-                if row is not None:
-                    local_break = (
-                        current_rate < float(row["kijun"])
-                        and current_rate < float(row["ema_exec"])
-                    )
-                    higher_tf_break = (
-                        float(row["tenkan_1h"]) < float(row["kijun_1h"])
-                        and current_profit < 0.01
-                    )
-                    if local_break and age_hours >= 2:
-                        return f"v11_{asset}_ichi_local_break"
-                    if higher_tf_break:
-                        return f"v11_{asset}_ichi_1h_break"
-                if age_hours >= 12 and current_profit <= -profile["ichi_soft_stop"]:
-                    return f"v11_{asset}_ichi_soft_stop"
-                if age_hours >= 96:
-                    return f"v11_{asset}_ichi_timeout"
-                return None
-
-            if age_hours >= 24:
-                return "v11_unknown_family_timeout"
+            failure = float(level) - self.BUY_FAILURE_ATR * float(atr)
+            if float(current_rate) < failure:
+                return "v12_4_failed_4h_breakout"
         except Exception:
             return None
         return None
@@ -730,7 +458,7 @@ class CompressionBreakout250(IStrategy):
                 return False
             if str(self.config.get("stake_currency", "")).upper() != "USDT":
                 return False
-            if pair not in self.PAIR_PROFILES:
+            if pair not in self.ALLOWED_PAIRS:
                 return False
             if order_type != "limit" or time_in_force != "GTC":
                 return False
@@ -745,7 +473,9 @@ class CompressionBreakout250(IStrategy):
                 return False
 
             now_utc = current_time.astimezone(UTC)
-            day_start_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_start_utc = now_utc.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
             if (
                 self._closed_profit_since(day_start_utc, pair)
                 <= -self.MAX_DAILY_LOSS_USDT_PER_PAIR
@@ -756,7 +486,12 @@ class CompressionBreakout250(IStrategy):
             if requested_stake > self.MAX_STAKE_USDT + 1e-6:
                 return False
             configured_cap = min(
-                float(self.config.get("available_capital", self.MAX_TOTAL_CAPITAL_USDT)),
+                float(
+                    self.config.get(
+                        "available_capital",
+                        self.MAX_TOTAL_CAPITAL_USDT,
+                    )
+                ),
                 self.MAX_TOTAL_CAPITAL_USDT,
             )
             open_stake = float(Trade.total_open_trades_stakes())
@@ -764,7 +499,10 @@ class CompressionBreakout250(IStrategy):
             return (
                 open_positions < self.MAX_OPEN_POSITIONS
                 and (open_stake + requested_stake)
-                <= (min(configured_cap, self.MAX_TOTAL_EXPOSURE_USDT) + 1e-6)
+                <= (
+                    min(configured_cap, self.MAX_TOTAL_EXPOSURE_USDT)
+                    + 1e-6
+                )
             )
         except Exception:
             return False
