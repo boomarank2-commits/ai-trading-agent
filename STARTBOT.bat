@@ -5,14 +5,15 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.7: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   TESTBOT V12.8: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.7 nutzt wieder nur den langsamen 20-Tage-4h-Donchian-Kern.
-echo BTC, ETH und SOL besitzen eigene Qualitaetsfilter und eigene Schwellen,
-echo wann ein frischer Breakout als gescheitert gilt. Der abgelehnte Fast-Donchian
-echo aus V12.6 ist entfernt. Gewinner werden weiterhin nicht frueh abgeschnitten.
+echo V12.8 kombiniert die bislang staerksten pair-lokalen Kerne:
+echo BTC nutzt den V9-Volumenfilter, ETH behaelt den V12.7-Qualitaetskern,
+echo SOL kehrt zum breiteren V12.5-Donchian-Kern zurueck.
+echo Neu wird nur bei SOL getestet: ab +5%% Gewinn wird ein Schutzboden bei
+ echo +1%% ueber Einstieg nachgezogen, damit starke Trades nicht wieder ins Minus kippen.
 echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
@@ -47,7 +48,7 @@ if exist "%LOCAL_UI_PASSWORD_FILE%" (
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.7
+echo Bot Name : Testbot V12.8
 echo Benutzer : testbot
 if "%FIRST_LOGIN_HELP%"=="1" (
     echo Passwort : PaperOnly-250-USDT!
