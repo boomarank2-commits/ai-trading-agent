@@ -114,7 +114,7 @@
             </div>
             <button id="tb-start" class="tb-button">Backtest starten</button>
           </div>
-          <div class="tb-info">Es werden ausschließlich 15m-, 1m-, 1h- und 4h-Kerzen des ausgewählten Coins geladen. BTC, ETH und SOL verwenden keine gegenseitigen Marktregime. V12.6 behält pro Coin den langsamen 20-Tage-4h-Donchian-Kern und testet zusätzlich einen separat markierten Fast-Donchian-Challenger: BTC ca. 12 Tage, ETH ca. 14 Tage, SOL ca. 10 Tage. Nur bestätigte Trend-, Momentum-, RSI- und Volumenbedingungen dürfen handeln; sonst gilt NO_TRADE. 1m dient nur der genaueren Fill-/Stop-Simulation.</div>
+          <div class="tb-info">Es werden ausschließlich 15m-, 1m-, 1h- und 4h-Kerzen des ausgewählten Coins geladen. BTC, ETH und SOL verwenden keine gegenseitigen Marktregime. V12.7 handelt wieder ausschließlich den langsamen 20-Tage-4h-Donchian-Kern. Jeder Coin besitzt eigene Qualitätsfilter für Trendstärke, Momentum, Persistenz, Breakout-Stärke und Volumen sowie eine eigene Schwelle, wann ein frischer Breakout früh als gescheitert beendet wird. Gewinner bleiben uncapped; sonst gilt NO_TRADE. 1m dient nur der genaueren Fill-/Stop-Simulation.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
