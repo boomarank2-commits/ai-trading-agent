@@ -5,15 +5,16 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.5: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   TESTBOT V12.6: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.5 nutzt die selektive pair-lokale Donchian-Trendstrategie.
-echo Gewinner werden nicht mehr durch fruehe 2,5%%-/5%%-/Break-even-Exits abgeschnitten.
-echo Nur ein frueh gescheiterter 4h-Breakout, der Struktur-/Regime-Exit oder der
+echo V12.6 behaelt den profitablen langsamen Donchian-Kern aus V12.5.
+echo Zusaetzlich testet jeder Coin einen eigenen streng gefilterten Fast-Donchian:
+echo BTC ca. 12 Tage ^| ETH ca. 14 Tage ^| SOL ca. 10 Tage. Keine Coin-Kopplung.
+echo Gewinner werden nicht durch fruehe Gewinn- oder Break-even-Exits abgeschnitten.
+echo Nur ein frueh gescheiterter Breakout, der Struktur-/Regime-Exit oder der
 echo feste -5,5%% Hard-Stop beendet eine Position. Es werden KEINE echten Orders aufgegeben.
-echo Bei dieser selten handelnden Strategie koennen auch laengere Phasen ohne Trade normal sein.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
 echo Strg+C beendet den Bot kontrolliert und erzeugt den Abschlussbericht.
@@ -46,7 +47,7 @@ if exist "%LOCAL_UI_PASSWORD_FILE%" (
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.5
+echo Bot Name : Testbot V12.6
 echo Benutzer : testbot
 if "%FIRST_LOGIN_HELP%"=="1" (
     echo Passwort : PaperOnly-250-USDT!
