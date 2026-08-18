@@ -10,19 +10,34 @@ def _source() -> str:
     return STRATEGY.read_text(encoding="utf-8")
 
 
-def test_v12_5_is_pair_local_donchian_only() -> None:
+def test_v12_6_is_pair_local_donchian_core_plus_fast_challenger() -> None:
     text = _source()
-    assert 'STRATEGY_VERSION = "V12.5"' in text
+    assert 'STRATEGY_VERSION = "V12.6"' in text
     assert 'ALLOWED_PAIRS = {"BTC/USDT", "ETH/USDT", "SOL/USDT"}' in text
     assert "DONCHIAN_TREND" in text
-    assert "fresh_breakout_4h" in text
-    assert "donchian_entry" in text
-    assert "donchian_exit" in text
+    assert "FAST_DONCHIAN_TREND" in text
+    assert "PAIR_PROFILES" in text
+    assert '"BTC/USDT"' in text
+    assert '"ETH/USDT"' in text
+    assert '"SOL/USDT"' in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
 
 
-def test_v12_5_removed_failed_v11_entry_families() -> None:
+def test_v12_6_keeps_slow_core_and_adds_separate_fast_tags() -> None:
+    text = _source()
+    assert "donchian_entry" in text
+    assert "donchian_exit" in text
+    assert "donchian_fast_60" in text
+    assert "donchian_fast_72" in text
+    assert "donchian_fast_84" in text
+    assert "slow_donchian" in text
+    assert "fast_donchian" in text
+    assert "fresh_breakout_4h" in text
+    assert "fresh_fast_" in text
+
+
+def test_v12_6_does_not_reintroduce_failed_v11_families() -> None:
     text = _source()
     assert "ORB_RETEST" not in text
     assert "ICHIMOKU_TREND" not in text
@@ -32,29 +47,28 @@ def test_v12_5_removed_failed_v11_entry_families() -> None:
     assert "_bollinger_mr" not in text
 
 
-def test_v12_5_defaults_to_no_trade_until_fresh_confirmed_breakout() -> None:
+def test_v12_6_does_not_clip_profitable_trends() -> None:
     text = _source()
-    assert 'dataframe["regime_state"] = self.REGIME_NO_TRADE' in text
-    assert 'dataframe["route_family"] = self.FAMILY_NO_TRADE' in text
-    assert '"wait_fresh_4h_donchian"' in text
-    assert '"wait_execution_gate"' in text
-    assert 'dataframe.loc[signal, "route_family"] = self.FAMILY_DONCHIAN' in text
-
-
-def test_v12_5_does_not_clip_profitable_trends_in_custom_exit() -> None:
-    text = _source()
-    assert "v12_4_roi_5pct" not in text
-    assert "v12_4_roi_2_5pct" not in text
-    assert "v12_4_roi_breakeven" not in text
-    assert "v12_5_roi_5pct" not in text
-    assert "v12_5_roi_2_5pct" not in text
-    assert "v12_5_roi_breakeven" not in text
+    assert "roi_5pct" not in text
+    assert "roi_2_5pct" not in text
+    assert "roi_breakeven" not in text
     assert "current_profit >= 0" in text
-    assert "v12_5_failed_4h_breakout" in text
-    assert "v12_5_slow_trend_exit" in text
+    assert "v12_6_failed_fast_breakout" in text
+    assert "v12_6_failed_slow_breakout" in text
+    assert "v12_6_slow_trend_exit" in text
 
 
-def test_v12_5_keeps_safety_and_pair_local_protections() -> None:
+def test_v12_6_pair_profiles_are_deliberately_different() -> None:
+    text = _source()
+    assert '"fast_channel": "donchian_fast_72_4h"' in text
+    assert '"fast_channel": "donchian_fast_84_4h"' in text
+    assert '"fast_channel": "donchian_fast_60_4h"' in text
+    assert '"fast_volume_ratio_min": 1.00' in text
+    assert '"fast_volume_ratio_min": 1.05' in text
+    assert '"fast_volume_ratio_min": 1.15' in text
+
+
+def test_v12_6_keeps_safety_and_pair_local_protections() -> None:
     text = _source()
     assert "position_adjustment_enable = False" in text
     assert "max_entry_position_adjustment = 0" in text
