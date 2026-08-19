@@ -1,10 +1,11 @@
 name: Testbot Backtest UI
 
-# Final V8 promotion gate for exact-strategy loading and candle/history integrity.
+# Exact-strategy loading and candle/history integrity gate for main and the active V12 research branch.
 on:
   push:
     branches:
       - main
+      - agent/v12-adaptive-league
     paths:
       - "runtime/testbot_backtest_api.py"
       - "runtime/locked_backtest_freqtrade.py"
