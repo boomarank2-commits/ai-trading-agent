@@ -49,6 +49,11 @@ jobs:
       - name: Runtime and backtest contract tests
         shell: powershell
         run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
-      - name: Ruff
+      - name: Ruff runtime and tests
         shell: powershell
-        run: .\.venv\Scripts\ruff.exe check runtime\validate_dryrun_config.py runtime\user_data\strategies\CompressionBreakout250.py tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+        run: .\.venv\Scripts\ruff.exe check runtime\validate_dryrun_config.py tests\runtime tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+      - name: Ruff Freqtrade strategy
+        shell: powershell
+        # Freqtrade strategies intentionally expose configuration as class attributes.
+        # RUF012 is therefore scoped out only for this strategy source; all other Ruff rules stay active.
+        run: .\.venv\Scripts\ruff.exe check --ignore RUF012 runtime\user_data\strategies\CompressionBreakout250.py
