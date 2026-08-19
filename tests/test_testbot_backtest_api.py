@@ -24,7 +24,7 @@ def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
     assert api.BACKTEST_WARMUP_DAYS >= 70
 
 
-def test_v11_backtest_downloads_no_cross_pair_market_context() -> None:
+def test_v12_9_backtest_downloads_no_cross_pair_market_context() -> None:
     assert api._btc_context_pair("BTC/USDT") is None
     assert api._btc_context_pair("ETH/USDT") is None
     assert api._btc_context_pair("SOL/USDT") is None
@@ -33,7 +33,22 @@ def test_v11_backtest_downloads_no_cross_pair_market_context() -> None:
     assert "context_args" not in source
     assert "context_prepend_args" not in source
     assert '"cross_pair_context": False' in source
-    assert '"adaptive_router": True' in source
+    assert '"adaptive_router": False' in source
+
+
+def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
+    trades = [
+        {"enter_tag": "champion", "profit_abs": 5.0},
+        {"enter_tag": "reclaim", "profit_abs": -1.5},
+        {"enter_tag": "reclaim", "profit_abs": 2.0},
+    ]
+
+    rows = api._trade_breakdown(trades, key="enter_tag", fallback="missing")
+
+    assert rows == [
+        {"label": "reclaim", "trades": 2, "wins": 1, "profit_usdt": 0.5},
+        {"label": "champion", "trades": 1, "wins": 1, "profit_usdt": 5.0},
+    ]
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
