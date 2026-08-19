@@ -43,6 +43,17 @@
     return `<div class="tb-metric"><div class="tb-label">${label}</div><div class="tb-value ${className}">${value}</div></div>`;
   }
 
+  function breakdownText(items, emptyText) {
+    if (!Array.isArray(items) || !items.length) return emptyText;
+    return items.map((item) => {
+      const label = String(item.label || "?");
+      const trades = Number(item.trades || 0);
+      const wins = Number(item.wins || 0);
+      const pnl = money(item.profit_usdt || 0);
+      return `${label}: ${trades} Trades · ${wins} Gewinner · ${pnl}`;
+    }).join(" | ");
+  }
+
   function createView() {
     let view = document.getElementById(VIEW_ID);
     if (view) return view;
@@ -87,7 +98,7 @@
         .tb-positive { color: #6fd39a; }
         .tb-negative { color: #ff7f7f; }
         .tb-neutral { color: #e4eef1; }
-        .tb-note { margin-top: 18px; padding-top: 15px; border-top: 1px solid #26343a; color: #81959e; font-size: 12px; line-height: 1.6; }
+        .tb-note { margin-top: 18px; padding-top: 15px; border-top: 1px solid #26343a; color: #81959e; font-size: 12px; line-height: 1.6; white-space: pre-line; }
         @media (max-width: 850px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-button { width: 100%; } }
         @media (max-width: 520px) { .tb-wrap { padding: 20px 14px 45px; } .tb-grid { grid-template-columns: 1fr; } }
       </style>
@@ -178,7 +189,9 @@
       ].join("");
       const independence = r.cross_pair_context === false ? "Pair-unabhängig: ja" : "Pair-unabhängig: nicht bestätigt";
       const target = profitPerDay > 1 ? "Stretch-Ziel >1 USDT/Tag erreicht" : "Stretch-Ziel >1 USDT/Tag noch nicht erreicht";
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.`;
+      const entries = breakdownText(r.entry_tag_breakdown, "Keine Entry-Attribution verfügbar");
+      const exits = breakdownText(r.exit_reason_breakdown, "Keine Exit-Attribution verfügbar");
+      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
