@@ -1,11 +1,13 @@
 name: V8 paper candidate contract
 
-# Final promotion gate: runtime, strategy, database isolation and backtest contracts.
+# Runtime, strategy, database-isolation and backtest contracts for main, the frozen V8 promotion branch,
+# and the active V12 research branch. The workflow name is retained for compatibility with existing checks.
 on:
   push:
     branches:
       - main
       - agent/promote-v8-paper-candidate
+      - agent/v12-adaptive-league
     paths:
       - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
