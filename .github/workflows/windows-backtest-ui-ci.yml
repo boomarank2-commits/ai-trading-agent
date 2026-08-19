@@ -46,6 +46,11 @@ jobs:
       - name: Unit tests
         shell: powershell
         run: .\.venv\Scripts\python.exe -m pytest -q tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
-      - name: Ruff
+      - name: Ruff runtime and tests
         shell: powershell
-        run: .\.venv\Scripts\ruff.exe check runtime\testbot_backtest_api.py runtime\locked_backtest_freqtrade.py runtime\locked_freqtrade.py runtime\patch_frequi.py runtime\user_data\strategies\CompressionBreakout250.py tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+        run: .\.venv\Scripts\ruff.exe check runtime\testbot_backtest_api.py runtime\locked_backtest_freqtrade.py runtime\locked_freqtrade.py runtime\patch_frequi.py tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+      - name: Ruff Freqtrade strategy
+        shell: powershell
+        # Freqtrade strategies intentionally expose configuration as class attributes.
+        # RUF012 is therefore scoped out only for this strategy source; all other Ruff rules stay active.
+        run: .\.venv\Scripts\ruff.exe check --ignore RUF012 runtime\user_data\strategies\CompressionBreakout250.py
