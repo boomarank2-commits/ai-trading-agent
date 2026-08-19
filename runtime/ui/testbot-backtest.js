@@ -93,7 +93,7 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest</h1>
-        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Backtest besitzt keine zweite Strategie und schaltet keine Strategien von außen um.</p>
+        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. BTC, ETH und SOL werden weiterhin einzeln mit 250 USDT getestet.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
@@ -114,7 +114,7 @@
             </div>
             <button id="tb-start" class="tb-button">Backtest starten</button>
           </div>
-          <div class="tb-info">Es werden ausschließlich 15m-, 1m-, 1h- und 4h-Kerzen des ausgewählten Coins geladen. BTC, ETH und SOL verwenden keine gegenseitigen Marktregime. V12.8 kombiniert pro Coin den bislang stärksten pair-lokalen Donchian-Kern: BTC mit dem bewährten Volumenfilter, ETH mit dem V12.7-Qualitätsfilter und SOL wieder mit dem breiteren V12.5-Kern. Nur SOL testet zusätzlich einen Gewinnschutz: ab +5 % wird ein Stop-Boden bei +1 % über Einstieg nachgezogen. Der feste -5,5-%-Hard-Stop bleibt bestehen. 1m dient der genaueren Fill-/Stop-Simulation.</div>
+          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen. Forschungsziel ist &gt;1 USDT/Tag, aber nicht durch rückwirkendes Threshold-Fitting.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
@@ -177,7 +177,8 @@
         resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
       ].join("");
       const independence = r.cross_pair_context === false ? "Pair-unabhängig: ja" : "Pair-unabhängig: nicht bestätigt";
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.`;
+      const target = profitPerDay > 1 ? "Stretch-Ziel >1 USDT/Tag erreicht" : "Stretch-Ziel >1 USDT/Tag noch nicht erreicht";
+      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
