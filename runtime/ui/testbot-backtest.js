@@ -93,7 +93,7 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest</h1>
-        <p class="tb-sub">Simuliert exakt den aktuell gestarteten adaptiven Testbot mit historischen Binance-Daten. Der Backtest besitzt keine zweite Strategie und schaltet keine Strategien von außen um.</p>
+        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Backtest besitzt keine zweite Strategie und schaltet keine Strategien von außen um.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
@@ -156,22 +156,28 @@
 
     if (state.status === "completed" && state.result) {
       const r = state.result;
-      const profitClass = Number(r.profit_usdt) > 0 ? "tb-positive" : Number(r.profit_usdt) < 0 ? "tb-negative" : "tb-neutral";
+      const profit = Number(r.profit_usdt || 0);
+      const trades = Number(r.trades || 0);
+      const days = Math.max(1, Number(r.backtest_days || 0));
+      const profitPerDay = profit / days;
+      const tradesPerYear = (trades / days) * 365.25;
+      const profitClass = profit > 0 ? "tb-positive" : profit < 0 ? "tb-negative" : "tb-neutral";
       results.style.display = "block";
       document.getElementById("tb-result-meta").textContent = `${r.pair} · ${r.years} Jahr${Number(r.years) === 1 ? "" : "e"} · ${r.timeframe} / Detail ${r.timeframe_detail}`;
       document.getElementById("tb-grid").innerHTML = [
-        resultCard("Gewinn / Verlust", money(r.profit_usdt), profitClass),
+        resultCard("Gewinn / Verlust", money(profit), profitClass),
+        resultCard("USDT / Tag", money(profitPerDay), profitClass),
         resultCard("Rendite", percent(r.profit_pct), profitClass),
         resultCard("Endkapital", `${Number(r.final_balance_usdt || 0).toFixed(2)} USDT`, profitClass),
-        resultCard("Trades", String(r.trades), "tb-neutral"),
+        resultCard("Trades", String(trades), "tb-neutral"),
+        resultCard("Trades / Jahr", tradesPerYear.toFixed(2), "tb-neutral"),
         resultCard("Profit Factor", Number(r.profit_factor || 0).toFixed(2), Number(r.profit_factor) >= 1 ? "tb-positive" : "tb-negative"),
         resultCard("Trefferquote", `${Number(r.winrate_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
         resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
       ].join("");
       const independence = r.cross_pair_context === false ? "Pair-unabhängig: ja" : "Pair-unabhängig: nicht bestätigt";
-      const adaptive = r.adaptive_router ? "Adaptiver Router: aktiv" : "Adaptiver Router: nicht bestätigt";
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${adaptive}. ${independence}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.`;
+      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
