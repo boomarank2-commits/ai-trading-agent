@@ -1,93 +1,139 @@
 # Deep-Research-Soll/Ist-Audit
 
-Stand: 18.08.2026
+Stand: 16.08.2026
 
-Dieses Dokument ist der aktuelle technische Soll/Ist-Status zum V12-Research-Zweig. Historische V8-Audits bleiben über Git-Historie und `research/` nachvollziehbar, sind aber nicht mehr der aktuelle Betriebszustand.
+Dieses Dokument verhindert, dass ein vorhandenes Grundgerüst versehentlich als vollständige Umsetzung der aktuellen Deep-Research-Zielarchitektur bezeichnet wird.
 
 Statuswerte:
 
-- **DONE** – technisch vorhanden und geprüft
-- **PARTIAL** – Grundlage vorhanden, aber noch nicht vollständig
-- **RESEARCH** – bewusst nur Research-/Candidate-Pfad
-- **EMPIRICAL-GATE** – Code vorhanden, reale Datenprüfung noch erforderlich
-- **REJECTED** – getesteter Weg verworfen
+- **DONE**: im Repository technisch vorhanden und automatisiert geprüft
+- **PARTIAL**: wesentliche Grundlage vorhanden, aber Deep-Research-Anforderung noch nicht vollständig umgesetzt/getestet
+- **PLANNED**: Ziel vertraglich festgelegt, noch nicht implementiert
+- **BLOCKED**: absichtlich gesperrt, bis eine Sicherheits-/Evidenzbedingung erfüllt ist
+- **EMPIRICAL-GATE**: Code vorhanden, aber der reale lokale Datentest wurde noch nicht durchgeführt
 
-## Aktueller Runtime-Zustand
+## Architektur
 
-| Bereich | Status | Aktueller Befund |
+| Deep-Research-Anforderung | Status | Repository-Befund / nächster Schritt |
 |---|---|---|
-| Aktive Strategy-Datei | **DONE** | `CompressionBreakout250.py`, `STRATEGY_VERSION = "V11"` |
-| V12 | **RESEARCH** | Optimizer/Family-League; verändert den aktiven Hotpath nicht automatisch |
-| Pair-Unabhängigkeit | **DONE** | BTC/ETH/SOL nutzen nur eigene 15m/1h/4h-Regime-/Signaldaten |
-| Regime | **DONE in V11** | `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION`, `NO_TRADE` |
-| Strategy-Familien | **DONE in V11 / RESEARCH für Promotion** | ORB, Ichimoku, Bollinger werden geroutet; Robustheit noch nicht bewiesen |
-| V8 Baseline | **DONE historisch** | eingefroren unter `research/baselines/V8/`; Vergleichsbasis, nicht aktive Strategy |
+| V8 als eingefrorener Champion | **DONE** | LF-SHA wird durch Research-Governance gebunden; Strategie bleibt unverändert. |
+| LLM aus synchronem Orderpfad heraushalten | **DONE** | Agenten-/Registry-Grenzen verbieten freie Exchange-Orders; Paper-/Replay-Handel ist deterministisch. |
+| Hot Path: Daten → Features → Gate → Regime → Strategie → Risk → Execution → Reconciliation | **PARTIAL** | V8/Replay besitzt Strategie, Risk, Execution und Replay-Reconciliation. Ein produktiver generischer Regime-/Multi-Strategy-Hot-Path ist absichtlich noch nicht aktiv. |
+| Cold Path: Logs → AI Research → Hypothese → Tests → Registry → Shadow/Forward | **PARTIAL/BLOCKED** | Registry, Prompts, Ledger und Research-Desk-Prototyp existieren. Autonome Research-Ausführung bleibt bis zu echter OS-/VM-/Container-Isolation deaktiviert. |
+| `TREND/BREAKOUT` / `RANGE/MEAN_REVERSION` / `NO_TRADE` | **DONE als Contract / PLANNED produktiv** | `runtime/research_strategy_contract.py` erzwingt die drei Zustände für spätere Challenger; er ist bewusst nicht in V8 verdrahtet. |
+| `NO_TRADE` als Default bei Unsicherheit | **DONE als Research-Contract / PARTIAL produktiv** | Unhealthy Data, Risk-Reject, unklarer Regime-State oder Family-Mismatch fallen im Research-Router auf `NO_TRADE`; V8 bleibt unverändert. |
+| Position Reconciliation | **PARTIAL** | Checkpoint-/Replay-Restore validiert offene Positionen, Exposure und orphan Orders fail-closed. Reale Exchange-/Boot-Reconciliation bleibt offen. |
 
-## Wichtigste offene Inkonsistenz
-
-`runtime/user_data/config.json` und Teile des Start-/Datenbank-Lifecycles tragen noch historische V8-Bezeichnungen (`slow-donchian-v8-250-dryrun`, `tradesv8.dryrun.sqlite`).
-
-Das ist **kein reiner Text-Cleanup**, weil ein DB-Pfadwechsel Paper-Historie, Reporter und Tests beeinflussen kann. Diese Migration muss separat und kontrolliert erfolgen.
-
-## V12 Research
+## Replay, Daten und Parität
 
 | Anforderung | Status | Befund |
 |---|---|---|
-| Pair-spezifische Kandidatensuche | **DONE** | BTC/ETH/SOL werden separat optimiert |
-| Development/Validation/Blind | **DONE im Family-League-Research** | Candidate wird vor Blindtest eingefroren |
-| Rolling Walk-Forward | **DONE/PARTIAL** | mehrere Folds vorhanden; Promotion noch nicht automatisiert |
-| Kostenstress | **DONE im Research** | Baseline + zusätzlicher Stress werden ausgewertet |
-| Familien-Attribution | **DONE** | PnL kann je Family ausgewertet werden |
-| Automatische Live-Promotion | **BLOCKED by design** | keine Selbstumschreibung des aktiven Bots |
-| Finaler lokaler Freqtrade-Beweis | **EMPIRICAL-GATE** | Gewinner muss mit exakter Strategy und 1m Detail lokal gegengeprüft werden |
+| monotone Simulationsuhr | **DONE** | Replay erzwingt monotone Zeit. |
+| nur geschlossene Candles / kausale Informative-Daten | **DONE/PARTIAL** | Replay-/V8-Adapter ist auf geschlossene historische Daten ausgelegt; reale Full-History-Abnahme steht noch aus. |
+| gemeinsames 250-USDT-Wallet BTC/ETH/SOL | **DONE** | Full-System-Replay-Grundgerüst vorhanden. |
+| V8-Hashbindung | **DONE** | LF-normalisierter V8-SHA ist Governance-Vertrag. |
+| Checkpoint/Restart-Determinismus | **DONE** | Schema 2 persistiert zusätzlich Partial-Fill-/Duplicate-State; Golden-/Restart-Tests sind grün. |
+| Datenmanifest, UTC, Gaps, Duplikate | **DONE** | Replay-Datenpfad besitzt Manifest-/Integritätsprüfungen. |
+| Golden Replay | **DONE** | Fixture/Test vorhanden; Handelsresultat blieb trotz Schema-2-Erweiterung unverändert. |
+| Paper-vs-Replay-Parität | **EMPIRICAL-GATE** | Checker vorhanden; echte überlappende Paper-Periode noch nicht lokal abgenommen. |
+| mehrjähriger Full-History-Replay | **EMPIRICAL-GATE** | Code vorhanden; aktueller neuer Gesamtlauf noch nicht ausgeführt. |
+| Fee-Stress 0,004 je Seite | **EMPIRICAL-GATE** | vorgesehen; aktueller neuer Replay-Lauf noch nicht ausgeführt. |
 
-## Bisherige V12-Erkenntnisse
+## Execution-/Cost-Simulator
 
-Frühe V12-Varianten mit zu vielen kleinen Spezialisten waren OOS/Blind nicht robust und wurden verworfen. Der Research-Fokus liegt deshalb auf stabileren Family-League-/Walk-Forward-Auswertungen statt auf maximalem Trainingsgewinn.
+| Anforderung | Status | Befund / Lücke |
+|---|---|---|
+| Gebühren | **DONE** | `fee_per_side` wird berücksichtigt. |
+| fixe Slippage-Stressannahme | **DONE** | `slippage_bps` vorhanden. |
+| Entry-/Exit-Timeouts | **DONE** | Pending Orders und Retry/Cancel vorhanden. |
+| konservative Same-Bar-Reihenfolge | **DONE** | Stop vor ROI, danach Custom Exit. |
+| Spread-Stress | **DONE als deterministischer Proxy** | `spread_bps` belastet Buy/Sell advers. Das ist kein historischer Bid/Ask-Orderbuch-Replay. |
+| deterministische Latenz | **PARTIAL/DONE auf 1m-Granularität** | `execution_delay_minutes` verschiebt Fill-Berechtigung deterministisch. Sekunden-Latenzen bzw. echte Exchange-Timestamps werden damit nicht rekonstruiert. |
+| Partial Fills | **DONE als deterministischer Stressmodus** | Entry- und Limit-Exit-Orders können in festen Slices über mehrere Touch-Bars gefüllt werden; kein volumenbasiertes Queue-Modell. |
+| Cancel Reject | **DONE als deterministischer Stressmodus** | konfigurierbare Zahl abgelehnter Cancel-Versuche vor finalem Cancel/Retry. |
+| duplicate Events | **DONE für 1m-Market-Batches** | identischer Batch wird idempotent ignoriert; gleicher Timestamp mit anderem Inhalt schlägt fail-closed fehl. |
+| out-of-order Fill/Event | **PARTIAL** | monotone Bar-Zeit und conflicting-duplicate-Guard schützen den Hauptpfad; echtes asynchrones Fill-/Order-Event-Reordering ist noch nicht separat modelliert. |
+| Position bei Boot / Exchange-Abgleich | **PARTIAL** | Checkpoint-Restore mit offener/teilgefüllter Position wird reconciled; echte Exchange-Positionen bei Prozessstart sind noch kein Live-Abgleich. |
 
-Negative Varianten bleiben im Trial Ledger erhalten.
+**Folgerung:** Der Replay ist deutlich näher an einem Execution-Stress-Simulator, bleibt aber **kein historischer Tick-/Orderbuch-/Exchange-OMS-Rekonstruktor**. Spread, Latenz und Partial Fills sind konservative deterministische Stressannahmen.
 
-## Replay / Execution / Parität
+## Red-Team-/Fault-Injection
+
+| Szenario aus Deep Research | Status |
+|---|---|
+| WebSocket/Data-feed-Ausfall | **PARTIAL** – Data-Unhealthy blockiert neue Entries und Fill-Remainder |
+| Exchange 2 s zu spät / Latenz | **PARTIAL** – deterministische Verzögerung vorhanden, jedoch nur 1m-Granularität |
+| duplicate event | **DONE für 1m-Market-Batches** |
+| out-of-order fill | **PLANNED/PARTIAL** – monotone Zeit schützt Bars, asynchrones Fill-Reordering fehlt |
+| partial fill | **DONE als deterministischer Stressmodus** |
+| cancel rejected | **DONE als deterministischer Stressmodus** |
+| stale candle | **PARTIAL/DONE** – Datenintegritäts-/Health-Gates vorhanden |
+| clock offset / nicht-monotone Zeit | **DONE für rückwärts laufende Replay-Zeit** – echter Clock-Drift/Offset bleibt außerhalb des historischen 1m-Modells |
+| strategy process restart | **PARTIAL/DONE im Replay** – Checkpoint-Restore mit offener Teilposition getestet; OS-Prozessfehler selbst wird nicht simuliert |
+| risk service restart | **PLANNED** |
+| position exists at boot | **PARTIAL** – Replay-/Checkpoint-Reconciliation vorhanden, reale Exchange-Reconciliation fehlt |
+| LLM service unavailable | **DONE als Sicherheitsarchitektur** – Hot Path hängt nicht vom LLM ab |
+| database temporarily unavailable | **PLANNED/PARTIAL** – gezielte Fault-Suite fehlt |
+
+Die Matrix ist damit wesentlich weiter, aber weiterhin **nicht vollständig**. Offene Punkte dürfen nicht als erledigt bezeichnet werden.
+
+## Strategien und Regime
 
 | Anforderung | Status | Befund |
 |---|---|---|
-| monotone Simulationszeit | **DONE** | Replay-Infrastruktur vorhanden |
-| geschlossene Candles / kausale Inputs | **DONE/PARTIAL** | Contract/Tests vorhanden; empirische Vollabnahme bleibt relevant |
-| 1m Detail | **DONE** | für Backtest/Replay vorgesehen |
-| Checkpoint/Restart | **DONE** | deterministische Tests vorhanden |
-| Datenmanifest / Gaps / Duplikate | **DONE** | fail-closed Datenprüfung vorhanden |
-| Spread/Delay/Partial Fill/Cancel Stress | **DONE als deterministische Stressmodelle** | keine historische Tick-/Orderbuch-Rekonstruktion |
-| Paper-vs-Replay-Parität | **EMPIRICAL-GATE** | echte überlappende Paper-Stichprobe weiterhin nötig |
-| reale Exchange-/Boot-Reconciliation | **PARTIAL** | kein vollständiger echter Exchange-Zustandsabgleich |
-| asynchrones Fill/Event-Reordering | **PARTIAL** | noch keine vollständige realistische Modellierung |
+| V8 unverändert weiter testen | **DONE** | aktiver Champion/Paper-Kandidat |
+| B1 Volume >=1.00 | **REJECTED** | globaler Filter verworfen |
+| B2 Volume >=1.25 | **BLOCKED** | bis Replay-/Diagnose-Gates pausiert |
+| ORB-Retest als separater Challenger | **PLANNED** | Bericht A; noch nicht implementieren, bevor Infrastruktur-Gates schließen |
+| Bollinger MR als separater Challenger | **PLANNED** | Range-Engine; 20/2 nur Research-Default |
+| Ichimoku als separater Trend-Challenger | **PLANNED** | Bericht B; 9/26/52 als Research-Default, Golden Indicator Tests erforderlich |
+| FVG/BOS | **BLOCKED/PLANNED** | erst nach einfacher ORB-Baseline |
+| Regime Router | **DONE als fail-closed Contract / PLANNED produktiv** | Research-Contract trennt ORB/Ichimoku/Bollinger und fällt bei Mismatch auf NO_TRADE; noch nicht mit produktiven Strategien verdrahtet. |
+| Hybrid | **PLANNED** | darf Komponenten nicht vor ihrer Einzelvalidierung vermischen |
+
+Die beiden Deep-Research-Berichte werden bewusst nicht so dargestellt, als hätten sie dieselbe Trend-Empfehlung. ORB und Ichimoku bleiben getrennte Trend-Hypothesen und müssen evidenzbasiert verglichen werden.
 
 ## Research-Statistik
 
-| Anforderung | Status |
-|---|---|
-| Trial Ledger inkl. Fehlschläge | **DONE** |
-| PBO/DSR-Infrastruktur | **DONE als Tool / EMPIRICAL-GATE als Aussage** |
-| Parameter-Plateau | **PARTIAL** |
-| 1-Bar-Lag/Execution-Delay | **PARTIAL/DONE je Runner** |
-| PnL-Konzentration | **PARTIAL/DONE je Report** |
-| Monte-Carlo/Block-Bootstrap | **PLANNED** |
+| Anforderung | Status | Befund |
+|---|---|---|
+| Trial Ledger inkl. Fehlschläge | **DONE** | Schema/Governance vorhanden |
+| Development/Validation/Holdout | **DONE/PARTIAL** | Registry/Ledger unterstützen die Trennung; echte neue Challenger fehlen noch |
+| PBO/CSCV | **DONE als Tool**, **EMPIRICAL-GATE** als echte Auswertung | Implementierung/Test vorhanden; echte Trial-Universe-Auswertung steht aus |
+| Deflated Sharpe | **DONE als Tool**, **EMPIRICAL-GATE** als echte Auswertung | dito |
+| Walk-Forward | **PARTIAL** | kausale half-open Train/Test-Fenster, Validierung und Fold-Summary vorhanden; Strategie-Runner/Promotion-Integration fehlt noch. |
+| Parameter-Plateau | **PLANNED/PARTIAL** | als Research-Gate dokumentiert; standardisierte Heatmap/Plateau-Auswertung fehlt |
+| 1.5x Kostenstress | **PARTIAL** | Fold-Contract kann Cost-Stress-Resultate erzwingen/sichtbar machen; automatischer Challenger-Runner fehlt. |
+| 1-Bar-Lag-Stress | **PARTIAL** | Fold-Contract führt die Prüfung explizit; standardisierter Signal-Delay-Runner fehlt. |
+| PnL-Konzentration | **PARTIAL** | Kennzahlen können aus Trades abgeleitet werden; verbindlicher Promotion-Report fehlt |
+| Monte-Carlo/Block-Bootstrap-DD | **PLANNED** | erst bei geeigneten Return-Serien |
 
-## Was nicht mehr als aktueller Plan gilt
+Die im Deep Research genannten Beispielschwellen (OOS Sharpe >0,8; DSR >95 %; PBO <20 %; PF >1,2; MaxDD <10 % usw.) sind **Engineering-Startgates und keine universellen Naturgesetze**. Für neue Challenger werden sie vor dem Holdout vorregistriert oder vorab begründet ersetzt; sie dienen nicht dazu, den eingefrorenen V8 rückwirkend schönzutunen.
 
-- V8 als aktive Strategy oder aktueller Champion im Runtime-Sinn
-- BTC-Regime als Steuerung für ETH/SOL
-- ORB als automatisch bevorzugte Kernstrategie
-- alte offene V9/V10/V11-Draft-PRs
-- alte Root-Statusberichte wie `CODEX_COMPLETION_REPORT_DE.md`
+## Monitoring/Dashboard
 
-## Aktuelle Reihenfolge
+Noch nicht vollständig als standardisierter Release-Report umgesetzt sind:
 
-1. V12-Family-League-Ergebnisse vollständig auswerten.
-2. Nur Familien/Varianten weiterführen, die Development, Validation, Blind und Walk-Forward tragen.
-3. Verlierer dokumentieren und nicht wieder als aktiven Weg behandeln.
-4. Kandidaten gegen Kosten, Lag, Drawdown und Parameter-Nachbarschaften prüfen.
-5. Gewinner als neue Strategy-Version/Hash festschreiben.
-6. Exakten Gewinner lokal mit Freqtrade und 1m-Detaildaten testen.
-7. Erst danach aktive Runtime/DB-Migration bewusst planen.
+- Equity netto nach Kosten
+- Underwater/Drawdown Plot
+- Rolling Sharpe 90/180 Tage
+- Monats-/Zeitslice-Heatmap
+- PnL nach Regime und Asset
+- MAE/MFE Scatter
+- Parameter-Heatmap/Plateau
+- Kosten vs. Brutto-PnL
+- Monte-Carlo/Block-Bootstrap-DD
 
-Status: **RESEARCH ACTIVE – NOT READY FOR REAL MONEY.**
+Vor echten Daten dürfen keine Resultate oder Charts erfunden werden.
+
+## Unmittelbare Reihenfolge ab jetzt
+
+1. Keine V8-Strategieänderung.
+2. Verbleibende Replay-/Execution-/Fault-Lücken schließen, insbesondere asynchrone Event-Reihenfolge, reale Boot-/Exchange-Reconciliation, Risk-Service-/DB-Faults und präzisere Latenz-/Liquidity-Annahmen nur soweit methodisch sinnvoll.
+3. Danach echten Full-History-/Fee-Stress-/Parity-Lauf durchführen.
+4. V8-Diagnostik einschließlich `failed_4h_breakout` auswerten.
+5. Walk-Forward-Runner/Promotion-Integration sowie Plateau-/Lag-/Konzentrationsreports vervollständigen.
+6. Erst danach neue ORB-, Bollinger- und Ichimoku-Challenger getrennt vorregistrieren.
+7. Regime-Router/Hybrid erst nach belastbarer Einzelkomponenten-Evidenz.
+
+Status bleibt: **READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY.**

@@ -1,98 +1,103 @@
 # Local AI trading desk instructions
 
-## Current operating context
+This repository contains an upstream prompt layer plus an independent local runtime.
 
-The current development branch is `agent/v12-adaptive-league`.
+## Current authoritative plan
 
-V12 is a **research branch**, not a promoted live/paper strategy version. The strategy currently loaded by `STARTBOT.bat` is still `runtime/user_data/strategies/CompressionBreakout250.py` with `STRATEGY_VERSION = "V11"`.
+`RESEARCH_MASTERPLAN_DE.md` is the **authoritative project and research plan**.
 
-V11 is a deterministic pair-local adaptive router. BTC/USDT, ETH/USDT and SOL/USDT classify only their own 15m/1h/4h data into `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION` or `NO_TRADE`, then route to `ORB_RETEST`, `ICHIMOKU_TREND` or `BOLLINGER_MR`.
+Older Codex phase briefs, historical chat notes and archived research documents are context only. If they conflict with `RESEARCH_MASTERPLAN_DE.md`, the masterplan wins.
 
-V11 is **not assumed profitable or promoted**. V12 research exists to test stronger pair-/family-specific candidates using Development/Validation/Blind and rolling Walk-Forward evidence.
+The current rule is deliberately conservative:
 
-## Authoritative project sources
+- V8 / `CompressionBreakout250` remains the frozen champion.
+- Do not mix Bollinger, Ichimoku, ORB/FVG/BOS or new filters directly into V8.
+- Diagnostics and observability may be added without changing decisions.
+- Any strategy change requires a separate `research/...` challenger branch and a new experiment/version/hash.
+- Respect the phase ordering in the masterplan. Do not skip replay/parity, execution realism, red-team coverage, diagnostics or meta-research gates because a new strategy idea looks attractive.
+- The long-term strategy state model is `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION`, or `NO_TRADE`.
+- `NO_TRADE` is the default when data quality, regime, signal or risk approval is uncertain.
 
-Use these in this order:
+## Preserve upstream
 
-1. `RESEARCH_MASTERPLAN_DE.md` – research/governance framework.
-2. `docs/DEEP_RESEARCH_GAP_AUDIT_DE.md` – current technical gap ledger.
-3. `research/trial_ledger.csv` – experiment history, including rejected candidates.
-4. `runtime/user_data/strategies/CompressionBreakout250.py` – actual strategy source loaded by the bot.
-5. V12 research runners under `runtime/` – research-only candidate search, never hot-path self-modification.
+Treat these paths as read-only upstream source material unless the human explicitly asks to update the upstream snapshot:
 
-Historical V8/V9/V10/V11 documents and baselines are evidence, not parallel active roadmaps. If an old document conflicts with the files above, the current operating context wins.
+- `README.md`, `SKILL.md`, `LICENSE`, `CONTRIBUTING.md`
+- `skills/`, `prompts/`, `loop/`, `examples/`
+- upstream documentation under `docs/`, except repository-owned local/research documentation
 
-## Preserve useful history without preserving confusion
-
-- Keep frozen baselines and rejected results when needed for reproducibility, comparison, PBO/DSR and trial accounting.
-- Do not keep obsolete status reports or duplicate instructions in the repository root.
-- Prefer one current start guide and one current research plan over multiple competing instructions.
-- Old PRs/branches may remain as Git history, but they must not be treated as active development paths.
+Put local work in `src/local_trader/`, `runtime/`, `local-prompts/`, `research/`, and `tests/`.
 
 ## Hard safety boundary
 
-- Binance Spot / USDT, long-only, 1x.
-- No futures, margin, shorts, leverage, DCA or martingale.
-- Maximum virtual capital: 250 USDT.
-- Maximum stake: 80 USDT per position.
-- Maximum total exposure: 240 USDT and at most three open positions.
-- No automatic capital scaling.
-- No automatic real-money promotion.
-- Research agents never receive a free exchange-order path or secret access.
-- LLM/AI logic belongs in the cold research path, not the synchronous order path.
-- Risk, OMS, execution and reconciliation remain deterministic.
+- Research agents never place orders, start live trading, edit live credentials, or read secret files/environment variables.
+- Binance is Spot/USDT, long-only, 1x. Futures, margin, shorts, DCA, and martingale are forbidden.
+- Risk ceilings may only be lowered by an agent, never increased: 250 USDT capital, 80 USDT per position, 240 USDT total open exposure, and three open positions.
+- `dry_run` remains true unless the human invokes the documented, Registry-authorized recovery launcher. That launcher remains `paused` and cannot enable real-money entries.
+- CANARY and PRODUCTION promotions require explicit human approval through the deterministic CLI.
+- Registry promotion never makes generated Python trusted. Live recovery additionally requires an independent manual source audit for the exact hash in `runtime/trusted-live-artifacts.json`.
+- Candidate strategies are immutable after registration. Create a new version instead of editing a registered artifact.
+- Never copy exchange secrets into code, config, tests, logs, reports, prompts, or chat output.
+- No automatic capital scaling from 250 to 500/750/1000 USDT.
 
-## Pair independence
+## Hot path / cold path boundary
 
-BTC, ETH and SOL must be evaluated independently unless a separate portfolio-risk test explicitly studies correlation/exposure. Do not inject BTC regime state into ETH or SOL trading decisions.
+The production-facing hot path is deterministic:
 
-Pair-specific parameters and even different winning strategy families are allowed when supported by evidence.
+`market data -> normalization -> features -> data-quality gate -> regime -> strategy -> portfolio/risk -> execution/OMS -> reconciliation`
 
-## Research discipline
+LLMs, Codex, Hermes/OpenClaw-style agents and research jobs belong to the cold path only. They may analyze logs, propose a falsifiable hypothesis, create a separate candidate and request tests. They may not directly mutate active strategy/risk parameters or submit exchange orders.
 
-Primary economic objective is robust **net USDT PnL after costs**, not raw trade count or an attractive in-sample curve.
+The current autonomous Research Desk stays fail-closed disabled until it runs under a genuinely isolated low-privilege account/VM/container that cannot read the real holdout or credentials.
 
-Every candidate must be judged with as much of the following as the data supports:
+## V8 freeze contract
 
-- fees and additional cost stress;
-- Development / Validation / Blind separation;
-- rolling Walk-Forward folds;
-- pair and time-slice attribution;
-- Profit Factor, expectancy and max drawdown;
-- trade/family concentration;
-- 1-bar-lag or execution-delay sensitivity;
-- 1m detail for final Freqtrade verification;
-- parameter-neighbour/plateau checks;
-- trial ledger accounting, PBO/DSR where appropriate;
-- no future leakage or repainting.
-
-Do not optimize repeatedly against the same blind/holdout window and then continue calling it blind. Once a holdout result informs a strategy change, that window is consumed for that experiment lineage.
-
-## V12 family-league intent
-
-The V12 research layer may compare strategy families such as:
-
-- slow breakout / Donchian trend;
-- Ichimoku trend;
-- Bollinger mean reversion;
-- other pre-registered challengers.
-
-A family that looks good only in development but fails validation/blind or reasonable cost stress is rejected or quarantined. `NO_TRADE` is a valid result when no robust edge exists.
-
-The research runners must not silently modify the active V11 strategy while searching. A promoted strategy change requires an explicit new strategy version/hash and a separate verification step.
-
-## Frozen V8 baseline
-
-The validated historical V8 baseline remains preserved under `research/baselines/V8/` with LF-normalized SHA-256:
+The current LF-normalized V8 SHA-256 is:
 
 `9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280`
 
-This is a comparison baseline, not the current active development target. Never rewrite the frozen baseline in place.
+Changing `runtime/user_data/strategies/CompressionBreakout250.py` means the result is no longer the validated V8 baseline. A new strategy version, hash and full research gate are required.
 
-## Repository hygiene
+B1 (`volume_ratio >= 1.00`) is documented as rejected as a global filter. B2 (`>= 1.25`) is paused until the replay/diagnostic gates are completed. Do not invent another threshold after seeing B1/B2.
 
-Treat upstream/open-source material such as `README.md`, `SKILL.md`, `LICENSE`, `CONTRIBUTING.md`, `skills/`, `prompts/`, `loop/` and `examples/` as upstream unless a task explicitly requires changes there.
+## Deep-Research challenger families
 
-Keep generated market data, databases, logs, replay results, backtest exports, credentials and secrets out of Git.
+The source reports differ in which trend component they emphasize. Preserve that disagreement instead of silently choosing one:
 
-After meaningful changes, run the narrowest relevant tests and keep CI green. Do not delete runtime/test/workflow files merely because their names look old; verify references and purpose first.
+- ORB-Retest is a standalone trend/breakout challenger family.
+- Ichimoku is a separate standalone trend challenger family.
+- Bollinger Mean Reversion is the standalone range/mean-reversion family.
+- A regime router/hybrid is later work and may only combine components that were separately validated.
+- FVG and BOS/Reversal are later extensions, not part of the first ORB baseline.
+
+Implementation order is not a ranking. ORB and Ichimoku must be compared with pre-registered OOS evidence before either is selected as the later trend engine.
+
+## Research discipline
+
+- One falsifiable hypothesis and one major strategy change per version.
+- Closed-candle OHLCV data only; no lookahead or repainting.
+- Include fees and realistic execution/cost assumptions.
+- Validate across multiple symbols, time windows, 1m detail, cost stress, lookahead/causality and recursive-indicator analysis where relevant.
+- New challengers require development/validation/holdout separation and Walk-Forward evidence before promotion.
+- Persist failed trials as well as wins.
+- Do not tune after seeing details from a quarantined holdout.
+- Trial Ledger, PBO and Deflated Sharpe are research diagnostics, not profit guarantees.
+- Measure parameter plateaus, 1-bar-lag stress, PnL concentration, MAE/MFE and drawdown/time-under-water where data supports them.
+- A challenger can only progress after deterministic replay checks and fresh Shadow/Forward evidence.
+- AI/LLM work belongs in the research plane. Risk, OMS, execution and reconciliation stay deterministic.
+
+## Required order before new alpha work
+
+1. Full-system replay + data integrity.
+2. Checkpoint/restart determinism.
+3. Paper-vs-replay parity.
+4. Close the realistic execution/cost gaps: spread, latency assumptions, partial-fill/cancel/reconciliation behavior or explicitly conservative substitutes.
+5. Complete the Deep-Research red-team/fault matrix or keep every uncovered scenario explicitly marked as missing.
+6. Failed-breakout/volume/regime diagnostics with V8 unchanged.
+7. Trial-ledger/Walk-Forward/PBO/DSR/plateau evidence.
+8. Only then standalone strategy challengers: ORB-Retest, Bollinger MR and Ichimoku as separate experiment families.
+9. Only after component validation may a `TREND/BREAKOUT` / `RANGE/MEAN_REVERSION` / `NO_TRADE` router be tested.
+
+Never describe a partial execution simulator, partial fault matrix, disabled research agent, or unimplemented challenger as complete. `docs/DEEP_RESEARCH_GAP_AUDIT_DE.md` is the explicit Soll/Ist ledger for these gaps.
+
+Run the narrowest relevant tests after changes and keep generated market data, databases, logs, replay results, reports, credentials, and promoted live artifacts out of Git.
