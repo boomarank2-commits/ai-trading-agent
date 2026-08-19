@@ -1,8 +1,11 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
-Every run hashes and loads the exact strategy file used by STARTBOT. V11
+Every run hashes and loads the exact strategy file used by STARTBOT. V12.9
 downloads only the selected pair's 15m/1m/1h/4h candles: BTC, ETH and SOL are
-independent adaptive engines and no cross-pair market-regime data is injected.
+independent pair-local engines and no cross-pair market-regime data is injected.
+
+The result also exposes entry-tag and exit-reason attribution so new challengers
+can be judged independently instead of hiding behind aggregate P/L.
 """
 
 from __future__ import annotations
@@ -83,7 +86,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
 
 
 def _btc_context_pair(pair: str) -> None:
-    """Compatibility hook: V11 never requests another pair as market context."""
+    """Compatibility hook: pair-local V12.9 never requests another pair as context."""
 
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
@@ -260,6 +263,34 @@ def _number(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _trade_breakdown(
+    trades: list[dict[str, Any]], key: str, fallback: str
+) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for trade in trades:
+        label = str(trade.get(key) or fallback)
+        item = grouped.setdefault(
+            label,
+            {"label": label, "trades": 0, "wins": 0, "profit_usdt": 0.0},
+        )
+        profit = _number(trade.get("profit_abs"))
+        item["trades"] += 1
+        item["wins"] += int(profit > 0)
+        item["profit_usdt"] += profit
+
+    rows = []
+    for item in grouped.values():
+        rows.append(
+            {
+                "label": item["label"],
+                "trades": int(item["trades"]),
+                "wins": int(item["wins"]),
+                "profit_usdt": round(float(item["profit_usdt"]), 4),
+            }
+        )
+    return sorted(rows, key=lambda row: (-row["trades"], row["label"]))
+
+
 def _extract_result(
     result_file: Path, pair: str, years: int, strategy_hash: str
 ) -> dict[str, Any]:
@@ -328,8 +359,14 @@ def _extract_result(
         "backtest_days": int(strategy.get("backtest_days") or 0),
         "coverage_validated": True,
         "result_file": str(result_file),
-        "adaptive_router": True,
+        "adaptive_router": False,
         "cross_pair_context": False,
+        "entry_tag_breakdown": _trade_breakdown(
+            trades, key="enter_tag", fallback="ohne_entry_tag"
+        ),
+        "exit_reason_breakdown": _trade_breakdown(
+            trades, key="exit_reason", fallback="ohne_exit_reason"
+        ),
     }
 
 
@@ -387,7 +424,7 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         )
         data_integrity = _validate_candle_data(pair, download_start, now)
 
-        _set_state(stage="Historische Daten geladen - adaptiver Backtest startet", progress=45)
+        _set_state(stage="Historische Daten geladen - V12.9 Backtest startet", progress=45)
         backtest_args = [
             sys.executable,
             str(_BACKTEST_RUNNER),
@@ -427,10 +464,10 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             "--breakdown",
             "month",
         ]
-        _set_state(stage="Aktueller adaptiver Bot wird historisch simuliert", progress=60)
+        _set_state(stage="V12.9 wird historisch simuliert", progress=60)
         _run_checked(backtest_args, log_path)
 
-        _set_state(stage="Ergebnis wird ausgewertet", progress=92)
+        _set_state(stage="Ergebnis und Strategie-Familien werden ausgewertet", progress=92)
         result_file = _find_result_file(run_dir)
         result = _extract_result(result_file, pair, years, strategy_hash)
         _validate_result_coverage(result, requested_start, now, years)
