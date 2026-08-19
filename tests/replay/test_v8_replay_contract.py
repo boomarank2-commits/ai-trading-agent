@@ -16,18 +16,14 @@ def _lf_sha(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def test_v8_reference_is_preserved_while_v12_8_is_active() -> None:
+def test_v8_reference_is_preserved_while_v12_9_is_active() -> None:
     assert _lf_sha(V8_BASELINE) == EXPECTED_V8_LF_SHA
-
-    # The active research candidate is intentionally mutable between isolated
-    # experiments, so its exact SHA is bound by the backtest/deployment runner
-    # rather than frozen here. The V8 reference above remains immutable.
     assert STRATEGY.is_file()
 
 
-def test_v12_8_is_pair_local_without_btc_regime_dependency() -> None:
+def test_v12_9_is_pair_local_without_btc_regime_dependency() -> None:
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.8"' in text
+    assert 'STRATEGY_VERSION = "V12.9"' in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert "btc_close_4h" not in text
@@ -37,13 +33,15 @@ def test_v12_8_is_pair_local_without_btc_regime_dependency() -> None:
     assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
     assert 'REGIME_NO_TRADE = "NO_TRADE"' in text
     assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text
+    assert 'FAMILY_RECLAIM = "TREND_RECLAIM"' in text
     assert "FAST_DONCHIAN_TREND" not in text
     assert "ORB_RETEST" not in text
     assert "ICHIMOKU_TREND" not in text
     assert "BOLLINGER_MR" not in text
-    assert 'pair_quality = dataframe["volume_ratio"] >= 1.00' in text
-    assert 'pair != "SOL/USDT" or current_profit < 0.05' in text
-    assert "stoploss_from_open" in text
+    assert 'champion_quality = dataframe["volume_ratio"] >= 1.00' in text
+    assert '"method": "LowProfitPairs"' in text
+    assert "use_custom_stoploss = False" in text
+    assert "stoploss_from_open" not in text
     assert '"only_per_pair": True' in text
 
 
