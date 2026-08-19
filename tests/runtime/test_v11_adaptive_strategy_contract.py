@@ -33,7 +33,10 @@ def test_v12_9_adds_only_one_tagged_reclaim_challenger_for_btc_eth() -> None:
     assert "ema_exec_rising" in text
     assert 'if pair in self.RECLAIM_PROFILES:' in text
     assert "v12_9_{asset}_trend_reclaim" in text
-    reclaim_block = text.split("RECLAIM_PROFILES", maxsplit=1)[1].split("REGIME_TREND", maxsplit=1)[0]
+    reclaim_block = (
+        text.split("RECLAIM_PROFILES", maxsplit=1)[1]
+        .split("REGIME_TREND", maxsplit=1)[0]
+    )
     assert '"SOL/USDT"' not in reclaim_block
 
 
