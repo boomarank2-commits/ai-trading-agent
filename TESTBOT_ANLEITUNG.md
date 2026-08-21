@@ -71,6 +71,12 @@ Diese Helfer sind keine alternativen Trading-Strategien.
 
 Der integrierte Backtest verwendet die tatsächlich aktive Strategy-Quelle. Details stehen in `BACKTEST_ANLEITUNG.md`.
 
+Für die Frage, wie sinnvoll die 250 USDT tatsächlich eingesetzt werden, ist
+der neue **Gesamtportfolio-Test** maßgeblich: BTC, ETH und SOL teilen dort ein
+einziges Konto. Die Einzelpaar-Tests bleiben als Diagnose erhalten. Die
+Oberfläche zeigt zusätzlich Kapitalzeit, Zeit ohne Position sowie
+durchschnittlich und maximal gleichzeitig offene Positionen.
+
 V12-Optimizer- und Family-League-Runs sind davon getrennte Research-Werkzeuge. Ein Research-Gewinner wird nicht automatisch in den laufenden Bot übernommen.
 
 ## Lokale Daten

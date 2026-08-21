@@ -1,8 +1,9 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
-Every run hashes and loads the exact strategy file used by STARTBOT. V12.9
-downloads only the selected pair's 15m/1m/1h/4h candles: BTC, ETH and SOL are
-independent pair-local engines and no cross-pair market-regime data is injected.
+Every run hashes and loads the exact strategy file used by STARTBOT. V12.9 can
+test one selected pair or the real three-pair 250 USDT portfolio. BTC, ETH and
+SOL remain independent pair-local engines; the portfolio mode changes only the
+execution/account simulation and injects no cross-pair market-regime signal.
 
 The result also exposes entry-tag and exit-reason attribution so new challengers
 can be judged independently instead of hiding behind aggregate P/L.
@@ -39,6 +40,7 @@ try:
     )
     from runtime.backtest_history_analysis import (
         analyze_backtest_history,
+        capital_utilization_metrics,
         write_history_reports,
     )
 except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime/.
@@ -52,9 +54,15 @@ except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime
         strategy_change_diff,
         strategy_hashes,
     )
-    from backtest_history_analysis import analyze_backtest_history, write_history_reports
+    from backtest_history_analysis import (
+        analyze_backtest_history,
+        capital_utilization_metrics,
+        write_history_reports,
+    )
 
 ALLOWED_PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
+PORTFOLIO_TARGET = "PORTFOLIO"
+ALLOWED_TARGETS = (*ALLOWED_PAIRS, PORTFOLIO_TARGET)
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
 REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
@@ -123,6 +131,14 @@ def _btc_context_pair(pair: str) -> None:
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
     return None
+
+
+def _pairs_for_target(target: str) -> tuple[str, ...]:
+    if target == PORTFOLIO_TARGET:
+        return ALLOWED_PAIRS
+    if target in ALLOWED_PAIRS:
+        return (target,)
+    raise ValueError(f"unsupported backtest target: {target}")
 
 
 def _closed_timerange(start: datetime, end: datetime) -> str:
@@ -356,6 +372,12 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         drawdown_pct = _number(strategy.get("max_drawdown_account")) * 100.0
     else:
         drawdown_pct = drawdown_value * 100.0
+    utilization = capital_utilization_metrics(
+        trades,
+        strategy.get("backtest_start"),
+        strategy.get("backtest_end"),
+        available_capital=starting_balance,
+    )
 
     return {
         "pair": pair,
@@ -380,6 +402,7 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         "result_file": str(result_file),
         "adaptive_router": False,
         "cross_pair_context": False,
+        **utilization,
         "entry_tag_breakdown": _trade_breakdown(trades, key="enter_tag", fallback="ohne_entry_tag"),
         "exit_reason_breakdown": _trade_breakdown(
             trades, key="exit_reason", fallback="ohne_exit_reason"
@@ -515,6 +538,7 @@ def _execute_backtest(
         download_start = requested_start - timedelta(days=BACKTEST_WARMUP_DAYS)
         requested_timerange = requested_start.strftime("%Y%m%d") + "-"
         download_timerange = download_start.strftime("%Y%m%d") + "-"
+        pairs = _pairs_for_target(pair)
 
         _set_state(stage="Binance-Daten werden bis heute aktualisiert", progress=10)
         download_args = [
@@ -531,7 +555,7 @@ def _execute_backtest(
             "--timeframes",
             *REQUIRED_TIMEFRAMES,
             "--pairs",
-            pair,
+            *pairs,
             "--trading-mode",
             "spot",
             "--timerange",
@@ -548,11 +572,11 @@ def _execute_backtest(
         ]
         _run_checked(prepend_args, log_path)
 
-        _set_state(
-            stage="Pair-eigene Kerzendaten werden auf Luecken und Duplikate geprueft",
-            progress=38,
-        )
-        data_integrity = _validate_candle_data(pair, download_start, now)
+        _set_state(stage="Kerzendaten werden auf Luecken und Duplikate geprueft", progress=38)
+        data_integrity = {
+            current_pair: _validate_candle_data(current_pair, download_start, now)
+            for current_pair in pairs
+        }
 
         _set_state(stage="Historische Daten geladen - V12.9 Backtest startet", progress=45)
         backtest_args = [
@@ -575,7 +599,7 @@ def _execute_backtest(
             "--strategy",
             STRATEGY_NAME,
             "--pairs",
-            pair,
+            *pairs,
             "--timerange",
             requested_timerange,
             "--timeframe-detail",
@@ -619,6 +643,10 @@ def _execute_backtest(
                     "winrate_pct",
                     "profit_factor",
                     "max_drawdown_pct",
+                    "capital_time_utilization_pct",
+                    "no_position_time_pct",
+                    "average_open_positions",
+                    "max_simultaneous_positions",
                     "backtest_start",
                     "backtest_end",
                     "backtest_days",
@@ -671,8 +699,8 @@ def _execute_backtest(
 
 
 def start_backtest(request: BacktestRequest) -> dict[str, Any]:
-    if request.pair not in ALLOWED_PAIRS:
-        raise HTTPException(status_code=400, detail="Dieses Handelspaar ist nicht freigegeben.")
+    if request.pair not in ALLOWED_TARGETS:
+        raise HTTPException(status_code=400, detail="Dieses Backtest-Ziel ist nicht freigegeben.")
     if request.years not in ALLOWED_YEARS:
         raise HTTPException(status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein.")
 

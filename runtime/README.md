@@ -85,6 +85,12 @@ Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
+Der UI-Modus `Gesamtportfolio` simuliert BTC, ETH und SOL gemeinsam mit genau
+einem 250-USDT-Wallet und den bestehenden Positionsgrenzen. Die Einzelpaar-
+Läufe dienen der Attribution. Ergebnis und Gesamtauswertung weisen zusätzlich
+Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
+gleichzeitig offene Positionen aus.
+
 Alle automatisch erzeugten Runtime-Dateien liegen unter `user_data/`: Daten in
 `data/`, UI-Backtests in `backtest_results/`, Sitzungsberichte in
 `logs/sessions/`, Paper-/Replay-Evidenz in `paper_telemetry/` beziehungsweise
@@ -98,7 +104,8 @@ kein Bot-Ergebnis.
 abgebrochene Versuche getrennt und erneuert `GESAMTAUSWERTUNG.md` sowie
 `gesamt-auswertung.json`. Rohresultate werden dabei niemals gelöscht;
 überlappende Testfenster werden nicht als eine gemeinsame Kapitalkurve
-ausgegeben.
+ausgegeben. Portfolio-Läufe werden getrennt von der historischen
+Sechs-Zellen-Einzelpaar-Matrix ausgewertet.
 
 ## Dry-run
 

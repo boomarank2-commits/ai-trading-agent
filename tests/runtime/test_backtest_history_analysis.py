@@ -6,6 +6,7 @@ from pathlib import Path
 
 from runtime.backtest_history_analysis import (
     analyze_backtest_history,
+    capital_utilization_metrics,
     render_markdown,
     write_history_reports,
 )
@@ -15,7 +16,7 @@ def _write_result(
     root: Path,
     run_id: str,
     *,
-    pair: str,
+    pair: str | list[str],
     profit: float,
     source: str = '"""Test strategy V12.9."""\n',
 ) -> None:
@@ -25,7 +26,7 @@ def _write_result(
         "strategy": {
             "CompressionBreakout250": {
                 "strategy_name": "CompressionBreakout250",
-                "pairlist": [pair],
+                "pairlist": [pair] if isinstance(pair, str) else pair,
                 "backtest_start": "2025-08-21 00:00:00",
                 "backtest_end": "2026-08-21 00:00:00",
                 "backtest_days": 365,
@@ -125,3 +126,48 @@ def test_history_marks_identical_material_runs_without_deleting_evidence(
     assert any(run.get("duplicate_of") for run in report["runs"])
     assert (tmp_path / "run-original" / "result.zip").is_file()
     assert (tmp_path / "run-duplicate" / "result.zip").is_file()
+
+
+def test_capital_utilization_measures_overlap_and_idle_time() -> None:
+    trades = [
+        {
+            "open_date": "2026-01-01 00:00:00+00:00",
+            "close_date": "2026-01-06 00:00:00+00:00",
+            "stake_amount": 80,
+        },
+        {
+            "open_date": "2026-01-04 00:00:00+00:00",
+            "close_date": "2026-01-09 00:00:00+00:00",
+            "stake_amount": 80,
+        },
+    ]
+
+    metrics = capital_utilization_metrics(
+        trades,
+        "2026-01-01 00:00:00+00:00",
+        "2026-01-11 00:00:00+00:00",
+    )
+
+    assert metrics == {
+        "capital_time_utilization_pct": 32.0,
+        "no_position_time_pct": 20.0,
+        "average_open_positions": 1.0,
+        "max_simultaneous_positions": 2,
+    }
+
+
+def test_portfolio_archive_is_separate_from_single_pair_matrix(tmp_path: Path) -> None:
+    _write_result(
+        tmp_path,
+        "portfolio",
+        pair=["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+        profit=7.0,
+    )
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+
+    assert report["runs"][0]["pair"] == "PORTFOLIO"
+    matrix = report["strategy_matrices"][0]
+    assert matrix["portfolio_runs"] == 1
+    assert matrix["latest_cells"] == 0
+    assert matrix["current_six_run_matrix"] is False

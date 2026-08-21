@@ -37,6 +37,11 @@ Zeiträume nicht zu einer künstlichen Kapitalkurve. Neue identische UI-Läufe
 werden über einen inhaltlichen Fingerabdruck vor dem Start blockiert;
 Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
+Der UI-Backtest bietet zusätzlich eine echte Gesamtportfolio-Sicht: BTC, ETH
+und SOL teilen sich ein 250-USDT-Wallet. Sie ist für Kapitalnutzung und
+Portfolioergebnis maßgeblich; die sechs Einzelpaar-Läufe bleiben als
+Attribution erhalten.
+
 ## Research und Sicherheit
 
 Der eingefrorene V8-Stand bleibt als Baseline unter `research/baselines/V8/`

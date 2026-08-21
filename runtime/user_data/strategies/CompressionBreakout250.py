@@ -1,16 +1,14 @@
-"""V12.11 champion + slow regime-participation challenger.
+"""V12.9 champion + trend-reclaim challenger with loss-cluster control.
 
-V12.11 keeps every V12.9 champion entry path and all execution safeguards, but
-replaces the rejected short-lived V12.10 continuation family with one isolated
-experiment: enter on a causal 4h close reclaim of EMA50 while EMA50 is above a
-rising EMA200-confirmed pair-local trend. The same structural rule is available
-to BTC, ETH and SOL and is tagged separately for attribution.
+V12.9 keeps every V12.8 champion entry path intact, removes the SOL +5% -> +1%
+profit ratchet after the exact 1m-detail backtest showed that it clipped the
+economics of the broader SOL core, and adds one deliberately simple challenger:
+a causal 15m EMA20 reclaim inside an already-established 1h/4h uptrend.
 
-Regime trades have no fixed take-profit or tight trailing ratchet. They remain
-open while the 4h close holds EMA50, so the hypothesis directly tests useful
-capital-time rather than raw turnover. Champion trades retain their validated
-slow 4h exit and failure logic unchanged. The pair-local LowProfitPairs wall
-remains active.
+The new challenger is enabled only for BTC and ETH. It is tagged separately so
+its contribution can be audited trade-by-trade. SOL remains on the broader
+slow Donchian core and is protected from dense losing clusters by a pair-local
+LowProfitPairs wall shared by all pairs. Large winners remain uncapped.
 
 Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
 stretch objective, not an optimization constraint. No threshold is allowed to
@@ -35,10 +33,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.11: champion Donchian + tagged 4h regime challenger."""
+    """V12.9: champion Donchian + tagged trend-reclaim challenger."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.11"
+    STRATEGY_VERSION = "V12.9"
 
     can_short = False
     timeframe = "15m"
@@ -109,10 +107,25 @@ class CompressionBreakout250(IStrategy):
         },
     }
 
+    RECLAIM_PROFILES: ClassVar[dict[str, dict[str, float]]] = {
+        "BTC/USDT": {
+            "adx_min": 20.0,
+            "momentum_min": 0.04,
+            "rsi_4h_max": 76.0,
+            "volume_min": 0.80,
+        },
+        "ETH/USDT": {
+            "adx_min": 20.0,
+            "momentum_min": 0.04,
+            "rsi_4h_max": 76.0,
+            "volume_min": 0.0,
+        },
+    }
+
     REGIME_TREND = "TREND/BREAKOUT"
     REGIME_NO_TRADE = "NO_TRADE"
     FAMILY_DONCHIAN = "DONCHIAN_TREND"
-    FAMILY_REGIME = "FOUR_HOUR_REGIME_PARTICIPATION"
+    FAMILY_RECLAIM = "TREND_RECLAIM"
     FAMILY_NO_TRADE = "NO_TRADE"
 
     minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
@@ -356,10 +369,24 @@ class CompressionBreakout250(IStrategy):
         )
         dataframe["volume_ratio"] = dataframe["volume"] / dataframe["volume_mean"]
 
+        prior_touch = (
+            (dataframe["low"] <= dataframe["ema_exec"])
+            & (dataframe["close"] > dataframe["ema_fast"])
+        ).shift(1)
+        dataframe["pullback_touch_recent"] = (
+            prior_touch.rolling(12, min_periods=1).max().fillna(False).astype(int)
+        )
+        dataframe["ema20_reclaim"] = (
+            (dataframe["close"] > dataframe["ema_exec"])
+            & (dataframe["close"].shift(1) <= dataframe["ema_exec"].shift(1))
+        ).astype(int)
+        dataframe["ema_exec_rising"] = (
+            dataframe["ema_exec"] > dataframe["ema_exec"].shift(4)
+        ).astype(int)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        """Run unchanged champions plus one tagged 4h regime challenger."""
+        """Run unchanged champions plus one separately tagged reclaim challenger."""
         pair = str(metadata.get("pair", ""))
         dataframe["regime_state"] = self.REGIME_NO_TRADE
         dataframe["route_family"] = self.FAMILY_NO_TRADE
@@ -433,37 +460,54 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[champion_signal, "no_trade_reason"] = ""
         dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_11_{asset}_champion_donchian",
+            f"v12_9_{asset}_champion_donchian",
         )
 
-        profile = self.PAIR_PROFILES[pair]
-        regime_volume = (
-            dataframe["volume_ratio_4h"] >= float(profile["volume_min"])
-            if float(profile["volume_min"]) > 0
-            else dataframe["volume"] > 0
-        )
-        regime_4h = (
-            (dataframe["close_4h"] > dataframe["ema_fast_4h"])
-            & (dataframe["close_4h"].shift(1) <= dataframe["ema_fast_4h"].shift(1))
-            & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
-            & (dataframe["ema_fast_rising_4h"] > 0)
-            & (dataframe["adx_4h"] >= float(profile["adx_min"]))
-            & (dataframe["momentum_30d_4h"] >= float(profile["momentum_min"]))
-            & (dataframe["rsi_4h"] >= float(profile["rsi_min"]))
-            & (dataframe["rsi_4h"] <= float(profile["rsi_max"]))
-            & regime_volume
-        )
-        regime_qualified = regime_4h & trend_1h
-        regime_signal = regime_qualified & execution & ~champion_signal
-
-        dataframe.loc[regime_qualified, "regime_state"] = self.REGIME_TREND
-        dataframe.loc[regime_qualified, "no_trade_reason"] = "wait_execution_gate"
-        dataframe.loc[regime_signal, "route_family"] = self.FAMILY_REGIME
-        dataframe.loc[regime_signal, "no_trade_reason"] = ""
-        dataframe.loc[regime_signal, ["enter_long", "enter_tag"]] = (
-            1,
-            f"v12_11_{asset}_regime_reclaim_4h",
-        )
+        if pair in self.RECLAIM_PROFILES:
+            reclaim_profile = self.RECLAIM_PROFILES[pair]
+            reclaim_4h = (
+                (dataframe["close_4h"] > dataframe["ema_fast_4h"])
+                & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
+                & (dataframe["ema_fast_rising_4h"] > 0)
+                & (dataframe["adx_4h"] >= reclaim_profile["adx_min"])
+                & (
+                    dataframe["momentum_30d_4h"]
+                    >= reclaim_profile["momentum_min"]
+                )
+                & (dataframe["rsi_4h"] >= 50)
+                & (dataframe["rsi_4h"] <= reclaim_profile["rsi_4h_max"])
+            )
+            reclaim_execution = (
+                (dataframe["pullback_touch_recent"] > 0)
+                & (dataframe["ema20_reclaim"] > 0)
+                & (dataframe["ema_exec_rising"] > 0)
+                & (dataframe["ema_exec"] > dataframe["ema_fast"])
+                & (dataframe["close"] > dataframe["ema_fast"])
+                & (dataframe["rsi"] >= 52)
+                & (dataframe["rsi"] <= 78)
+                & (dataframe["atr_pct"] >= self.buy_atr_min.value)
+                & (dataframe["atr_pct"] <= self.buy_atr_max.value)
+                & (dataframe["volume"] > 0)
+            )
+            reclaim_volume = (
+                dataframe["volume_ratio"] >= reclaim_profile["volume_min"]
+                if reclaim_profile["volume_min"] > 0
+                else dataframe["volume"] > 0
+            )
+            reclaim_signal = (
+                reclaim_4h
+                & trend_1h
+                & reclaim_execution
+                & reclaim_volume
+                & ~champion_signal
+            )
+            dataframe.loc[reclaim_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[reclaim_signal, "route_family"] = self.FAMILY_RECLAIM
+            dataframe.loc[reclaim_signal, "no_trade_reason"] = ""
+            dataframe.loc[reclaim_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                f"v12_9_{asset}_trend_reclaim",
+            )
 
         return dataframe
 
@@ -477,7 +521,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_11_slow_trend_exit")
+        ] = (1, "v12_9_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -501,13 +545,17 @@ class CompressionBreakout250(IStrategy):
                 return
             candle = dataframe.iloc[-1].squeeze()
 
-            tag = str(getattr(trade, "enter_tag", "") or "")
-            if "_regime_reclaim_4h" not in tag:
-                level = float(candle["donchian_entry_4h"])
-                atr = float(candle["atr_4h"])
-                if math.isfinite(level) and math.isfinite(atr) and atr > 0:
-                    trade.set_custom_data(key="entry_breakout_level", value=level)
-                    trade.set_custom_data(key="entry_atr_4h", value=atr)
+            level = float(candle["donchian_entry_4h"])
+            atr_4h = float(candle["atr_4h"])
+            if math.isfinite(level) and math.isfinite(atr_4h) and atr_4h > 0:
+                trade.set_custom_data(key="entry_breakout_level", value=level)
+                trade.set_custom_data(key="entry_atr_4h", value=atr_4h)
+
+            ema_fast = float(candle["ema_fast"])
+            atr_15m = float(candle["atr"])
+            if math.isfinite(ema_fast) and math.isfinite(atr_15m) and atr_15m > 0:
+                trade.set_custom_data(key="entry_ema_fast_15m", value=ema_fast)
+                trade.set_custom_data(key="entry_atr_15m", value=atr_15m)
         except Exception:
             return
 
@@ -520,7 +568,7 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Use the 4h EMA50 as regime exit and retain champion failure logic."""
+        """Use distinct failure logic for champion and reclaim entries."""
         del kwargs
         try:
             age_hours = (
@@ -528,15 +576,23 @@ class CompressionBreakout250(IStrategy):
             ).total_seconds() / 3600.0
             enter_tag = str(getattr(trade, "enter_tag", "") or "")
 
-            if "_regime_reclaim_4h" in enter_tag:
-                if self.dp is None:
+            if "_trend_reclaim" in enter_tag:
+                if current_profit >= 0:
                     return None
-                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-                if dataframe.empty:
-                    return None
-                candle = dataframe.iloc[-1].squeeze()
-                if float(candle["close_4h"]) < float(candle["ema_fast_4h"]):
-                    return f"v12_11_{pair.split('/')[0].lower()}_regime_exit"
+                ema_fast = trade.get_custom_data(
+                    key="entry_ema_fast_15m", default=None
+                )
+                atr_15m = trade.get_custom_data(key="entry_atr_15m", default=None)
+                if (
+                    age_hours <= 24.0
+                    and ema_fast is not None
+                    and atr_15m is not None
+                    and float(current_rate)
+                    < float(ema_fast) - 0.50 * float(atr_15m)
+                ):
+                    return f"v12_9_{pair.split('/')[0].lower()}_reclaim_failed"
+                if age_hours >= 48.0:
+                    return f"v12_9_{pair.split('/')[0].lower()}_reclaim_time_stop"
                 return None
 
             if current_profit >= 0:
@@ -556,7 +612,7 @@ class CompressionBreakout250(IStrategy):
                 return None
             failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_11_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_9_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None

@@ -4,6 +4,8 @@
   const VIEW_ID = "testbot-backtest-view";
   const NAV_ID = "testbot-backtest-nav";
   const BATCH_CASES = [
+    { pair: "PORTFOLIO", years: 3 },
+    { pair: "PORTFOLIO", years: 1 },
     { pair: "BTC/USDT", years: 3 },
     { pair: "BTC/USDT", years: 1 },
     { pair: "ETH/USDT", years: 3 },
@@ -47,6 +49,10 @@
   function percent(value) {
     const number = Number(value || 0);
     return `${number > 0 ? "+" : ""}${number.toFixed(2)} %`;
+  }
+
+  function targetLabel(pair) {
+    return pair === "PORTFOLIO" ? "Gesamtportfolio" : pair;
   }
 
   function resultCard(label, value, className = "") {
@@ -124,12 +130,13 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest</h1>
-        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. BTC, ETH und SOL werden weiterhin einzeln mit 250 USDT getestet.</p>
+        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Gesamtportfolio-Modus teilt ein einziges 250-USDT-Konto realistisch auf BTC, ETH und SOL auf.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
-              <label for="tb-pair">Handelspaar</label>
+              <label for="tb-pair">Prüfmodus</label>
               <select id="tb-pair">
+                <option value="PORTFOLIO" selected>Gesamtportfolio · BTC + ETH + SOL</option>
                 <option value="BTC/USDT">Bitcoin · BTC/USDT</option>
                 <option value="ETH/USDT">Ethereum · ETH/USDT</option>
                 <option value="SOL/USDT">Solana · SOL/USDT</option>
@@ -145,10 +152,10 @@
             </div>
             <div class="tb-actions">
               <button id="tb-start" class="tb-button">Backtest starten</button>
-              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 6 Backtests</button>
+              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 8 Backtests</button>
             </div>
           </div>
-          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Pair, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test. Jeder echte neue Versuch muss mit Vorgänger, Hypothese, exakter Änderung, Erfolgskriterium und nächstem Schritt im Versuchsregister stehen.<br><br><strong>Alle 6 Backtests</strong> testet automatisch nacheinander BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
+          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test ist die maßgebliche 250-USDT-Sicht. Er simuliert alle drei Märkte gemeinsam mit höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur dazu, Gewinner und Verlierer einem Pair zuzuordnen; ihre Ergebnisse dürfen nicht als drei getrennte 250-USDT-Konten zusammengerechnet werden.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test. Jeder echte neue Versuch muss mit Vorgänger, Hypothese, exakter Änderung, Erfolgskriterium und nächstem Schritt im Versuchsregister stehen.<br><br><strong>Alle 8 Backtests</strong> prüft Gesamtportfolio, BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
@@ -161,10 +168,10 @@
           <div id="tb-note" class="tb-note"></div>
         </div>
         <div id="tb-batch-results" class="tb-panel tb-results">
-          <div class="tb-result-head"><h2>Alle 6 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
+          <div class="tb-result-head"><h2>Alle 8 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
-              <thead><tr><th>Test</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Status</th></tr></thead>
+              <thead><tr><th>Test</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Kapitalzeit</th><th>Ohne Position</th><th>Status</th></tr></thead>
               <tbody id="tb-batch-body"></tbody>
             </table>
           </div>
@@ -209,7 +216,7 @@
       const tradesPerYear = (trades / days) * 365.25;
       const profitClass = profit > 0 ? "tb-positive" : profit < 0 ? "tb-negative" : "tb-neutral";
       results.style.display = "block";
-      document.getElementById("tb-result-meta").textContent = `${r.pair} · ${r.years} Jahr${Number(r.years) === 1 ? "" : "e"} · ${r.timeframe} / Detail ${r.timeframe_detail}`;
+      document.getElementById("tb-result-meta").textContent = `${targetLabel(r.pair)} · ${r.years} Jahr${Number(r.years) === 1 ? "" : "e"} · ${r.timeframe} / Detail ${r.timeframe_detail}`;
       document.getElementById("tb-grid").innerHTML = [
         resultCard("Gewinn / Verlust", money(profit), profitClass),
         resultCard("USDT / Tag", money(profitPerDay), profitClass),
@@ -220,9 +227,13 @@
         resultCard("Profit Factor", Number(r.profit_factor || 0).toFixed(2), Number(r.profit_factor) >= 1 ? "tb-positive" : "tb-negative"),
         resultCard("Trefferquote", `${Number(r.winrate_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
-        resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
+        resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral"),
+        resultCard("Kapitalzeit genutzt", `${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %`, "tb-neutral"),
+        resultCard("Zeit ohne Position", `${Number(r.no_position_time_pct || 0).toFixed(2)} %`, "tb-neutral"),
+        resultCard("Ø offene Positionen", Number(r.average_open_positions || 0).toFixed(3), "tb-neutral"),
+        resultCard("Max. gleichzeitig", String(Number(r.max_simultaneous_positions || 0)), "tb-neutral")
       ].join("");
-      const independence = r.cross_pair_context === false ? "Pair-unabhängig: ja" : "Pair-unabhängig: nicht bestätigt";
+      const independence = r.cross_pair_context === false ? "Signale bleiben pair-lokal: ja" : "Pair-Lokalität nicht bestätigt";
       const target = profitPerDay > 1 ? "Stretch-Ziel >1 USDT/Tag erreicht" : "Stretch-Ziel >1 USDT/Tag noch nicht erreicht";
       const entries = breakdownText(r.entry_tag_breakdown, "Keine Entry-Attribution verfügbar");
       const exits = breakdownText(r.exit_reason_breakdown, "Keine Exit-Attribution verfügbar");
@@ -246,19 +257,19 @@
       : `${completed}/${total} abgeschlossen`;
 
     body.innerHTML = batchResults.map((item) => {
-      const label = `${item.pair} · ${item.years} Jahr${item.years === 1 ? "" : "e"}`;
+      const label = `${targetLabel(item.pair)} · ${item.years} Jahr${item.years === 1 ? "" : "e"}`;
       if (item.error) {
         if (item.skipped) {
-          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
+          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
         }
-        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
+        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
       }
       const r = item.result;
       const profit = Number(r.profit_usdt || 0);
       const days = Math.max(1, Number(r.backtest_days || 0));
       const profitPerDay = profit / days;
       const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
-      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
+      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %</td><td>${Number(r.no_position_time_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
     }).join("");
   }
 
@@ -358,7 +369,7 @@
 
     for (let index = 0; index < BATCH_CASES.length; index += 1) {
       const test = BATCH_CASES[index];
-      const label = `${test.pair} · ${test.years} Jahr${test.years === 1 ? "" : "e"}`;
+      const label = `${targetLabel(test.pair)} · ${test.years} Jahr${test.years === 1 ? "" : "e"}`;
       pairSelect.value = test.pair;
       yearsSelect.value = String(test.years);
       renderBatchResults(batchResults.length, BATCH_CASES.length, label);

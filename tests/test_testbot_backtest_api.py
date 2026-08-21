@@ -21,6 +21,9 @@ UI_SCRIPT = RUNTIME / "ui" / "testbot-backtest.js"
 
 def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
     assert api.ALLOWED_PAIRS == ("BTC/USDT", "ETH/USDT", "SOL/USDT")
+    assert (*api.ALLOWED_PAIRS, "PORTFOLIO") == api.ALLOWED_TARGETS
+    assert api._pairs_for_target("PORTFOLIO") == api.ALLOWED_PAIRS
+    assert api._pairs_for_target("ETH/USDT") == ("ETH/USDT",)
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
     assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
@@ -54,7 +57,7 @@ def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
     ]
 
 
-def test_backtest_ui_has_exact_sequential_six_run_matrix() -> None:
+def test_backtest_ui_has_exact_sequential_eight_run_audit() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
     batch_block = source.split("const BATCH_CASES = [", maxsplit=1)[1].split("];", maxsplit=1)[0]
 
@@ -64,11 +67,14 @@ def test_backtest_ui_has_exact_sequential_six_run_matrix() -> None:
     assert batch_block.count('pair: "BTC/USDT"') == 2
     assert batch_block.count('pair: "ETH/USDT"') == 2
     assert batch_block.count('pair: "SOL/USDT"') == 2
-    assert batch_block.count("years: 3") == 3
-    assert batch_block.count("years: 1") == 3
+    assert batch_block.count('pair: "PORTFOLIO"') == 2
+    assert batch_block.count("years: 3") == 4
+    assert batch_block.count("years: 1") == 4
     assert "years: 2" not in batch_block
     assert "Doppeltest übersprungen" in source
     assert "error.isDuplicate" in source
+    assert "Kapitalzeit genutzt" in source
+    assert "Zeit ohne Position" in source
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:

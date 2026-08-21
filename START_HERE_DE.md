@@ -86,6 +86,11 @@ Die Bedienung des Paperbots steht in [`TESTBOT_ANLEITUNG.md`](TESTBOT_ANLEITUNG.
 Der integrierte Backtest simuliert die aktuell geladene V12.9-Strategie; es gibt
 keine separate zweite Backtest-Strategie.
 
+In der Oberfläche ist **Gesamtportfolio** die maßgebliche 250-USDT-Prüfung.
+BTC, ETH und SOL laufen dabei gemeinsam auf einem Konto. „Alle 8 Backtests“
+ergänzt diese echte Portfolio-Sicht um die sechs Einzelpaar-Zellen zur
+Attribution und zeigt, wie viel Kapitalzeit tatsächlich genutzt wurde.
+
 Für lokale historische Backtests kann außerdem verwendet werden:
 
 ```bat

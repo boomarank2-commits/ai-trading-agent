@@ -113,6 +113,8 @@ def _pair(strategy: dict[str, Any]) -> str:
     pairlist = strategy.get("pairlist")
     if isinstance(pairlist, list) and len(pairlist) == 1:
         return str(pairlist[0])
+    if isinstance(pairlist, list) and len(pairlist) > 1:
+        return "PORTFOLIO"
     rows = strategy.get("results_per_pair")
     if isinstance(rows, list):
         names = [
@@ -123,6 +125,85 @@ def _pair(strategy: dict[str, Any]) -> str:
         if len(names) == 1:
             return names[0]
     return "unbekannt"
+
+
+def _parse_utc(value: Any) -> datetime:
+    parsed = datetime.fromisoformat(str(value))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def capital_utilization_metrics(
+    trades: list[dict[str, Any]],
+    backtest_start: Any,
+    backtest_end: Any,
+    *,
+    available_capital: float = 250.0,
+) -> dict[str, float | int]:
+    """Measure actual position time and deployed capital across one portfolio run."""
+
+    start = _parse_utc(backtest_start)
+    end = _parse_utc(backtest_end)
+    total_hours = (end - start).total_seconds() / 3600.0
+    if total_hours <= 0 or available_capital <= 0:
+        return {
+            "capital_time_utilization_pct": 0.0,
+            "no_position_time_pct": 100.0,
+            "average_open_positions": 0.0,
+            "max_simultaneous_positions": 0,
+        }
+
+    events: list[tuple[datetime, int, float]] = []
+    for trade in trades:
+        try:
+            opened = _parse_utc(trade.get("open_date"))
+            closed = _parse_utc(trade.get("close_date"))
+        except (TypeError, ValueError):
+            continue
+        stake = max(0.0, _number(trade.get("stake_amount")))
+        events.append((opened, 1, stake))
+        events.append((closed, -1, -stake))
+
+    last = start
+    open_positions = 0
+    deployed_capital = 0.0
+    capital_hours = 0.0
+    position_hours = 0.0
+    no_position_hours = 0.0
+    max_positions = 0
+    for event_time, position_delta, capital_delta in sorted(events):
+        if event_time <= start:
+            open_positions += position_delta
+            deployed_capital += capital_delta
+            max_positions = max(max_positions, open_positions)
+            continue
+        if event_time >= end:
+            break
+        elapsed_hours = (event_time - last).total_seconds() / 3600.0
+        capital_hours += max(0.0, deployed_capital) * elapsed_hours
+        position_hours += max(0, open_positions) * elapsed_hours
+        if open_positions == 0:
+            no_position_hours += elapsed_hours
+        open_positions += position_delta
+        deployed_capital += capital_delta
+        max_positions = max(max_positions, open_positions)
+        last = event_time
+
+    elapsed_hours = (end - last).total_seconds() / 3600.0
+    capital_hours += max(0.0, deployed_capital) * elapsed_hours
+    position_hours += max(0, open_positions) * elapsed_hours
+    if open_positions == 0:
+        no_position_hours += elapsed_hours
+
+    return {
+        "capital_time_utilization_pct": round(
+            100.0 * capital_hours / (available_capital * total_hours), 2
+        ),
+        "no_position_time_pct": round(100.0 * no_position_hours / total_hours, 2),
+        "average_open_positions": round(position_hours / total_hours, 3),
+        "max_simultaneous_positions": max_positions,
+    }
 
 
 def _breakdown(trades: list[dict[str, Any]], field: str, fallback: str) -> list[dict[str, Any]]:
@@ -208,6 +289,12 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
     winrate = strategy.get("winrate")
     if winrate is None:
         winrate = wins / total_trades if total_trades else 0.0
+    utilization = capital_utilization_metrics(
+        trades,
+        strategy.get("backtest_start"),
+        strategy.get("backtest_end"),
+        available_capital=starting_balance,
+    )
 
     return {
         "status": "completed",
@@ -239,6 +326,7 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
         "sharpe": _rounded(strategy.get("sharpe")),
         "sortino": _rounded(strategy.get("sortino")),
         "calmar": _rounded(strategy.get("calmar")),
+        **utilization,
         "entry_tag_breakdown": _breakdown(trades, "enter_tag", "ohne_entry_tag"),
         "exit_reason_breakdown": _breakdown(trades, "exit_reason", "ohne_exit_reason"),
     }
@@ -304,8 +392,9 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     matrices = []
     for (digest, version), runs in by_hash.items():
+        matrix_runs = [run for run in runs if run["pair"] != "PORTFOLIO"]
         latest_by_cell: dict[tuple[str, int | None], dict[str, Any]] = {}
-        for run in runs:
+        for run in matrix_runs:
             cell = (run["pair"], run["period_years"])
             previous = latest_by_cell.get(cell)
             if previous is None or (run["backtest_end"], run["run_id"]) > (
@@ -326,6 +415,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "strategy_version": version,
                 "strategy_sha256": digest,
                 "all_runs": len(runs),
+                "portfolio_runs": sum(run["pair"] == "PORTFOLIO" for run in runs),
                 "latest_cells": len(selected),
                 "expected_cells": len(expected),
                 "period_years": periods,
@@ -624,15 +714,16 @@ def render_markdown(report: dict[str, Any]) -> str:
             "## Alle erfolgreichen Läufe",
             "",
             "| Lauf | Experiment | Version | Paar | Jahre | Zeitraum | P/L | P/L % | Trades | "
-            "Treffer | PF | Max DD |",
-            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|",
+            "Treffer | PF | Max DD | Kapitalzeit | Ohne Position |",
+            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for run in report["runs"]:
         period = f"{run['backtest_start'][:10]} - {run['backtest_end'][:10]}"
         lines.append(
             "| `{run}` | {experiment} | {version} | {pair} | {years} | {period} | {profit} | "
-            "{profit_pct}% | {trades} | {winrate}% | {pf} | {drawdown}% |".format(
+            "{profit_pct}% | {trades} | {winrate}% | {pf} | {drawdown}% | "
+            "{capital_time}% | {no_position}% |".format(
                 run=run["run_id"],
                 experiment=run["experiment_id"]
                 + (f" (Duplikat von {run['duplicate_of']})" if run.get("duplicate_of") else ""),
@@ -646,6 +737,8 @@ def render_markdown(report: dict[str, Any]) -> str:
                 winrate=_fmt(run["winrate_pct"]),
                 pf=_fmt(run["profit_factor"]),
                 drawdown=_fmt(run["max_drawdown_pct"]),
+                capital_time=_fmt(run["capital_time_utilization_pct"]),
+                no_position=_fmt(run["no_position_time_pct"]),
             )
         )
     if report["incomplete_runs"]:

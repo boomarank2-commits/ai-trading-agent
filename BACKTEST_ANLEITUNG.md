@@ -16,14 +16,20 @@ Auf dem Branch `agent/v12-adaptive-league` ist diese aktive Strategy-Quelle der
 
 Im UI können einzeln getestet werden:
 
+- Gesamtportfolio BTC + ETH + SOL mit einem gemeinsamen 250-USDT-Konto
 - BTC/USDT
 - ETH/USDT
 - SOL/USDT
 - 1, 2 oder 3 Jahre
 
-Jedes Pair wird mit **seinen eigenen Daten** getestet. V12.9 injiziert kein
-BTC-Regime in ETH oder SOL. Der zusätzliche, separat markierte Trend-Reclaim ist
-nur für BTC und ETH aktiv; SOL bleibt beim Donchian-Kern.
+Der Gesamtportfolio-Modus ist die maßgebliche Sicht auf die Nutzung der echten
+250 USDT: alle drei Märkte konkurrieren gemeinsam um höchstens drei Positionen
+zu je 80 USDT. Die Einzelpaar-Läufe sind nur für Attribution und Diagnose; ihre
+Gewinne dürfen nicht als drei getrennte 250-USDT-Konten addiert werden.
+
+Alle Signale bleiben **pair-lokal**. V12.9 injiziert kein BTC-Regime in ETH oder
+SOL. Der zusätzliche, separat markierte Trend-Reclaim ist nur für BTC und ETH
+aktiv; SOL bleibt beim Donchian-Kern.
 
 ## Benötigte Daten
 
@@ -60,7 +66,7 @@ Backtestparametern, sicherheitsrelevanter Konfiguration, Pair, Laufzeit und dem
 festen Freqtrade-Protokoll. Gibt es denselben Fingerabdruck bereits, wird der
 Lauf **vor** Marktdaten-Download und **vor** Erstellung eines neuen
 Ergebnisordners blockiert. Änderungen nur an Versionsnummer, Kommentar oder
-Beschreibung umgehen die Sperre nicht. In „Alle 6 Backtests“ werden bestehende
+Beschreibung umgehen die Sperre nicht. In „Alle 8 Backtests“ werden bestehende
 Zellen als „Doppeltest übersprungen“ angezeigt.
 
 Eine neue Strategy muss zuerst genau einmal in `research/trial_ledger.csv`
@@ -93,6 +99,9 @@ Angezeigt werden unter anderem:
 - Profit Factor
 - Winrate
 - Max Drawdown
+- Anteil der verfügbaren Kapitalzeit, in der Kapital eingesetzt war
+- Anteil des Testfensters ganz ohne offene Position
+- durchschnittliche und maximale Zahl gleichzeitig offener Positionen
 - tatsächlicher Backtestzeitraum
 - Candle-Integritätsstatus
 
