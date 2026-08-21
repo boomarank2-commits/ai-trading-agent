@@ -14,6 +14,7 @@ from runtime import testbot_backtest_api as api
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = REPO_ROOT / "runtime"
 STRATEGY = RUNTIME / "user_data" / "strategies" / "CompressionBreakout250.py"
+UI_SCRIPT = RUNTIME / "ui" / "testbot-backtest.js"
 
 
 def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
@@ -49,6 +50,23 @@ def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
         {"label": "reclaim", "trades": 2, "wins": 1, "profit_usdt": 0.5},
         {"label": "champion", "trades": 1, "wins": 1, "profit_usdt": 5.0},
     ]
+
+
+def test_backtest_ui_has_exact_sequential_six_run_matrix() -> None:
+    source = UI_SCRIPT.read_text(encoding="utf-8")
+    batch_block = source.split("const BATCH_CASES = [", maxsplit=1)[1].split(
+        "];", maxsplit=1
+    )[0]
+
+    assert 'id="tb-start-all"' in source
+    assert "async function startAllBacktests()" in source
+    assert "await startOneBacktest(test.pair, test.years)" in source
+    assert batch_block.count('pair: "BTC/USDT"') == 2
+    assert batch_block.count('pair: "ETH/USDT"') == 2
+    assert batch_block.count('pair: "SOL/USDT"') == 2
+    assert batch_block.count("years: 3") == 3
+    assert batch_block.count("years: 1") == 3
+    assert "years: 2" not in batch_block
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
