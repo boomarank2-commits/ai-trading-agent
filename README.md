@@ -32,8 +32,10 @@ Sperre gegen Verlustcluster. SOL nutzt den Reclaim-Challenger nicht.
 
 Backtest-Rohdaten bleiben außerhalb von Git unter
 `runtime/user_data/backtest_results/`. Die automatische Gesamtauswertung löscht
-keinen Lauf und vermischt überlappende Zeiträume nicht zu einer künstlichen
-Kapitalkurve.
+keinen Lauf, markiert historische 1:1-Doppelläufe und vermischt überlappende
+Zeiträume nicht zu einer künstlichen Kapitalkurve. Neue identische UI-Läufe
+werden über einen inhaltlichen Fingerabdruck vor dem Start blockiert;
+Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
 ## Research und Sicherheit
 

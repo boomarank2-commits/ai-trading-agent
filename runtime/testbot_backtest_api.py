@@ -11,6 +11,7 @@ can be judged independently instead of hiding behind aggregate P/L.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -19,15 +20,39 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from starlette.responses import Response
 
 try:
-    from runtime.backtest_history_analysis import write_history_reports
+    from runtime.backtest_experiment import (
+        build_run_plan,
+        build_test_identity,
+        current_git_commit,
+        find_archived_strategy_source,
+        load_config_contract,
+        registered_experiment,
+        strategy_change_diff,
+        strategy_hashes,
+    )
+    from runtime.backtest_history_analysis import (
+        analyze_backtest_history,
+        write_history_reports,
+    )
 except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime/.
-    from backtest_history_analysis import write_history_reports
+    from backtest_experiment import (
+        build_run_plan,
+        build_test_identity,
+        current_git_commit,
+        find_archived_strategy_source,
+        load_config_contract,
+        registered_experiment,
+        strategy_change_diff,
+        strategy_hashes,
+    )
+    from backtest_history_analysis import analyze_backtest_history, write_history_reports
 
 ALLOWED_PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
 ALLOWED_YEARS = (1, 2, 3)
@@ -44,6 +69,8 @@ _BACKTEST_RUNNER = _RUNTIME_ROOT / "locked_backtest_freqtrade.py"
 _UI_SCRIPT = _RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 _RESULTS_ROOT = _USERDIR / "backtest_results" / "ui"
 _DATA_ROOT = _USERDIR / "data" / "binance"
+_REPO_ROOT = _RUNTIME_ROOT.parent
+_TRIAL_LEDGER = _REPO_ROOT / "research" / "trial_ledger.csv"
 
 _state_lock = threading.Lock()
 _state: dict[str, Any] = {
@@ -83,8 +110,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.upper().startswith("FREQTRADE__")
-        and key != "AI_TRADING_KILL_SWITCH_FILE"
+        if not key.upper().startswith("FREQTRADE__") and key != "AI_TRADING_KILL_SWITCH_FILE"
     }
     env["PYTHONUTF8"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -171,14 +197,10 @@ def _inspect_candle_file(
 
     dates = pd.to_datetime(frame["date"], utc=True, errors="raise")
     delta = _timeframe_delta(timeframe)
-    window_start = required_start.astimezone(UTC).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    window_start = required_start.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     in_window = dates[(dates >= window_start) & (dates <= required_end + delta)]
     if in_window.empty:
-        raise RuntimeError(
-            f"Keine {timeframe}-Kerzen im benoetigten Zeitraum in {path.name}."
-        )
+        raise RuntimeError(f"Keine {timeframe}-Kerzen im benoetigten Zeitraum in {path.name}.")
 
     duplicates = int(in_window.duplicated().sum())
     diffs = in_window.diff().dropna()
@@ -222,9 +244,7 @@ def _validate_candle_data(
     pair: str, download_start: datetime, required_end: datetime
 ) -> list[dict[str, Any]]:
     return [
-        _inspect_candle_file(
-            _candle_path(pair, timeframe), timeframe, download_start, required_end
-        )
+        _inspect_candle_file(_candle_path(pair, timeframe), timeframe, download_start, required_end)
         for timeframe in REQUIRED_TIMEFRAMES
     ]
 
@@ -256,6 +276,7 @@ def _find_result_file(run_dir: Path) -> Path:
         if path.is_file()
         and path.suffix.lower() in {".zip", ".json"}
         and not path.name.endswith(".meta.json")
+        and not path.name.startswith("experiment-")
     ]
     if not candidates:
         raise RuntimeError("Freqtrade hat keine Backtest-Ergebnisdatei erzeugt.")
@@ -269,9 +290,7 @@ def _number(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _trade_breakdown(
-    trades: list[dict[str, Any]], key: str, fallback: str
-) -> list[dict[str, Any]]:
+def _trade_breakdown(trades: list[dict[str, Any]], key: str, fallback: str) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
     for trade in trades:
         label = str(trade.get(key) or fallback)
@@ -297,9 +316,7 @@ def _trade_breakdown(
     return sorted(rows, key=lambda row: (-row["trades"], row["label"]))
 
 
-def _extract_result(
-    result_file: Path, pair: str, years: int, strategy_hash: str
-) -> dict[str, Any]:
+def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str) -> dict[str, Any]:
     from freqtrade.data.btanalysis import load_backtest_stats
 
     stats = load_backtest_stats(result_file)
@@ -309,9 +326,7 @@ def _extract_result(
         raise RuntimeError(f"Backtest-Ergebnis fuer {STRATEGY_NAME} fehlt.")
 
     trades = strategy.get("trades") or []
-    trade_count = int(
-        strategy.get("total_trades") or strategy.get("trade_count") or len(trades)
-    )
+    trade_count = int(strategy.get("total_trades") or strategy.get("trade_count") or len(trades))
     wins = strategy.get("wins")
     if wins is None:
         wins = sum(1 for trade in trades if _number(trade.get("profit_abs")) > 0)
@@ -319,9 +334,7 @@ def _extract_result(
 
     starting_balance = _number(strategy.get("starting_balance"), 250.0)
     profit_abs = _number(strategy.get("profit_total_abs"))
-    final_balance = _number(
-        strategy.get("final_balance"), starting_balance + profit_abs
-    )
+    final_balance = _number(strategy.get("final_balance"), starting_balance + profit_abs)
     if profit_abs == 0.0 and final_balance != starting_balance:
         profit_abs = final_balance - starting_balance
 
@@ -367,25 +380,136 @@ def _extract_result(
         "result_file": str(result_file),
         "adaptive_router": False,
         "cross_pair_context": False,
-        "entry_tag_breakdown": _trade_breakdown(
-            trades, key="enter_tag", fallback="ohne_entry_tag"
-        ),
+        "entry_tag_breakdown": _trade_breakdown(trades, key="enter_tag", fallback="ohne_entry_tag"),
         "exit_reason_breakdown": _trade_breakdown(
             trades, key="exit_reason", fallback="ohne_exit_reason"
         ),
     }
 
 
-def _execute_backtest(run_id: str, pair: str, years: int) -> None:
+def _prepare_run_contract(run_id: str, pair: str, years: int) -> tuple[dict[str, Any], str]:
+    for required in (_CONFIG, _STRATEGY, _TRIAL_LEDGER):
+        if not required.is_file():
+            raise HTTPException(
+                status_code=409,
+                detail=f"Backtest gesperrt: notwendige Forschungsakte fehlt: {required}",
+            )
+
+    source = _STRATEGY.read_bytes()
+    identity = build_test_identity(
+        strategy_source=source,
+        pair=pair,
+        years=years,
+        config=load_config_contract(_CONFIG),
+    )
+    try:
+        experiment, lineage = registered_experiment(_TRIAL_LEDGER, identity["strategy_sha256"])
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Backtest gesperrt: Die aktuelle Strategie ist nicht eindeutig und "
+                f"vollständig im Versuchsregister dokumentiert. {exc}"
+            ),
+        ) from exc
+
+    history = analyze_backtest_history(
+        _RESULTS_ROOT,
+        current_strategy_path=_STRATEGY,
+        trial_ledger_path=_TRIAL_LEDGER,
+    )
+    duplicate = next(
+        (row for row in history["runs"] if row["test_fingerprint"] == identity["test_fingerprint"]),
+        None,
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Doppeltest blockiert: Derselbe inhaltliche Test existiert bereits als "
+                f"{duplicate['run_id']} ({pair}, {years} Jahr(e), "
+                f"{duplicate['strategy_version']}). Reine Versions-, Kommentar- oder "
+                "Beschreibungsänderungen zählen nicht. Für einen neuen Lauf muss eine "
+                "echte Logik-/Parameteränderung als neues Experiment registriert sein."
+            ),
+        )
+
+    parent = lineage[-2] if len(lineage) > 1 else None
+    parent_source = find_archived_strategy_source(
+        _RESULTS_ROOT, parent.get("strategy_hash", "") if parent else ""
+    )
+    if parent and parent_source is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Backtest gesperrt: Die exakte Strategy-Quelle des Vorgängers ist "
+                "nicht im erhaltenen Archiv auffindbar; die Änderung kann nicht "
+                "zuverlässig geprüft werden."
+            ),
+        )
+    if parent_source and (
+        strategy_hashes(parent_source)["strategy_logic_sha256"] == identity["strategy_logic_sha256"]
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Doppeltest blockiert: Gegenüber dem registrierten Vorgänger wurde "
+                "keine Strategy-Logik geändert. Versionen, Kommentare und "
+                "Beschreibungen erzeugen kein neues Experiment."
+            ),
+        )
+    diff = strategy_change_diff(parent_source, source)
+    plan = build_run_plan(
+        run_id=run_id,
+        pair=pair,
+        years=years,
+        identity=identity,
+        experiment=experiment,
+        lineage=lineage,
+        source_commit=current_git_commit(_REPO_ROOT),
+        strategy_diff=diff,
+    )
+    return plan, diff
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _attach_audit_files(result_file: Path, run_dir: Path) -> None:
+    if result_file.suffix.lower() != ".zip":
+        return
+    with ZipFile(result_file, "a") as archive:
+        for name in (
+            "experiment-plan.json",
+            "strategy-change.diff",
+            "experiment-result.json",
+        ):
+            archive.write(run_dir / name, f"audit/{name}")
+
+
+def _execute_backtest(
+    run_id: str,
+    pair: str,
+    years: int,
+    run_plan: dict[str, Any],
+    strategy_diff: str,
+) -> None:
     run_dir = _RESULTS_ROOT / run_id
     log_path = run_dir / "backtest.log"
     try:
         run_dir.mkdir(parents=True, exist_ok=False)
+        _write_json(run_dir / "experiment-plan.json", run_plan)
+        (run_dir / "strategy-change.diff").write_text(strategy_diff, encoding="utf-8")
         for required in (_CONFIG, _PUBLIC_CONFIG, _STRATEGY, _BACKTEST_RUNNER):
             if not required.is_file():
                 raise RuntimeError(f"Erforderliche Datei fehlt: {required}")
 
         strategy_hash = _sha256(_STRATEGY)
+        if strategy_hash != run_plan["test_identity"]["strategy_sha256"]:
+            raise RuntimeError(
+                "Strategiedatei wurde nach der Duplikatprüfung verändert; Lauf abgebrochen."
+            )
         now = datetime.now(UTC)
         requested_start = now - timedelta(days=365 * years)
         download_start = requested_start - timedelta(days=BACKTEST_WARMUP_DAYS)
@@ -479,10 +603,35 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         _validate_result_coverage(result, requested_start, now, years)
         result["data_integrity_validated"] = True
         result["data_integrity"] = data_integrity
+        result["experiment"] = run_plan["experiment"]
+        result["experiment_lineage"] = run_plan["lineage"]
+        result["test_identity"] = run_plan["test_identity"]
+        experiment_result = {
+            **run_plan,
+            "finished_at_utc": datetime.now(UTC).isoformat(),
+            "outcome": "completed",
+            "outcome_metrics": {
+                field: result[field]
+                for field in (
+                    "profit_usdt",
+                    "profit_pct",
+                    "trades",
+                    "winrate_pct",
+                    "profit_factor",
+                    "max_drawdown_pct",
+                    "backtest_start",
+                    "backtest_end",
+                    "backtest_days",
+                )
+            },
+        }
+        _write_json(run_dir / "experiment-result.json", experiment_result)
+        _attach_audit_files(result_file, run_dir)
         try:
             history = write_history_reports(
                 _RESULTS_ROOT,
                 current_strategy_path=_STRATEGY,
+                trial_ledger_path=_TRIAL_LEDGER,
             )
             result["history_analysis"] = {
                 "completed": history["summary"]["completed"],
@@ -503,6 +652,14 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
             error=None,
         )
     except Exception as exc:
+        if run_dir.is_dir():
+            failed_result = {
+                **run_plan,
+                "finished_at_utc": datetime.now(UTC).isoformat(),
+                "outcome": "failed",
+                "error": str(exc),
+            }
+            _write_json(run_dir / "experiment-result.json", failed_result)
         _set_state(
             status="failed",
             stage="Fehler",
@@ -515,21 +672,16 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
 
 def start_backtest(request: BacktestRequest) -> dict[str, Any]:
     if request.pair not in ALLOWED_PAIRS:
-        raise HTTPException(
-            status_code=400, detail="Dieses Handelspaar ist nicht freigegeben."
-        )
+        raise HTTPException(status_code=400, detail="Dieses Handelspaar ist nicht freigegeben.")
     if request.years not in ALLOWED_YEARS:
-        raise HTTPException(
-            status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein."
-        )
+        raise HTTPException(status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein.")
 
     current = get_state()
     if current["status"] == "running":
         raise HTTPException(status_code=409, detail="Es laeuft bereits ein Backtest.")
 
-    run_id = (
-        datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    )
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    run_plan, strategy_diff = _prepare_run_contract(run_id, request.pair, request.years)
     _set_state(
         status="running",
         stage="Backtest wird vorbereitet",
@@ -544,7 +696,7 @@ def start_backtest(request: BacktestRequest) -> dict[str, Any]:
     )
     thread = threading.Thread(
         target=_execute_backtest,
-        args=(run_id, request.pair, request.years),
+        args=(run_id, request.pair, request.years, run_plan, strategy_diff),
         name=f"testbot-backtest-{run_id}",
         daemon=True,
     )

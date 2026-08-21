@@ -28,8 +28,32 @@ Neue Experimente müssen mindestens diese Felder pflegen:
 - `max_drawdown`
 - `reason_accepted_or_rejected`
 - `notes`
+- `change_summary`
+- `acceptance_criteria`
+- `result_summary`
+- `decision`
+- `lessons`
+- `next_experiment`
 
-Leere Messwerte sind für Experimente erlaubt, die noch nicht gelaufen sind. Identität, Hypothese, Status und Entscheidungsdatum dürfen nicht fehlen.
+Leere Messwerte sind für Experimente erlaubt, die noch nicht gelaufen sind.
+Identität, Hypothese, Status, Entscheidungsdatum und die sechs Felder der
+Experimentkette dürfen nicht fehlen. Sobald eine exakte Strategy-Quelle gebaut
+ist, gehört ihr SHA256 genau zu **einem** Experiment.
+
+## Schutz vor Testschleifen
+
+Vor jedem UI-Backtest wird ein inhaltlicher Fingerabdruck aus normalisierter
+Strategy-Logik, sicherheitsrelevanter Konfiguration, Pair, Zeitraum und dem
+festen Backtest-Protokoll gebildet. Kommentare, Docstrings und eine bloß geänderte
+`STRATEGY_VERSION` zählen nicht als neue Logik. Ist der Fingerabdruck bereits in
+einem erhaltenen ZIP vorhanden, wird der Lauf vor Datendownload und vor Anlage
+eines neuen Run-Ordners blockiert. Es gibt im UI keinen Überschreiben-Schalter.
+
+Ein echter neuer Versuch benötigt vor dem Lauf Vorgänger, isolierte Hypothese,
+genaue Änderung, Erfolgskriterium und den Hash der fertigen Strategy-Quelle.
+Nach dem Lauf werden Ergebnis, Entscheidung, Lehre und nächster Schritt ergänzt.
+Jeder neue Run bewahrt `experiment-plan.json`, `strategy-change.diff` und
+`experiment-result.json` im Run-Ordner und zusätzlich im Ergebnis-ZIP.
 
 ## V8-Sonderregeln
 
@@ -56,4 +80,6 @@ PBO und Deflated Sharpe sind Research-Diagnostik und keine Echtgeldfreigabe.
 .\.venv\Scripts\python.exe runtime\research_governance.py
 ```
 
-Der Check prüft unter anderem Masterplan, V8-Freeze, Ledger-Schema, Parent-Referenzen und die vorregistrierten Volume-Schwellen.
+Der Check prüft unter anderem Masterplan, V8-Freeze, Ledger-Schema,
+Parent-Referenzen, eindeutige Strategy-Hashes, die exakte V12.9-Registrierung und
+die vorregistrierten Volume-Schwellen.

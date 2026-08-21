@@ -11,7 +11,14 @@ from runtime.backtest_history_analysis import (
 )
 
 
-def _write_result(root: Path, run_id: str, *, pair: str, profit: float) -> None:
+def _write_result(
+    root: Path,
+    run_id: str,
+    *,
+    pair: str,
+    profit: float,
+    source: str = '"""Test strategy V12.9."""\n',
+) -> None:
     run_dir = root / run_id
     run_dir.mkdir(parents=True)
     result = {
@@ -48,8 +55,13 @@ def _write_result(root: Path, run_id: str, *, pair: str, profit: float) -> None:
         output.writestr("result.json", json.dumps(result))
         output.writestr(
             "result_CompressionBreakout250.py",
-            '"""Test strategy V12.9."""\n',
+            source,
         )
+        output.writestr(
+            "result_config.json",
+            json.dumps({"strategy": "CompressionBreakout250", "dry_run": True}),
+        )
+        output.writestr("audit/experiment-plan.json", json.dumps({"run_id": run_id}))
 
 
 def test_history_keeps_completed_and_incomplete_attempts_separate(tmp_path: Path) -> None:
@@ -65,6 +77,9 @@ def test_history_keeps_completed_and_incomplete_attempts_separate(tmp_path: Path
         "completed": 1,
         "incomplete": 1,
         "strategy_snapshots": 1,
+        "unique_material_tests": 1,
+        "duplicate_runs": 0,
+        "duplicate_groups": 0,
         "supplementary_archives": ["ui.rar"],
     }
     run = report["runs"][0]
@@ -93,3 +108,20 @@ def test_history_writes_json_and_readable_markdown(tmp_path: Path) -> None:
     assert "ETH/USDT" in markdown
     assert "Überlappende Zeiträume" in markdown
     assert (results / "run-good" / "result.zip").is_file()
+
+
+def test_history_marks_identical_material_runs_without_deleting_evidence(
+    tmp_path: Path,
+) -> None:
+    _write_result(tmp_path, "run-original", pair="BTC/USDT", profit=5.0)
+    _write_result(tmp_path, "run-duplicate", pair="BTC/USDT", profit=5.0)
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+
+    assert report["summary"]["completed"] == 2
+    assert report["summary"]["unique_material_tests"] == 1
+    assert report["summary"]["duplicate_runs"] == 1
+    assert len(report["duplicate_test_groups"]) == 1
+    assert any(run.get("duplicate_of") for run in report["runs"])
+    assert (tmp_path / "run-original" / "result.zip").is_file()
+    assert (tmp_path / "run-duplicate" / "result.zip").is_file()

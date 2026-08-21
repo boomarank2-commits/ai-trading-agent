@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -54,9 +56,7 @@ def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
 
 def test_backtest_ui_has_exact_sequential_six_run_matrix() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
-    batch_block = source.split("const BATCH_CASES = [", maxsplit=1)[1].split(
-        "];", maxsplit=1
-    )[0]
+    batch_block = source.split("const BATCH_CASES = [", maxsplit=1)[1].split("];", maxsplit=1)[0]
 
     assert 'id="tb-start-all"' in source
     assert "async function startAllBacktests()" in source
@@ -67,6 +67,8 @@ def test_backtest_ui_has_exact_sequential_six_run_matrix() -> None:
     assert batch_block.count("years: 3") == 3
     assert batch_block.count("years: 1") == 3
     assert "years: 2" not in batch_block
+    assert "Doppeltest übersprungen" in source
+    assert "error.isDuplicate" in source
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
@@ -74,6 +76,41 @@ def test_invalid_pair_is_rejected_before_background_process() -> None:
     with pytest.raises(HTTPException) as exc:
         api.start_backtest(request)
     assert exc.value.status_code == 400
+
+
+def test_identical_registered_test_is_blocked_before_new_run_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    existing = tmp_path / "existing-run"
+    existing.mkdir()
+    payload = {
+        "strategy": {
+            api.STRATEGY_NAME: {
+                "strategy_name": api.STRATEGY_NAME,
+                "pairlist": ["BTC/USDT"],
+                "backtest_start": "2025-08-21 00:00:00",
+                "backtest_end": "2026-08-21 00:00:00",
+                "backtest_days": 365,
+                "starting_balance": 250,
+                "final_balance": 251,
+                "profit_total_abs": 1,
+                "total_trades": 1,
+                "trades": [],
+            }
+        }
+    }
+    with zipfile.ZipFile(existing / "result.zip", "w") as archive:
+        archive.writestr("result.json", json.dumps(payload))
+        archive.writestr(f"result_{api.STRATEGY_NAME}.py", api._STRATEGY.read_bytes())
+        archive.writestr("result_config.json", api._CONFIG.read_bytes())
+    monkeypatch.setattr(api, "_RESULTS_ROOT", tmp_path)
+
+    before = sorted(path.name for path in tmp_path.iterdir())
+    with pytest.raises(HTTPException, match="Doppeltest blockiert") as exc:
+        api.start_backtest(api.BacktestRequest(pair="BTC/USDT", years=1))
+
+    assert exc.value.status_code == 409
+    assert sorted(path.name for path in tmp_path.iterdir()) == before
 
 
 def test_subprocess_environment_drops_freqtrade_and_kill_switch_secrets(

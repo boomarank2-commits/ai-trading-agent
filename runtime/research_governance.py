@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
+V12_9_SHA256 = "b78d1c0171120e6b61f309520c28ee8016cd986b9044155441d26eadc4a8bf64"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
 GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
@@ -41,6 +42,12 @@ REQUIRED_LEDGER_COLUMNS = (
     "max_drawdown",
     "reason_accepted_or_rejected",
     "notes",
+    "change_summary",
+    "acceptance_criteria",
+    "result_summary",
+    "decision",
+    "lessons",
+    "next_experiment",
 )
 
 ALLOWED_VOLUME_PARAMETER_HASHES = {"volume_ratio>=1.00", "volume_ratio>=1.25"}
@@ -97,6 +104,15 @@ def validate_trial_ledger(path: Path) -> list[str]:
         return errors
 
     ids: list[str] = []
+    hashes: list[str] = []
+    detailed_fields = (
+        "change_summary",
+        "acceptance_criteria",
+        "result_summary",
+        "decision",
+        "lessons",
+        "next_experiment",
+    )
     for index, row in enumerate(rows, start=2):
         experiment_id = row.get("experiment_id", "").strip()
         if not experiment_id:
@@ -109,10 +125,23 @@ def validate_trial_ledger(path: Path) -> list[str]:
             errors.append(f"row {index}: {experiment_id} has no status")
         if not row.get("date_decided", "").strip():
             errors.append(f"row {index}: {experiment_id} has no date_decided")
+        for field in detailed_fields:
+            if not row.get(field, "").strip():
+                errors.append(f"row {index}: {experiment_id} has no {field}")
+        strategy_hash = row.get("strategy_hash", "").strip()
+        if strategy_hash:
+            hashes.append(strategy_hash)
 
     duplicates = sorted({value for value in ids if ids.count(value) > 1})
     if duplicates:
         errors.append(f"duplicate experiment_id values: {', '.join(duplicates)}")
+
+    duplicate_hashes = sorted({value for value in hashes if hashes.count(value) > 1})
+    if duplicate_hashes:
+        errors.append(
+            "strategy hashes must identify exactly one experiment: "
+            + ", ".join(value[:12] for value in duplicate_hashes)
+        )
 
     id_set = set(ids)
     for row in rows:
@@ -121,18 +150,21 @@ def validate_trial_ledger(path: Path) -> list[str]:
         if parent and parent not in id_set:
             errors.append(f"{experiment_id}: unknown parent experiment {parent}")
 
-    baseline = next(
-        (row for row in rows if row.get("experiment_id") == "V8-B0"), None
-    )
+    baseline = next((row for row in rows if row.get("experiment_id") == "V8-B0"), None)
     if baseline is None:
         errors.append("V8-B0 baseline is missing from trial ledger")
     else:
         if baseline.get("strategy_hash", "").strip() != V8_LF_SHA256:
             errors.append("V8-B0 strategy hash differs from frozen V8 LF SHA256")
         if baseline.get("status", "").strip() != "FROZEN_CHAMPION":
-            errors.append(
-                "V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision"
-            )
+            errors.append("V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision")
+
+    current = next(
+        (row for row in rows if row.get("experiment_id") == "V12.9-RECLAIM-CLUSTER"),
+        None,
+    )
+    if current is None or current.get("strategy_hash", "").strip() != V12_9_SHA256:
+        errors.append("V12.9 current strategy is not exactly registered in trial ledger")
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()
@@ -209,9 +241,7 @@ def validate_repository(repo_root: Path) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--repo-root", type=Path, default=Path(__file__).resolve().parents[1]
-    )
+    parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args(argv)
     result = validate_repository(args.repo_root)
     print(json.dumps(result, indent=2, sort_keys=True))

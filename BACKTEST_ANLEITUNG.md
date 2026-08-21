@@ -53,10 +53,34 @@ Resultate werden getrennt unter `runtime/user_data/backtest_results/ui/<Run-ID>/
 Die Starter deaktivieren wegwerfbaren Python-Bytecode-Cache, damit keine
 `__pycache__`-Ordner neben den Quelldateien entstehen.
 
+## Kein identischer Backtest zweimal
+
+Vor dem Start bildet der Bot einen Fingerabdruck aus Strategy-Logik,
+Backtestparametern, sicherheitsrelevanter Konfiguration, Pair, Laufzeit und dem
+festen Freqtrade-Protokoll. Gibt es denselben Fingerabdruck bereits, wird der
+Lauf **vor** Marktdaten-Download und **vor** Erstellung eines neuen
+Ergebnisordners blockiert. Änderungen nur an Versionsnummer, Kommentar oder
+Beschreibung umgehen die Sperre nicht. In „Alle 6 Backtests“ werden bestehende
+Zellen als „Doppeltest übersprungen“ angezeigt.
+
+Eine neue Strategy muss zuerst genau einmal in `research/trial_ledger.csv`
+registriert sein. Für jeden gestarteten neuen Lauf werden automatisch diese
+Belege im Run-Ordner und Ergebnis-ZIP gesichert:
+
+- `experiment-plan.json`: Hypothese, Vorgänger, Erfolgskriterium und gesamte
+  Experimentkette
+- `strategy-change.diff`: exakte Quellcodeänderung gegenüber dem Vorgänger
+- `experiment-result.json`: Fingerabdruck, tatsächlicher Ausgang und Kennzahlen
+
+Neue Marktdaten allein machen keinen neuen identischen UI-Test. Neue Daten
+werden im Dry-run als Forward-Evidenz gesammelt. Ein bewusst anderes, vorab
+dokumentiertes Testfenster oder Protokoll wäre ein eigenes Experiment.
+
 Nach jedem erfolgreichen Lauf wird zusätzlich die verlustfreie Gesamtauswertung
 `runtime/user_data/backtest_results/ui/GESAMTAUSWERTUNG.md` aktualisiert. Sie
 liest alle erhaltenen alten und neuen ZIP-Ergebnisse, führt unvollständige
-Versuche getrennt auf und löscht keine Rohdaten. `TESTBOT_AUSWERTUNG.bat`
+Versuche sowie historische 1:1-Doppelläufe getrennt auf und löscht keine
+Rohdaten. `TESTBOT_AUSWERTUNG.bat`
 erzeugt dieselbe Auswertung jederzeit erneut. Überlappende Ein- und
 Dreijahreszeiträume werden nicht zu einer künstlichen Kapitalkurve addiert.
 

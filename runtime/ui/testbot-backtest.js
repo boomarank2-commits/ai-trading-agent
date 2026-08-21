@@ -148,7 +148,7 @@
               <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 6 Backtests</button>
             </div>
           </div>
-          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen. Forschungsziel ist &gt;1 USDT/Tag, aber nicht durch rückwirkendes Threshold-Fitting.<br><br><strong>Alle 6 Backtests</strong> testet automatisch nacheinander BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Jeder Lauf bleibt ein eigener 250-USDT-Backtest.</div>
+          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Pair, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test. Jeder echte neue Versuch muss mit Vorgänger, Hypothese, exakter Änderung, Erfolgskriterium und nächstem Schritt im Versuchsregister stehen.<br><br><strong>Alle 6 Backtests</strong> testet automatisch nacheinander BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
@@ -226,7 +226,9 @@
       const target = profitPerDay > 1 ? "Stretch-Ziel >1 USDT/Tag erreicht" : "Stretch-Ziel >1 USDT/Tag noch nicht erreicht";
       const entries = breakdownText(r.entry_tag_breakdown, "Keine Entry-Attribution verfügbar");
       const exits = breakdownText(r.exit_reason_breakdown, "Keine Exit-Attribution verfügbar");
-      document.getElementById("tb-note").textContent = `Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      const experiment = r.experiment || {};
+      const identity = r.test_identity || {};
+      document.getElementById("tb-note").textContent = `Experiment ${experiment.experiment_id || "nicht angegeben"}; Vorgänger ${experiment.parent_experiment_id || "keiner"}. Geändert: ${experiment.change_summary || "nicht angegeben"}. Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… und Test-Fingerabdruck ${String(identity.test_fingerprint || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
@@ -246,6 +248,9 @@
     body.innerHTML = batchResults.map((item) => {
       const label = `${item.pair} · ${item.years} Jahr${item.years === 1 ? "" : "e"}`;
       if (item.error) {
+        if (item.skipped) {
+          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
+        }
         return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
       }
       const r = item.result;
@@ -276,7 +281,11 @@
       body: JSON.stringify({ pair, years })
     });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
+    if (!response.ok) {
+      const error = new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
+      error.isDuplicate = response.status === 409 && String(payload.detail || "").startsWith("Doppeltest blockiert:");
+      throw error;
+    }
     renderState(payload);
 
     while (true) {
@@ -304,11 +313,15 @@
         body: JSON.stringify({ pair, years })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
+      if (!response.ok) {
+        const error = new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
+        error.isDuplicate = response.status === 409 && String(payload.detail || "").startsWith("Doppeltest blockiert:");
+        throw error;
+      }
       renderState(payload);
       if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
     } catch (error) {
-      renderState({ status: "failed", stage: "Fehler", progress: 100, error: String(error.message || error) });
+      renderState({ status: "failed", stage: error.isDuplicate ? "Doppeltest blockiert" : "Fehler", progress: 100, error: String(error.message || error) });
       button.disabled = false;
       allButton.disabled = false;
     }
@@ -354,7 +367,7 @@
         const result = await startOneBacktest(test.pair, test.years);
         batchResults.push({ ...test, result });
       } catch (error) {
-        batchResults.push({ ...test, error: String(error.message || error) });
+        batchResults.push({ ...test, error: String(error.message || error), skipped: Boolean(error.isDuplicate) });
       }
       renderBatchResults(batchResults.length, BATCH_CASES.length, "");
     }
