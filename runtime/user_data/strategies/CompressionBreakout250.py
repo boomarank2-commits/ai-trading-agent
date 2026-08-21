@@ -1,15 +1,16 @@
-"""V12.10 champion + medium-horizon continuation challenger.
+"""V12.11 champion + slow regime-participation challenger.
 
-V12.10 keeps every V12.9 champion entry path and all execution safeguards, but
-replaces the fragile 15m EMA20 reclaim family with one deliberately isolated
-experiment: a causal 48h-high continuation entry on closed 1h candles inside an
-already-established pair-local 1h/4h uptrend. The same structural rule is
-available to BTC, ETH and SOL and is tagged separately for attribution.
+V12.11 keeps every V12.9 champion entry path and all execution safeguards, but
+replaces the rejected short-lived V12.10 continuation family with one isolated
+experiment: enter on a causal 4h close reclaim of EMA50 while EMA50 is above a
+rising EMA200-confirmed pair-local trend. The same structural rule is available
+to BTC, ETH and SOL and is tagged separately for attribution.
 
-The continuation family uses the matching 24h-low as a one-way, volatility-
-adaptive structural stop. It has no fixed take-profit and therefore leaves the
-large trend tail uncapped. Champion trades retain their validated slow 4h exit
-and failure logic unchanged. The pair-local LowProfitPairs wall remains active.
+Regime trades have no fixed take-profit or tight trailing ratchet. They remain
+open while the 4h close holds EMA50, so the hypothesis directly tests useful
+capital-time rather than raw turnover. Champion trades retain their validated
+slow 4h exit and failure logic unchanged. The pair-local LowProfitPairs wall
+remains active.
 
 Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
 stretch objective, not an optimization constraint. No threshold is allowed to
@@ -29,21 +30,15 @@ from typing import Any, ClassVar
 
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import (
-    DecimalParameter,
-    IntParameter,
-    IStrategy,
-    informative,
-    stoploss_from_absolute,
-)
+from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
 from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.10: champion Donchian + tagged 1h continuation challenger."""
+    """V12.11: champion Donchian + tagged 4h regime challenger."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.10"
+    STRATEGY_VERSION = "V12.11"
 
     can_short = False
     timeframe = "15m"
@@ -117,13 +112,13 @@ class CompressionBreakout250(IStrategy):
     REGIME_TREND = "TREND/BREAKOUT"
     REGIME_NO_TRADE = "NO_TRADE"
     FAMILY_DONCHIAN = "DONCHIAN_TREND"
-    FAMILY_CONTINUATION = "ONE_HOUR_CONTINUATION"
+    FAMILY_REGIME = "FOUR_HOUR_REGIME_PARTICIPATION"
     FAMILY_NO_TRADE = "NO_TRADE"
 
     minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
-    use_custom_stoploss = True
+    use_custom_stoploss = False
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
@@ -298,21 +293,7 @@ class CompressionBreakout250(IStrategy):
         del metadata
         dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
         dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
-        dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["donchian_continuation"] = (
-            dataframe["high"].shift(1).rolling(48, min_periods=48).max()
-        )
-        dataframe["donchian_continuation_exit"] = (
-            dataframe["low"].shift(1).rolling(24, min_periods=24).min()
-        )
-        dataframe["fresh_continuation"] = (
-            (dataframe["close"] > dataframe["donchian_continuation"])
-            & (
-                dataframe["close"].shift(1)
-                <= dataframe["donchian_continuation"].shift(1)
-            )
-        ).astype(int)
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(8)
         ).astype(int)
@@ -378,7 +359,7 @@ class CompressionBreakout250(IStrategy):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        """Run unchanged champions plus one tagged 1h continuation challenger."""
+        """Run unchanged champions plus one tagged 4h regime challenger."""
         pair = str(metadata.get("pair", ""))
         dataframe["regime_state"] = self.REGIME_NO_TRADE
         dataframe["route_family"] = self.FAMILY_NO_TRADE
@@ -452,38 +433,36 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[champion_signal, "no_trade_reason"] = ""
         dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_10_{asset}_champion_donchian",
+            f"v12_11_{asset}_champion_donchian",
         )
 
         profile = self.PAIR_PROFILES[pair]
-        persistence_col = f"trend_persist_{int(profile['persistence_bars'])}_4h"
-        continuation_volume = (
+        regime_volume = (
             dataframe["volume_ratio_4h"] >= float(profile["volume_min"])
             if float(profile["volume_min"]) > 0
             else dataframe["volume"] > 0
         )
-        continuation_4h = (
+        regime_4h = (
             (dataframe["close_4h"] > dataframe["ema_fast_4h"])
+            & (dataframe["close_4h"].shift(1) <= dataframe["ema_fast_4h"].shift(1))
             & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
             & (dataframe["ema_fast_rising_4h"] > 0)
             & (dataframe["adx_4h"] >= float(profile["adx_min"]))
             & (dataframe["momentum_30d_4h"] >= float(profile["momentum_min"]))
             & (dataframe["rsi_4h"] >= float(profile["rsi_min"]))
             & (dataframe["rsi_4h"] <= float(profile["rsi_max"]))
-            & (dataframe[persistence_col] > 0)
-            & continuation_volume
+            & regime_volume
         )
-        fresh_continuation = dataframe["fresh_continuation_1h"] > 0
-        continuation_qualified = continuation_4h & trend_1h & fresh_continuation
-        continuation_signal = continuation_qualified & execution & ~champion_signal
+        regime_qualified = regime_4h & trend_1h
+        regime_signal = regime_qualified & execution & ~champion_signal
 
-        dataframe.loc[continuation_qualified, "regime_state"] = self.REGIME_TREND
-        dataframe.loc[continuation_qualified, "no_trade_reason"] = "wait_execution_gate"
-        dataframe.loc[continuation_signal, "route_family"] = self.FAMILY_CONTINUATION
-        dataframe.loc[continuation_signal, "no_trade_reason"] = ""
-        dataframe.loc[continuation_signal, ["enter_long", "enter_tag"]] = (
+        dataframe.loc[regime_qualified, "regime_state"] = self.REGIME_TREND
+        dataframe.loc[regime_qualified, "no_trade_reason"] = "wait_execution_gate"
+        dataframe.loc[regime_signal, "route_family"] = self.FAMILY_REGIME
+        dataframe.loc[regime_signal, "no_trade_reason"] = ""
+        dataframe.loc[regime_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_10_{asset}_continuation_1h",
+            f"v12_11_{asset}_regime_reclaim_4h",
         )
 
         return dataframe
@@ -498,7 +477,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_10_slow_trend_exit")
+        ] = (1, "v12_11_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -523,13 +502,7 @@ class CompressionBreakout250(IStrategy):
             candle = dataframe.iloc[-1].squeeze()
 
             tag = str(getattr(trade, "enter_tag", "") or "")
-            if "_continuation_1h" in tag:
-                level = float(candle["donchian_continuation_1h"])
-                atr = float(candle["atr_1h"])
-                if math.isfinite(level) and math.isfinite(atr) and atr > 0:
-                    trade.set_custom_data(key="entry_continuation_level", value=level)
-                    trade.set_custom_data(key="entry_atr_1h", value=atr)
-            else:
+            if "_regime_reclaim_4h" not in tag:
                 level = float(candle["donchian_entry_4h"])
                 atr = float(candle["atr_4h"])
                 if math.isfinite(level) and math.isfinite(atr) and atr > 0:
@@ -547,7 +520,7 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Use distinct failure logic for champion and continuation entries."""
+        """Use the 4h EMA50 as regime exit and retain champion failure logic."""
         del kwargs
         try:
             age_hours = (
@@ -555,21 +528,15 @@ class CompressionBreakout250(IStrategy):
             ).total_seconds() / 3600.0
             enter_tag = str(getattr(trade, "enter_tag", "") or "")
 
-            if "_continuation_1h" in enter_tag:
-                if current_profit >= 0:
+            if "_regime_reclaim_4h" in enter_tag:
+                if self.dp is None:
                     return None
-                level = trade.get_custom_data(
-                    key="entry_continuation_level", default=None
-                )
-                atr_1h = trade.get_custom_data(key="entry_atr_1h", default=None)
-                if (
-                    age_hours <= 24.0
-                    and level is not None
-                    and atr_1h is not None
-                    and float(current_rate)
-                    < float(level) - 0.50 * float(atr_1h)
-                ):
-                    return f"v12_10_{pair.split('/')[0].lower()}_continuation_failed"
+                dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+                if dataframe.empty:
+                    return None
+                candle = dataframe.iloc[-1].squeeze()
+                if float(candle["close_4h"]) < float(candle["ema_fast_4h"]):
+                    return f"v12_11_{pair.split('/')[0].lower()}_regime_exit"
                 return None
 
             if current_profit >= 0:
@@ -589,42 +556,10 @@ class CompressionBreakout250(IStrategy):
                 return None
             failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_10_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_11_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None
-
-    def custom_stoploss(
-        self,
-        pair: str,
-        trade: Trade,
-        current_time: datetime,
-        current_rate: float,
-        current_profit: float,
-        after_fill: bool,
-        **kwargs: Any,
-    ) -> float | None:
-        """Trail only continuation trades behind the causal prior 24h low."""
-        del pair, current_time, current_profit, after_fill, kwargs
-        if "_continuation_1h" not in str(getattr(trade, "enter_tag", "") or ""):
-            return None
-        try:
-            if self.dp is None:
-                return None
-            dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
-            if dataframe.empty:
-                return None
-            stop_price = float(dataframe.iloc[-1]["donchian_continuation_exit_1h"])
-            if not math.isfinite(stop_price) or stop_price <= 0 or stop_price >= current_rate:
-                return None
-            return stoploss_from_absolute(
-                stop_price,
-                current_rate=current_rate,
-                is_short=trade.is_short,
-                leverage=trade.leverage,
-            ) or None
-        except Exception:
-            return None
 
     def custom_stake_amount(
         self,
