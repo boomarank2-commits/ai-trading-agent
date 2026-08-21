@@ -3,7 +3,17 @@
 
   const VIEW_ID = "testbot-backtest-view";
   const NAV_ID = "testbot-backtest-nav";
+  const BATCH_CASES = [
+    { pair: "BTC/USDT", years: 3 },
+    { pair: "BTC/USDT", years: 1 },
+    { pair: "ETH/USDT", years: 3 },
+    { pair: "ETH/USDT", years: 1 },
+    { pair: "SOL/USDT", years: 3 },
+    { pair: "SOL/USDT", years: 1 }
+  ];
   let pollTimer = null;
+  let batchRunning = false;
+  let batchResults = [];
 
   function replaceText(node, from, to) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -76,9 +86,11 @@
         .tb-sub { margin: 0 0 26px; color: #93a5ad; line-height: 1.55; }
         .tb-panel { background: #171e22; border: 1px solid #26343a; border-radius: 4px; padding: 22px; margin-bottom: 20px; }
         .tb-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; gap: 18px; align-items: end; }
+        .tb-actions { display: flex; gap: 10px; align-items: end; }
         .tb-field label { display: block; color: #aebdc3; font-size: 13px; margin-bottom: 7px; }
         .tb-field select { width: 100%; height: 42px; border-radius: 4px; border: 1px solid #35454c; background: #101619; color: #edf5f7; padding: 0 12px; font: inherit; outline: none; }
         .tb-button { height: 42px; border: 1px solid #00b8d4; border-radius: 4px; background: #062e36; color: #00d2ee; font-weight: 600; padding: 0 22px; cursor: pointer; font: inherit; white-space: nowrap; }
+        .tb-button-secondary { border-color: #8ba0a9; background: #1a2429; color: #dce8ec; }
         .tb-button:disabled { opacity: .55; cursor: not-allowed; }
         .tb-info { margin-top: 17px; color: #879ba4; font-size: 13px; line-height: 1.55; }
         .tb-status, .tb-results { display: none; }
@@ -99,7 +111,15 @@
         .tb-negative { color: #ff7f7f; }
         .tb-neutral { color: #e4eef1; }
         .tb-note { margin-top: 18px; padding-top: 15px; border-top: 1px solid #26343a; color: #81959e; font-size: 12px; line-height: 1.6; white-space: pre-line; }
-        @media (max-width: 850px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-button { width: 100%; } }
+        .tb-batch-table-wrap { overflow-x: auto; }
+        .tb-batch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .tb-batch-table th, .tb-batch-table td { padding: 10px 12px; border-bottom: 1px solid #29383e; text-align: right; white-space: nowrap; }
+        .tb-batch-table th:first-child, .tb-batch-table td:first-child { text-align: left; }
+        .tb-batch-table th { color: #91a5ad; font-weight: 600; }
+        .tb-batch-table td { color: #dce7ea; }
+        .tb-batch-ok { color: #6fd39a !important; }
+        .tb-batch-fail { color: #ff7f7f !important; }
+        @media (max-width: 850px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-actions { flex-direction: column; } .tb-button { width: 100%; } }
         @media (max-width: 520px) { .tb-wrap { padding: 20px 14px 45px; } .tb-grid { grid-template-columns: 1fr; } }
       </style>
       <div class="tb-wrap">
@@ -123,9 +143,12 @@
                 <option value="3">3 Jahre</option>
               </select>
             </div>
-            <button id="tb-start" class="tb-button">Backtest starten</button>
+            <div class="tb-actions">
+              <button id="tb-start" class="tb-button">Backtest starten</button>
+              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 6 Backtests</button>
+            </div>
           </div>
-          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen. Forschungsziel ist &gt;1 USDT/Tag, aber nicht durch rückwirkendes Threshold-Fitting.</div>
+          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen. Forschungsziel ist &gt;1 USDT/Tag, aber nicht durch rückwirkendes Threshold-Fitting.<br><br><strong>Alle 6 Backtests</strong> testet automatisch nacheinander BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Jeder Lauf bleibt ein eigener 250-USDT-Backtest.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
@@ -137,9 +160,19 @@
           <div id="tb-grid" class="tb-grid"></div>
           <div id="tb-note" class="tb-note"></div>
         </div>
+        <div id="tb-batch-results" class="tb-panel tb-results">
+          <div class="tb-result-head"><h2>Alle 6 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
+          <div class="tb-batch-table-wrap">
+            <table class="tb-batch-table">
+              <thead><tr><th>Test</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Status</th></tr></thead>
+              <tbody id="tb-batch-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div>`;
     document.body.appendChild(view);
     document.getElementById("tb-start").addEventListener("click", startBacktest);
+    document.getElementById("tb-start-all").addEventListener("click", startAllBacktests);
     return view;
   }
 
@@ -147,10 +180,12 @@
     const status = document.getElementById("tb-status");
     const results = document.getElementById("tb-results");
     const button = document.getElementById("tb-start");
-    if (!status || !results || !button) return;
+    const allButton = document.getElementById("tb-start-all");
+    if (!status || !results || !button || !allButton) return;
 
-    const active = state.status === "running";
+    const active = state.status === "running" || batchRunning;
     button.disabled = active;
+    allButton.disabled = active;
     status.style.display = state.status === "idle" ? "none" : "block";
     document.getElementById("tb-stage").textContent = state.stage || "Bereit";
     document.getElementById("tb-progress-text").textContent = `${Number(state.progress || 0)} %`;
@@ -197,19 +232,71 @@
     }
   }
 
+  function renderBatchResults(completed, total, currentLabel = "") {
+    const panel = document.getElementById("tb-batch-results");
+    const meta = document.getElementById("tb-batch-meta");
+    const body = document.getElementById("tb-batch-body");
+    if (!panel || !meta || !body) return;
+
+    panel.style.display = "block";
+    meta.textContent = batchRunning
+      ? `${completed}/${total} abgeschlossen${currentLabel ? ` · läuft: ${currentLabel}` : ""}`
+      : `${completed}/${total} abgeschlossen`;
+
+    body.innerHTML = batchResults.map((item) => {
+      const label = `${item.pair} · ${item.years} Jahr${item.years === 1 ? "" : "e"}`;
+      if (item.error) {
+        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
+      }
+      const r = item.result;
+      const profit = Number(r.profit_usdt || 0);
+      const days = Math.max(1, Number(r.backtest_days || 0));
+      const profitPerDay = profit / days;
+      const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
+      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
+    }).join("");
+  }
+
+  async function fetchStatus() {
+    const response = await fetch("/api/v1/testbot/backtest/status", { cache: "no-store" });
+    if (!response.ok) throw new Error("Backtest-Status konnte nicht geladen werden.");
+    return response.json();
+  }
+
   async function loadStatus() {
     try {
-      const response = await fetch("/api/v1/testbot/backtest/status", { cache: "no-store" });
-      if (!response.ok) return;
-      renderState(await response.json());
+      renderState(await fetchStatus());
     } catch (_error) {}
+  }
+
+  async function startOneBacktest(pair, years) {
+    const response = await fetch("/api/v1/testbot/backtest/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pair, years })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
+    renderState(payload);
+
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const state = await fetchStatus();
+      renderState(state);
+      if (state.status === "completed") return state.result;
+      if (state.status === "failed") {
+        throw new Error(state.error || "Backtest ist fehlgeschlagen.");
+      }
+    }
   }
 
   async function startBacktest() {
     const pair = document.getElementById("tb-pair").value;
     const years = Number(document.getElementById("tb-years").value);
     const button = document.getElementById("tb-start");
+    const allButton = document.getElementById("tb-start-all");
     button.disabled = true;
+    allButton.disabled = true;
     try {
       const response = await fetch("/api/v1/testbot/backtest/start", {
         method: "POST",
@@ -223,7 +310,60 @@
     } catch (error) {
       renderState({ status: "failed", stage: "Fehler", progress: 100, error: String(error.message || error) });
       button.disabled = false;
+      allButton.disabled = false;
     }
+  }
+
+  async function startAllBacktests() {
+    if (batchRunning) return;
+
+    const singleButton = document.getElementById("tb-start");
+    const allButton = document.getElementById("tb-start-all");
+    const pairSelect = document.getElementById("tb-pair");
+    const yearsSelect = document.getElementById("tb-years");
+
+    try {
+      const current = await fetchStatus();
+      if (current.status === "running") {
+        throw new Error("Es läuft bereits ein Backtest. Bitte diesen zuerst beenden lassen.");
+      }
+    } catch (error) {
+      renderState({ status: "failed", stage: "Fehler", progress: 100, error: String(error.message || error) });
+      return;
+    }
+
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    batchRunning = true;
+    batchResults = [];
+    singleButton.disabled = true;
+    allButton.disabled = true;
+    renderBatchResults(0, BATCH_CASES.length, "wird vorbereitet");
+
+    for (let index = 0; index < BATCH_CASES.length; index += 1) {
+      const test = BATCH_CASES[index];
+      const label = `${test.pair} · ${test.years} Jahr${test.years === 1 ? "" : "e"}`;
+      pairSelect.value = test.pair;
+      yearsSelect.value = String(test.years);
+      renderBatchResults(batchResults.length, BATCH_CASES.length, label);
+
+      try {
+        const result = await startOneBacktest(test.pair, test.years);
+        batchResults.push({ ...test, result });
+      } catch (error) {
+        batchResults.push({ ...test, error: String(error.message || error) });
+      }
+      renderBatchResults(batchResults.length, BATCH_CASES.length, "");
+    }
+
+    batchRunning = false;
+    singleButton.disabled = false;
+    allButton.disabled = false;
+    renderBatchResults(batchResults.length, BATCH_CASES.length, "");
+    if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
   }
 
   function showBacktest(event) {
