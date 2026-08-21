@@ -53,6 +53,13 @@ Resultate werden getrennt unter `runtime/user_data/backtest_results/ui/<Run-ID>/
 Die Starter deaktivieren wegwerfbaren Python-Bytecode-Cache, damit keine
 `__pycache__`-Ordner neben den Quelldateien entstehen.
 
+Nach jedem erfolgreichen Lauf wird zusätzlich die verlustfreie Gesamtauswertung
+`runtime/user_data/backtest_results/ui/GESAMTAUSWERTUNG.md` aktualisiert. Sie
+liest alle erhaltenen alten und neuen ZIP-Ergebnisse, führt unvollständige
+Versuche getrennt auf und löscht keine Rohdaten. `TESTBOT_AUSWERTUNG.bat`
+erzeugt dieselbe Auswertung jederzeit erneut. Überlappende Ein- und
+Dreijahreszeiträume werden nicht zu einer künstlichen Kapitalkurve addiert.
+
 Angezeigt werden unter anderem:
 
 - Netto-USDT-Gewinn/-Verlust

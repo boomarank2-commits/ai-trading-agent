@@ -5,7 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGY = REPO_ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout250.py"
 CURRENT_GUIDES = (
-    REPO_ROOT / "README.local.md",
+    REPO_ROOT / "README.md",
     REPO_ROOT / "START_HERE_DE.md",
     REPO_ROOT / "BACKTEST_ANLEITUNG.md",
     REPO_ROOT / "TESTBOT_ANLEITUNG.md",

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "daviddtech-local-trader"
 version = "0.1.0"
 description = "Local research registry and guarded Binance Spot runtime for DaviddTech AI Trader MCP"
-readme = "README.local.md"
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "DaviddTech AI Trader MCP contributors" }]

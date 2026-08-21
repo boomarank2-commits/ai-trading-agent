@@ -58,7 +58,8 @@ Diese Dateien bleiben bewusst erhalten, weil sie unterschiedliche Betriebs-/Rese
 
 - `STOP_NEUE_TESTTRADES.bat` – neue simulierte Entries sperren.
 - `TESTTRADES_FREIGEBEN.bat` – Test-Entry-Sperre wieder entfernen.
-- `TESTBOT_AUSWERTUNG.bat` – lokale Dry-run-Auswertung.
+- `TESTBOT_AUSWERTUNG.bat` – Dry-run-Datenbank sowie alle alten und neuen
+  UI-Backtests gemeinsam auswerten.
 - `HISTORISCHE_DATEN_LADEN.bat` – historische Daten für Replay/Research vorbereiten.
 - `HISTORISCHER_LIVE_REPLAY.bat` – Full-System-Replay.
 - `HISTORISCHE_AUSWERTUNG.bat` – Replay-/Research-Diagnostik.
@@ -89,6 +90,8 @@ gelockte Python-/Freqtrade-Umgebung und bleibt von Git ausgeschlossen. Bot und
 UI schreiben dort keine Sitzungs-, Markt- oder Ergebnisdateien.
 Wegwerfbarer Python-Bytecode-Cache wird in den Startpfaden deaktiviert.
 Audit-, Replay-, Backtest- und Dry-run-Daten werden nicht automatisch gelöscht.
+Nach jedem neuen UI-Backtest wird eine Gesamtauswertung aller erhaltenen Läufe
+als Markdown und JSON unter `runtime/user_data/backtest_results/ui/` erneuert.
 Historische Datenbanken aus älteren Strategiephasen werden vom aktuellen
 Testbot nicht neu erzeugt; eine Entfernung darf nur bei beendetem Bot und nach
 bewusster Prüfung erfolgen.

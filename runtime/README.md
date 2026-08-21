@@ -94,6 +94,12 @@ Repository-Stamm frei von Laufzeitartefakten bleibt. Die dort beim Setup
 erzeugte `.venv/` ist die notwendige gelockte Python-/Freqtrade-Umgebung und
 kein Bot-Ergebnis.
 
+`backtest_history_analysis.py` liest alle erhaltenen UI-Backtest-ZIPs, markiert
+abgebrochene Versuche getrennt und erneuert `GESAMTAUSWERTUNG.md` sowie
+`gesamt-auswertung.json`. Rohresultate werden dabei niemals gelöscht;
+überlappende Testfenster werden nicht als eine gemeinsame Kapitalkurve
+ausgegeben.
+
 ## Dry-run
 
 ```powershell

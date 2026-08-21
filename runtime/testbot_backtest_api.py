@@ -24,6 +24,11 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from starlette.responses import Response
 
+try:
+    from runtime.backtest_history_analysis import write_history_reports
+except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime/.
+    from backtest_history_analysis import write_history_reports
+
 ALLOWED_PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
@@ -474,6 +479,21 @@ def _execute_backtest(run_id: str, pair: str, years: int) -> None:
         _validate_result_coverage(result, requested_start, now, years)
         result["data_integrity_validated"] = True
         result["data_integrity"] = data_integrity
+        try:
+            history = write_history_reports(
+                _RESULTS_ROOT,
+                current_strategy_path=_STRATEGY,
+            )
+            result["history_analysis"] = {
+                "completed": history["summary"]["completed"],
+                "incomplete": history["summary"]["incomplete"],
+                "markdown": str(_RESULTS_ROOT / "GESAMTAUSWERTUNG.md"),
+                "json": str(_RESULTS_ROOT / "gesamt-auswertung.json"),
+            }
+        except Exception as exc:
+            # A successful raw backtest remains valid evidence even if the
+            # secondary historical summary cannot be refreshed.
+            result["history_analysis_error"] = str(exc)
         _set_state(
             status="completed",
             stage="Fertig",
