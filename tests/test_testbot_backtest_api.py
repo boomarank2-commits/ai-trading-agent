@@ -91,6 +91,7 @@ def test_subprocess_environment_drops_freqtrade_and_kill_switch_secrets(
     assert "AI_TRADING_KILL_SWITCH_FILE" not in cleaned
     assert "PATH" in cleaned
     assert cleaned["PYTHONUTF8"] == "1"
+    assert cleaned["PYTHONDONTWRITEBYTECODE"] == "1"
 
 
 def _run_locked_entrypoint(script_name: str, command: str) -> subprocess.CompletedProcess[str]:

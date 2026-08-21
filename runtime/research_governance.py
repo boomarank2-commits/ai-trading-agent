@@ -71,7 +71,7 @@ GAP_AUDIT_REQUIRED_PHRASES = (
     "ORB-Retest als separater Challenger",
     "Ichimoku als separater Trend-Challenger",
     "Walk-Forward",
-    "READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY",
+    "READY FOR EXTENDED PAPER TEST \N{EN DASH} NOT READY FOR REAL MONEY",
 )
 
 

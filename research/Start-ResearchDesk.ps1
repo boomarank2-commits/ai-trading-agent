@@ -16,6 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 $researchRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $researchRoot ".."))
+$env:PYTHONDONTWRITEBYTECODE = "1"
+$env:PYTHONUTF8 = "1"
 if (-not $ConfigPath) {
     $ConfigPath = Join-Path $researchRoot "desk.json"
 }

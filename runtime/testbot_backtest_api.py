@@ -82,6 +82,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
         and key != "AI_TRADING_KILL_SWITCH_FILE"
     }
     env["PYTHONUTF8"] = "1"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
 

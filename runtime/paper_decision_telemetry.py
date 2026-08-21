@@ -2,8 +2,8 @@
 
 All wrappers call the original strategy callbacks exactly once and return their
 exact result. Telemetry failures are swallowed so observability can never place
-or block an order. V11 additionally records pair-local regime, selected strategy
-family and NO_TRADE reason without feeding any telemetry value back into trading.
+or block an order. Pair-local candidates additionally record regime, selected
+strategy family and NO_TRADE reason without feeding telemetry back into trading.
 """
 
 from __future__ import annotations
@@ -223,8 +223,8 @@ class PaperDecisionRecorder:
                 return
             self._last_signal_candle[key] = candle_open
 
-            # Keep legacy V8 fields for parity readers while adding V11's
-            # adaptive-regime diagnostics. Missing columns are simply omitted.
+            # Keep legacy V8 fields for parity readers while adding pair-local
+            # candidate diagnostics. Missing columns are simply omitted.
             fields = (
                 "fresh_breakout_4h",
                 "donchian_entry_4h",
@@ -281,8 +281,9 @@ class PaperDecisionRecorder:
             ):
                 features["breakout_distance_atr"] = (close_4h - breakout) / atr_4h
 
-            # Backward-compatible V8 diagnostic only. V11 has no btc_* columns,
-            # so this can never create a cross-pair dependency in V11.
+            # Backward-compatible V8 diagnostic only. Current pair-local
+            # candidates have no btc_* columns, so this cannot create a
+            # cross-pair dependency in the active V12.9 path.
             btc_values = [
                 features.get("btc_close_4h"),
                 features.get("btc_ema_fast_4h"),

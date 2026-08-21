@@ -4,10 +4,24 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGY = REPO_ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout250.py"
+CURRENT_GUIDES = (
+    REPO_ROOT / "README.local.md",
+    REPO_ROOT / "START_HERE_DE.md",
+    REPO_ROOT / "BACKTEST_ANLEITUNG.md",
+    REPO_ROOT / "TESTBOT_ANLEITUNG.md",
+    REPO_ROOT / "runtime" / "README.md",
+)
 
 
 def _source() -> str:
     return STRATEGY.read_text(encoding="utf-8")
+
+
+def test_current_guides_identify_v12_9_as_active_dry_run_candidate() -> None:
+    for guide in CURRENT_GUIDES:
+        text = guide.read_text(encoding="utf-8")
+        assert "V12.9" in text, guide
+        assert 'STRATEGY_VERSION = "V11"' not in text, guide
 
 
 def test_v12_9_keeps_pair_local_champion_donchian_paths() -> None:

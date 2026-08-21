@@ -1,10 +1,12 @@
-# Start hier: V8-Paperbot und Deep-Research-System
+# Start hier: V12.9-Testbot, V8-Baseline und Deep-Research-System
 
 ## Aktueller Stand
 
-Der aktuelle Champion ist `CompressionBreakout250` / V8.
+Der eingefrorene Research-Champion bleibt `CompressionBreakout250` / V8. Die
+aktuell vom Dry-run-Testbot geladene Kandidatendatei ist jedoch
+`CompressionBreakout250` / **V12.9** auf `agent/v12-adaptive-league`.
 
-V8 bleibt eingefroren und läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
+V12.9 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
 
 - Binance Spot / USDT
 - BTC/USDT, ETH/USDT, SOL/USDT
@@ -13,7 +15,10 @@ V8 bleibt eingefroren und läuft ausschließlich im simulierten Paper-/Dry-run-B
 - maximal 80 USDT je Position
 - maximal drei Positionen / 240 USDT Gesamtengagement
 
-Status: **READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY.**
+V8 bleibt unter `research/baselines/V8/` unverändert für Replay, Reproduktion
+und Research-Governance erhalten. V12.9 verändert diese Baseline nicht.
+
+Status: **V12.9 RESEARCH-/PAPER-KANDIDAT – NOT READY FOR REAL MONEY.**
 
 Der verbindliche Weiterentwicklungsplan steht in [`RESEARCH_MASTERPLAN_DE.md`](RESEARCH_MASTERPLAN_DE.md). Ältere Codex-Phasen sind keine aktive Sollvorgabe mehr.
 
@@ -44,7 +49,10 @@ Market Data
 
 Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedliche Schwerpunkte. Deshalb werden **ORB-Retest und Ichimoku nicht miteinander vermischt und nicht stillschweigend gegeneinander entschieden**. Beide sind spätere eigenständige Trend-Challenger; Bollinger MR ist die separate Range-/Mean-Reversion-Familie. Ein Hybrid kommt erst nach Einzelvalidierung.
 
-Der spätere Research-Router ist bereits als fail-closed Contract in `runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in V8 verdrahtet und verändert deshalb keine aktuelle Paper-Handelsentscheidung.
+Der spätere Research-Router ist bereits als fail-closed Contract in
+`runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in die
+aktive V12.9-Kandidatenstrategie verdrahtet und verändert deshalb keine aktuelle
+Paper-Handelsentscheidung.
 
 Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
 
@@ -75,7 +83,8 @@ Die Bedienung des Paperbots steht in [`TESTBOT_ANLEITUNG.md`](TESTBOT_ANLEITUNG.
 
 ## Normaler Backtest
 
-Der integrierte Backtest simuliert die aktuell geladene Strategie; es gibt keine separate zweite Backtest-Strategie.
+Der integrierte Backtest simuliert die aktuell geladene V12.9-Strategie; es gibt
+keine separate zweite Backtest-Strategie.
 
 Für lokale historische Backtests kann außerdem verwendet werden:
 

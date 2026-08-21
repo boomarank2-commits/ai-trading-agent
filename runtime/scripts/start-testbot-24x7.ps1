@@ -370,8 +370,9 @@ public static class DaviddTechTestBotPower {
         "ALLUSERSPROFILE", "APPDATA", "COMSPEC", "HOMEDRIVE", "HOMEPATH",
         "LOCALAPPDATA", "NUMBER_OF_PROCESSORS", "OS", "PATH", "PATHEXT",
         "PROCESSOR_ARCHITECTURE", "PROGRAMDATA", "PROGRAMFILES",
-        "PROGRAMFILES(X86)", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP",
-        "USERDOMAIN", "USERNAME", "USERPROFILE", "WINDIR"
+        "PROGRAMFILES(X86)", "PYTHONDONTWRITEBYTECODE", "PYTHONUTF8", "SYSTEMDRIVE",
+        "SYSTEMROOT", "TEMP", "TMP", "USERDOMAIN", "USERNAME", "USERPROFILE",
+        "WINDIR"
     )
     Get-ChildItem Env: | ForEach-Object {
         $savedEnvironment[$_.Name] = $_.Value

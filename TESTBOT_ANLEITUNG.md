@@ -6,7 +6,11 @@
 
 Aktueller Entwicklungszweig: `agent/v12-adaptive-league`.
 
-Wichtig: V12 ist Research-Infrastruktur. Die tatsächlich geladene Strategy-Datei ist aktuell weiterhin `runtime/user_data/strategies/CompressionBreakout250.py` mit `STRATEGY_VERSION = "V11"`.
+Die tatsächlich geladene Strategy-Datei ist
+`runtime/user_data/strategies/CompressionBreakout250.py` mit
+`STRATEGY_VERSION = "V12.9"`. Die eingefrorene V8-Datei unter
+`research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
+und Research-Governance.
 
 ## Aktueller Sicherheitsrahmen
 
@@ -20,17 +24,20 @@ Wichtig: V12 ist Research-Infrastruktur. Die tatsächlich geladene Strategy-Date
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V11 macht
+## Was V12.9 macht
 
-BTC, ETH und SOL werden unabhängig voneinander bewertet. Jedes Pair nutzt nur seine eigenen 15m/1h/4h-Daten und klassifiziert den Markt in:
+BTC, ETH und SOL werden unabhängig voneinander bewertet. Jedes Pair nutzt nur
+seine eigenen 15m/1h/4h-Daten. Die paarweise kalibrierten Donchian-Einstiege des
+V12.8-Champions bleiben erhalten.
 
-- `TREND/BREAKOUT`
-- `RANGE/MEAN_REVERSION`
-- `NO_TRADE`
+- BTC und ETH testen zusätzlich einen separat markierten EMA20-Trend-Reclaim.
+- SOL verwendet keinen Reclaim-Challenger.
+- Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
+  pair-lokale `LowProfitPairs`-Protection dieses Pair für 72 Stunden.
+- Der feste Stop-Loss bleibt bei −5,5 %; DCA und Shorting bleiben deaktiviert.
+- Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-Danach kann V11 zwischen den deterministischen Familien `ORB_RETEST`, `ICHIMOKU_TREND` und `BOLLINGER_MR` routen.
-
-V11 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**.
+V12.9 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**.
 
 ## FreqUI
 
@@ -69,7 +76,22 @@ V12-Optimizer- und Family-League-Runs sind davon getrennte Research-Werkzeuge. E
 
 Marktdaten, Backtest-/Replay-Artefakte, Logs, lokale Datenbanken und Zugangsdaten bleiben lokal und gehören nicht in Git.
 
-Historische Datenbanken aus älteren Strategiephasen dürfen zur Nachvollziehbarkeit erhalten bleiben, müssen aber klar von neuen Kandidaten getrennt werden. Eine Änderung des aktiven DB-Pfads ist eine bewusste Runtime-Migration und kein reiner Dokumentations-Cleanup.
+Automatisch erzeugte Dateien bleiben geordnet unter `runtime/user_data/`:
+
+- `data/` – notwendige lokale Kerzendaten
+- `backtest_results/` – nachvollziehbare Backtest-Rohresultate
+- `logs/sessions/` – Laufprotokolle, Manifest und Abschlussbericht je Sitzung
+- `paper_telemetry/` und `replay_results/` – Paritäts-/Auditdaten
+- `tradesv8.dryrun.sqlite*` – persistenter aktueller Dry-run-Zustand
+
+Die beim ersten Setup erzeugte `.venv/` im Repository-Stamm ist die benötigte,
+gelockte Python-/Freqtrade-Umgebung und bleibt von Git ausgeschlossen. Bot und
+UI schreiben dort keine Sitzungs-, Markt- oder Ergebnisdateien.
+Wegwerfbarer Python-Bytecode-Cache wird in den Startpfaden deaktiviert.
+Audit-, Replay-, Backtest- und Dry-run-Daten werden nicht automatisch gelöscht.
+Historische Datenbanken aus älteren Strategiephasen werden vom aktuellen
+Testbot nicht neu erzeugt; eine Entfernung darf nur bei beendetem Bot und nach
+bewusster Prüfung erfolgen.
 
 ## Maßgebliche Projektunterlagen
 

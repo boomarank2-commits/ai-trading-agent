@@ -31,12 +31,13 @@ Die Tagesverlustlogik ist eine Entry-Sperre, keine garantierte harte
 Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 überschreiten.
 
-## Baseline-Strategie
+## Aktive Dry-run-Strategie
 
-`CompressionBreakout250` sucht auf geschlossenen 15-Minuten-Kerzen nach
-Volatilitätskompression, `EMA 50 > EMA 200`, einem Ausbruch über das vorherige
-20-Kerzen-Hoch und bestätigendem Volumen. Referenzfenster sind um eine Kerze
-verschoben, damit die aktuelle Kerze ihren eigenen Schwellenwert nicht setzt.
+Der Testbot lädt `CompressionBreakout250` / V12.9. Die Strategie verwendet
+pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
+einen separat markierten EMA20-Trend-Reclaim innerhalb eines bestätigten
+1h/4h-Aufwärtstrends; SOL bleibt beim Donchian-Kern. Eine pair-lokale
+`LowProfitPairs`-Protection begrenzt Verlustcluster.
 
 Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 
@@ -47,8 +48,10 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-Die Baseline ist trotzdem nicht profitabel und deshalb nicht freigegeben.
-Sicherheitsprüfungen ersetzen keine positive Erwartung.
+V12.9 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
+Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
+Erwartung.
 
 ## Installation
 
@@ -82,6 +85,15 @@ Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
+Alle automatisch erzeugten Runtime-Dateien liegen unter `user_data/`: Daten in
+`data/`, UI-Backtests in `backtest_results/`, Sitzungsberichte in
+`logs/sessions/`, Paper-/Replay-Evidenz in `paper_telemetry/` beziehungsweise
+`replay_results/`. Diese Pfade sind von Git ausgeschlossen. Wegwerfbarer
+Python-Bytecode-Cache wird in den Startpfaden deaktiviert, sodass der
+Repository-Stamm frei von Laufzeitartefakten bleibt. Die dort beim Setup
+erzeugte `.venv/` ist die notwendige gelockte Python-/Freqtrade-Umgebung und
+kein Bot-Ergebnis.
+
 ## Dry-run
 
 ```powershell
@@ -95,9 +107,8 @@ beweist weder Profitabilität noch vollständige Bias-Freiheit.
 `STARTBOT.bat` setzt immer `dry_run=true`; geerbte
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
-Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test der
-historisch negativen Baseline ist nur eine technische Beobachtung und keine
-Promotion oder Freigabe für Echtgeld.
+Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
+V12.9-Kandidaten ist keine Promotion oder Freigabe für Echtgeld.
 
 ## Kill-Switch
 

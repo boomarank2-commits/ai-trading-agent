@@ -8,7 +8,9 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
-Auf dem aktuellen V12-Research-Zweig ist die aktive Strategy-Quelle weiterhin **V11**. V12 selbst ist Research-Infrastruktur und verändert den Hotpath nicht automatisch.
+Auf dem Branch `agent/v12-adaptive-league` ist diese aktive Strategy-Quelle der
+**V12.9-Dry-run-Kandidat**. Die eingefrorene V8-Baseline unter
+`research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
 ## Auswahl
 
@@ -19,7 +21,9 @@ Im UI können einzeln getestet werden:
 - SOL/USDT
 - 1, 2 oder 3 Jahre
 
-Jedes Pair wird mit **seinen eigenen Daten** getestet. Der aktuelle V11-Pfad injiziert kein BTC-Regime in ETH oder SOL.
+Jedes Pair wird mit **seinen eigenen Daten** getestet. V12.9 injiziert kein
+BTC-Regime in ETH oder SOL. Der zusätzliche, separat markierte Trend-Reclaim ist
+nur für BTC und ETH aktiv; SOL bleibt beim Donchian-Kern.
 
 ## Benötigte Daten
 
@@ -46,6 +50,8 @@ Der normale UI-Backtest verwendet:
 - die aktuellen Strategy-/Protection-Regeln
 
 Resultate werden getrennt unter `runtime/user_data/backtest_results/ui/<Run-ID>/` abgelegt.
+Die Starter deaktivieren wegwerfbaren Python-Bytecode-Cache, damit keine
+`__pycache__`-Ordner neben den Quelldateien entstehen.
 
 Angezeigt werden unter anderem:
 
@@ -65,7 +71,7 @@ Ein historischer OHLCV-Backtest rekonstruiert weder historische Orderbuch-Wartes
 
 Deshalb bleibt der normale Backtest ein wichtiger, aber nicht allein ausreichender Research-Beweis. Robuste Kandidaten müssen zusätzlich gegen zeitliche Slices, Kostenstress, Walk-Forward/Blind-Evidenz und – wenn relevant – Replay-/Execution-Stress geprüft werden.
 
-## V12-Research
+## V12-Research und aktive Kandidaten
 
 Die V12-Optimizer/Family-League-Runs dienen der schnellen Kandidatensuche. Ein dort gefundener Gewinner ist **noch nicht automatisch die aktive Strategy**. Erst ein ausdrücklich promovierter Kandidat wird in die aktive Strategy-Datei übernommen und anschließend mit dem exakten lokalen Freqtrade-Backtest gegengeprüft.
 

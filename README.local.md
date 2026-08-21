@@ -7,14 +7,19 @@ This repository extends the MIT-licensed prompt/research layer from `DaviddTech/
 ## Current local state
 
 - Development branch: `agent/v12-adaptive-league`.
-- V12 is research infrastructure for pair-/family-specific candidate search.
-- The strategy currently loaded by the testbot is still `CompressionBreakout250` / V11.
-- BTC, ETH and SOL are evaluated pair-locally; no BTC regime is injected into ETH/SOL decisions.
+- The testbot currently loads the `CompressionBreakout250` / V12.9 dry-run candidate.
+- V12.9 keeps pair-specific Donchian champion entries, adds a separately tagged
+  EMA20 trend-reclaim entry for BTC/ETH, and applies a pair-local loss-cluster
+  guard. SOL does not use the reclaim challenger.
+- BTC, ETH and SOL are evaluated pair-locally; no BTC regime is injected into
+  ETH/SOL decisions.
 - Binance Spot, long-only, 1x, dry-run only.
 - 250 USDT virtual capital, max. 80 USDT per position, max. three positions / 240 USDT exposure.
 - No futures, margin, shorts, leverage, DCA, martingale or automatic real-money promotion.
 
-Historical V8/V9/V10/V11 results remain research evidence and trial history. They are not parallel active roadmaps.
+The frozen V8 baseline and historical V8/V9/V10/V11 results remain research,
+replay and audit evidence. They are not parallel active runtime versions and
+must not be deleted as repository clutter.
 
 ## Research flow
 

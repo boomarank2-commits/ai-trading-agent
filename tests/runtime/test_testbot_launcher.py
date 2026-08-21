@@ -52,6 +52,8 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "show-config" in source
     assert "effectiveSettings.capital_usdt" in source
     assert "$environmentAllowlist" in source
+    assert '"PYTHONDONTWRITEBYTECODE"' in source
+    assert '"PYTHONUTF8"' in source
     assert "$environmentWasMinimized = $true" in source
     assert "$savedEnvironment" in source
     assert "-SessionStartUtc" in source
@@ -68,6 +70,14 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "config-live" not in source
     assert "FREQTRADE__EXCHANGE__KEY" not in source
     assert "FREQTRADE__EXCHANGE__SECRET" not in source
+
+
+def test_launchers_disable_generated_python_bytecode_cache() -> None:
+    common = (SCRIPTS / "_common.ps1").read_text(encoding="utf-8")
+    exporter = (SCRIPTS / "export-dryrun-report.ps1").read_text(encoding="utf-8")
+
+    assert '$env:PYTHONDONTWRITEBYTECODE = "1"' in common
+    assert '$env:PYTHONDONTWRITEBYTECODE = "1"' in exporter
 
 
 def test_legacy_direct_entry_path_cannot_bypass_startbot_lock() -> None:
