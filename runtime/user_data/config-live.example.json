@@ -32,7 +32,10 @@
     "pair_whitelist": [
       "BTC/USDT",
       "ETH/USDT",
-      "SOL/USDT"
+      "SOL/USDT",
+      "XRP/USDT",
+      "BNB/USDT",
+      "DOGE/USDT"
     ],
     "pair_blacklist": []
   },

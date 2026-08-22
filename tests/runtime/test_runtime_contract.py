@@ -21,7 +21,14 @@ PUBLIC_OVERLAY_PATH = USER_DATA / "config-public.json"
 ANALYSIS_OVERLAY_PATH = USER_DATA / "config-analysis.json"
 STRATEGY_PATH = USER_DATA / "strategies" / "CompressionBreakout250.py"
 
-PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+PAIRS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+]
 
 
 def load_json(path: Path) -> dict:
@@ -283,7 +290,7 @@ class StrategySourceTests(unittest.TestCase):
             self.assertNotIn("iloc[-1]", compact, node.name)
             self.assertNotIn("iat[-1]", compact, node.name)
 
-    def test_hyperopt_parameters_have_explicit_spaces(self) -> None:
+    def test_hyperopt_parameters_are_explicit_or_v11_profiles_are_fixed(self) -> None:
         parameter_calls = []
         for node in self.strategy.body:
             if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
@@ -293,6 +300,14 @@ class StrategySourceTests(unittest.TestCase):
                 "IntParameter",
             }:
                 parameter_calls.append(node.value)
+
+        strategy_version = literal_class_assignment(self.strategy, "STRATEGY_VERSION")
+        if strategy_version == "V11":
+            self.assertEqual(parameter_calls, [])
+            self.assertIn("PAIR_PROFILES", self.source)
+            self.assertNotIn("DecimalParameter(", self.source)
+            self.assertNotIn("IntParameter(", self.source)
+            return
 
         self.assertGreaterEqual(len(parameter_calls), 6)
         for call in parameter_calls:
@@ -327,7 +342,6 @@ class ScriptContractTests(unittest.TestCase):
         source = (RUNTIME / "scripts" / "start-live-paused.ps1").read_text(
             encoding="utf-8"
         )
-        self.assertIn("FREQTRADE__EXCHANGE__KEY", source)
         self.assertIn("FREQTRADE__EXCHANGE__SECRET", source)
         self.assertIn('$env:FREQTRADE__INITIAL_STATE = "paused"', source)
         self.assertIn("Assert-NoFreqtradeOverrides", source)

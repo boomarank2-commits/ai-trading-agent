@@ -1,2 +1,3 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+runtime/user_data/strategies/CompressionBreakout250.py text eol=lf

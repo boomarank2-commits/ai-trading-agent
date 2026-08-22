@@ -7,10 +7,11 @@ actual strategy runner must consume these windows without looking ahead.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 from statistics import median
-from typing import Iterable
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +101,7 @@ def validate_walk_forward_windows(windows: Iterable[WalkForwardWindow]) -> None:
     expected_indices = list(range(len(items)))
     if [window.index for window in items] != expected_indices:
         raise ValueError("walk-forward indices must be contiguous from zero")
-    for previous, current in zip(items, items[1:], strict=False):
+    for previous, current in pairwise(items):
         if current.train_start <= previous.train_start:
             raise ValueError("walk-forward train starts must be strictly increasing")
         if current.test_end <= previous.test_end:

@@ -2,6 +2,7 @@
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONDONTWRITEBYTECODE=1"
 title V8 Historischer Live-Replay - 250 USDT
 
 echo ================================================================

@@ -1,9 +1,22 @@
-"""Long-only slow Donchian trend strategy for the 250 USDT testbot.
+"""V12.15 V12.12 core with a late champion-profit ratchet.
 
-V8 leaves the noisy 15-minute breakout family. It waits for a fresh 20-day
-high on closed 4-hour candles inside an established multi-timeframe uptrend,
-then manages the position with a 10-day structure exit and a causal early
-failed-breakout guard. The 15m timeframe remains the execution timeframe.
+V12.9 keeps every V12.8 champion entry path intact, removes the SOL +5% -> +1%
+profit ratchet after the exact 1m-detail backtest showed that it clipped the
+economics of the broader SOL core, and adds one deliberately simple challenger:
+a causal 15m EMA20 reclaim inside an already-established 1h/4h uptrend.
+
+The V12.12 pair universe, signal thresholds, BTC/ETH reclaim paths, exits and
+loss protections remain unchanged. The only decision change is a deliberately
+late profit ratchet for champion-Donchian trades: after at least +30% open
+profit, the stop may rise to +5% from entry. Reclaims do not use the ratchet.
+Before +30%, the original hard stop remains unchanged.
+
+Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
+stretch objective, not an optimization constraint. No threshold is allowed to
+be changed merely to force that number on already-seen history.
+
+Safety: Binance Spot, long-only, 1x, max 80 USDT per position, max three
+positions / 240 USDT total exposure, hard stop -5.5%, no DCA.
 """
 
 from __future__ import annotations
@@ -16,14 +29,21 @@ from typing import Any, ClassVar
 
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
+from freqtrade.strategy import (
+    DecimalParameter,
+    IntParameter,
+    IStrategy,
+    informative,
+    stoploss_from_open,
+)
 from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """20-day 4h Donchian breakout with 10-day structure exit."""
+    """V12.15: V12.12 signals with a +30% to +5% champion ratchet."""
 
     INTERFACE_VERSION = 3
+    STRATEGY_VERSION = "V12.15"
 
     can_short = False
     timeframe = "15m"
@@ -38,34 +58,23 @@ class CompressionBreakout250(IStrategy):
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
     MAX_DAILY_LOSS_USDT = 10.0
+    MAX_DAILY_LOSS_USDT_PER_PAIR = MAX_DAILY_LOSS_USDT
 
-    minimal_roi: ClassVar[dict[str, float]] = {
-        "0": 0.05,
-        "120": 0.025,
-        "360": 0.0,
+    ALLOWED_PAIRS: ClassVar[set[str]] = {
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT",
+        "XRP/USDT",
+        "BNB/USDT",
+        "DOGE/USDT",
     }
-    stoploss = -0.055
-    trailing_stop = False
-    use_exit_signal = True
-    exit_profit_only = False
-    ignore_roi_if_entry_signal = False
-
-    order_types: ClassVar[dict[str, Any]] = {
-        "entry": "limit",
-        "exit": "limit",
-        "force_entry": "market",
-        "force_exit": "market",
-        "emergency_exit": "market",
-        # Binance Spot supports on-exchange stop-limit, not stop-market.
-        "stoploss": "limit",
-        "stoploss_on_exchange": True,
-        "stoploss_on_exchange_interval": 60,
-        "stoploss_on_exchange_limit_ratio": 0.99,
+    BROAD_CORE_PAIRS: ClassVar[set[str]] = {
+        "SOL/USDT",
+        "XRP/USDT",
+        "BNB/USDT",
+        "DOGE/USDT",
     }
-    order_time_in_force: ClassVar[dict[str, str]] = {"entry": "GTC", "exit": "GTC"}
 
-    # V8 uses fixed long-horizon windows and only narrow threshold parameters.
-    # This keeps the hypothesis interpretable and reduces data-mining degrees of freedom.
     buy_momentum_30d = DecimalParameter(
         -0.02, 0.20, default=0.03, decimals=2, space="buy", optimize=True, load=True
     )
@@ -85,9 +94,87 @@ class CompressionBreakout250(IStrategy):
         0.20, 1.00, default=0.50, decimals=2, space="buy", optimize=True, load=True
     )
 
+    PAIR_PROFILES: ClassVar[dict[str, dict[str, float | int]]] = {
+        "BTC/USDT": {
+            "adx_min": 16,
+            "momentum_min": 0.03,
+            "rsi_min": 50,
+            "rsi_max": 78,
+            "persistence_bars": 3,
+            "volume_min": 1.00,
+            "breakout_strength_min_atr": 0.03,
+            "breakout_strength_max_atr": 2.50,
+        },
+        "ETH/USDT": {
+            "adx_min": 18,
+            "momentum_min": 0.04,
+            "rsi_min": 50,
+            "rsi_max": 78,
+            "persistence_bars": 4,
+            "volume_min": 0.0,
+            "breakout_strength_min_atr": 0.02,
+            "breakout_strength_max_atr": 2.50,
+        },
+        "SOL/USDT": {
+            "adx_min": 21,
+            "momentum_min": 0.07,
+            "rsi_min": 52,
+            "rsi_max": 76,
+            "persistence_bars": 6,
+            "volume_min": 0.70,
+            "breakout_strength_min_atr": 0.06,
+            "breakout_strength_max_atr": 2.20,
+        },
+    }
+
+    RECLAIM_PROFILES: ClassVar[dict[str, dict[str, float]]] = {
+        "BTC/USDT": {
+            "adx_min": 20.0,
+            "momentum_min": 0.04,
+            "rsi_4h_max": 76.0,
+            "volume_min": 0.80,
+        },
+        "ETH/USDT": {
+            "adx_min": 20.0,
+            "momentum_min": 0.04,
+            "rsi_4h_max": 76.0,
+            "volume_min": 0.0,
+        },
+    }
+
+    REGIME_TREND = "TREND/BREAKOUT"
+    REGIME_NO_TRADE = "NO_TRADE"
+    FAMILY_DONCHIAN = "DONCHIAN_TREND"
+    FAMILY_RECLAIM = "TREND_RECLAIM"
+    FAMILY_NO_TRADE = "NO_TRADE"
+
+    minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
+    stoploss = -0.055
+    trailing_stop = False
+    use_custom_stoploss = True
+    use_exit_signal = True
+    exit_profit_only = False
+    ignore_roi_if_entry_signal = False
+
+    order_types: ClassVar[dict[str, Any]] = {
+        "entry": "limit",
+        "exit": "limit",
+        "force_entry": "market",
+        "force_exit": "market",
+        "emergency_exit": "market",
+        "stoploss": "limit",
+        "stoploss_on_exchange": True,
+        "stoploss_on_exchange_interval": 60,
+        "stoploss_on_exchange_limit_ratio": 0.99,
+    }
+    order_time_in_force: ClassVar[dict[str, str]] = {"entry": "GTC", "exit": "GTC"}
+
     plot_config: ClassVar[dict[str, Any]] = {
         "main_plot": {"ema_exec": {}, "ema_fast": {}},
-        "subplots": {"Momentum": {"rsi": {}}, "Volume": {"volume_ratio": {}}},
+        "subplots": {
+            "Momentum": {"rsi": {}},
+            "Volume": {"volume_ratio": {}},
+        },
     }
 
     @staticmethod
@@ -96,13 +183,9 @@ class CompressionBreakout250(IStrategy):
         return str(getattr(runmode, "value", runmode)).lower()
 
     def _runtime_entry_guards_enabled(self) -> bool:
-        """Keep filesystem/DB guards out of backtest, hyperopt and analysis."""
-
         return self._runmode_value(self.config) in {"live", "dry_run"}
 
     def bot_start(self, **kwargs: Any) -> None:
-        """Abort runtime startup if any execution invariant was weakened."""
-
         del kwargs
         if not self._runtime_entry_guards_enabled():
             return
@@ -111,19 +194,17 @@ class CompressionBreakout250(IStrategy):
         order_types = self.config.get("order_types", {})
         time_in_force = self.config.get("order_time_in_force", {})
         pairs = exchange.get("pair_whitelist", []) if isinstance(exchange, dict) else []
-        allowed_pairs = {"BTC/USDT", "ETH/USDT", "SOL/USDT"}
+
         configured_source = getattr(type(self), "__file__", None)
         if not isinstance(configured_source, str) or not configured_source:
             raise RuntimeError("Freqtrade did not expose the resolved strategy source")
         strategy_source = Path(configured_source).resolve(strict=True)
         adjacent_parameters = strategy_source.with_suffix(".json")
+
         stake_amount = float(self.config.get("stake_amount", 0.0))
         available_capital = float(self.config.get("available_capital", 0.0))
         max_open_trades = int(self.config.get("max_open_trades", -1))
 
-        # The paper-test UI may expose Freqtrade only on loopback. Live recovery
-        # still requires the API to remain disabled. A disabled API is also safe
-        # for other runtime invocations.
         api_server = self.config.get("api_server", {})
         api_server_safe = False
         if isinstance(api_server, dict):
@@ -149,9 +230,7 @@ class CompressionBreakout250(IStrategy):
             and str(self.config.get("stake_currency", "")).upper() == "USDT"
             and 0.0 < stake_amount <= self.MAX_STAKE_USDT
             and 0.0 < available_capital <= self.MAX_TOTAL_CAPITAL_USDT
-            and 1
-            <= max_open_trades
-            <= self.MAX_OPEN_POSITIONS
+            and 1 <= max_open_trades <= self.MAX_OPEN_POSITIONS
             and stake_amount * max_open_trades <= self.MAX_TOTAL_EXPOSURE_USDT
             and math.isclose(float(self.stoploss), -0.055, abs_tol=1e-12)
             and order_types.get("entry") == "limit"
@@ -177,7 +256,7 @@ class CompressionBreakout250(IStrategy):
             }
             and exchange.get("name") == "binance"
             and bool(pairs)
-            and set(pairs).issubset(allowed_pairs)
+            and set(pairs).issubset(self.ALLOWED_PAIRS)
             and len(pairs) == len(set(pairs))
             and self.config.get("force_entry_enable") is False
             and api_server_safe
@@ -195,29 +274,32 @@ class CompressionBreakout250(IStrategy):
 
     @property
     def protections(self) -> list[dict[str, Any]]:
-        """Defensive entry locks shared by live, dry-run and enabled backtests."""
-
         return [
-            {
-                "method": "CooldownPeriod",
-                "stop_duration_candles": 2,
-            },
+            {"method": "CooldownPeriod", "stop_duration_candles": 4},
             {
                 "method": "StoplossGuard",
                 "lookback_period_candles": 96,
-                "trade_limit": 2,
-                "stop_duration_candles": 24,
-                "only_per_pair": False,
+                "trade_limit": 3,
+                "stop_duration_candles": 16,
+                "only_per_pair": True,
                 "only_per_side": False,
             },
             {
                 "method": "MaxDrawdown",
                 "lookback_period_candles": 192,
-                "trade_limit": 3,
-                "stop_duration_candles": 48,
+                "trade_limit": 4,
+                "stop_duration_candles": 32,
                 "max_allowed_drawdown": 0.08,
                 "calculation_mode": "equity",
-                "only_per_pair": False,
+                "only_per_pair": True,
+            },
+            {
+                "method": "LowProfitPairs",
+                "lookback_period_candles": 1344,
+                "trade_limit": 2,
+                "stop_duration_candles": 288,
+                "required_profit": 0.0,
+                "only_per_pair": True,
             },
         ]
 
@@ -225,14 +307,17 @@ class CompressionBreakout250(IStrategy):
         configured_path = os.getenv("AI_TRADING_KILL_SWITCH_FILE")
         if configured_path:
             return Path(configured_path).expanduser()
-
         user_data_dir = Path(str(self.config.get("user_data_dir", "user_data")))
         return user_data_dir / "STOP_ENTRIES"
 
     @staticmethod
-    def _closed_profit_since(day_start_utc: datetime) -> float:
+    def _closed_profit_since(day_start_utc: datetime, pair: str) -> float:
         closed_today = Trade.get_trades_proxy(is_open=False, close_date=day_start_utc)
-        return sum(float(trade.close_profit_abs or 0.0) for trade in closed_today)
+        return sum(
+            float(trade.close_profit_abs or 0.0)
+            for trade in closed_today
+            if getattr(trade, "pair", None) == pair
+        )
 
     @informative("1h")
     def populate_indicators_1h(
@@ -257,7 +342,9 @@ class CompressionBreakout250(IStrategy):
         dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
         dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
-        dataframe["momentum_30d"] = dataframe["close"] / dataframe["close"].shift(180) - 1.0
+        dataframe["momentum_30d"] = (
+            dataframe["close"] / dataframe["close"].shift(180) - 1.0
+        )
         dataframe["donchian_entry"] = (
             dataframe["high"].shift(1).rolling(120, min_periods=120).max()
         )
@@ -271,20 +358,23 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
         ).astype(int)
-        return dataframe
-
-    @informative("4h", "BTC/{stake}", fmt="{base}_{column}_{timeframe}")
-    def populate_indicators_btc_4h(
-        self, dataframe: DataFrame, metadata: dict
-    ) -> DataFrame:
-        del metadata
-        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
-        dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["momentum_30d"] = dataframe["close"] / dataframe["close"].shift(180) - 1.0
-        dataframe["ema_fast_rising"] = (
-            dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
-        ).astype(int)
+        for bars in (3, 4, 6):
+            dataframe[f"trend_persist_{bars}"] = (
+                (dataframe["close"] > dataframe["ema_fast"])
+                & (dataframe["ema_fast"] > dataframe["ema_slow"])
+                & (
+                    dataframe["close"].shift(bars - 1)
+                    > dataframe["ema_fast"].shift(bars - 1)
+                )
+                & (dataframe["ema_fast"] > dataframe["ema_fast"].shift(bars))
+            ).astype(int)
+        dataframe["volume_mean"] = (
+            dataframe["volume"].shift(1).rolling(20, min_periods=20).mean()
+        )
+        dataframe["volume_ratio"] = dataframe["volume"] / dataframe["volume_mean"]
+        dataframe["breakout_strength_atr"] = (
+            (dataframe["close"] - dataframe["donchian_entry"]) / dataframe["atr"]
+        )
         return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -298,16 +388,42 @@ class CompressionBreakout250(IStrategy):
             dataframe["volume"].shift(1).rolling(20, min_periods=20).mean()
         )
         dataframe["volume_ratio"] = dataframe["volume"] / dataframe["volume_mean"]
+
+        prior_touch = (
+            (dataframe["low"] <= dataframe["ema_exec"])
+            & (dataframe["close"] > dataframe["ema_fast"])
+        ).shift(1)
+        dataframe["pullback_touch_recent"] = (
+            prior_touch.rolling(12, min_periods=1).max().fillna(False).astype(int)
+        )
+        dataframe["ema20_reclaim"] = (
+            (dataframe["close"] > dataframe["ema_exec"])
+            & (dataframe["close"].shift(1) <= dataframe["ema_exec"].shift(1))
+        ).astype(int)
+        dataframe["ema_exec_rising"] = (
+            dataframe["ema_exec"] > dataframe["ema_exec"].shift(4)
+        ).astype(int)
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        """Run unchanged champions plus one separately tagged reclaim challenger."""
         pair = str(metadata.get("pair", ""))
-        fresh_signal = (
+        dataframe["regime_state"] = self.REGIME_NO_TRADE
+        dataframe["route_family"] = self.FAMILY_NO_TRADE
+        dataframe["no_trade_reason"] = "wait_signal"
+
+        if pair not in self.ALLOWED_PAIRS:
+            dataframe["no_trade_reason"] = "unsupported_pair"
+            return dataframe
+
+        asset = pair.split("/")[0].lower()
+
+        fresh_slow = (
             (dataframe["fresh_breakout_4h"] > 0)
             & (dataframe["fresh_breakout_4h"].shift(1).fillna(0) <= 0)
         )
-        trend_4h = (
-            fresh_signal
+        base_4h = (
+            fresh_slow
             & (dataframe["close_4h"] > dataframe["ema_fast_4h"])
             & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
             & (dataframe["ema_fast_rising_4h"] > 0)
@@ -322,14 +438,6 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["ema_fast_rising_1h"] > 0)
             & (dataframe["rsi_1h"] >= 48)
         )
-        btc_market_up = (
-            (dataframe["btc_close_4h"] > dataframe["btc_ema_fast_4h"])
-            & (dataframe["btc_ema_fast_4h"] > dataframe["btc_ema_slow_4h"])
-            & (dataframe["btc_ema_fast_rising_4h"] > 0)
-            & (dataframe["btc_momentum_30d_4h"] > 0.0)
-        )
-        if pair != "BTC/USDT":
-            trend_4h = trend_4h & btc_market_up
         execution = (
             (dataframe["close"] > dataframe["ema_exec"])
             & (dataframe["ema_exec"] > dataframe["ema_fast"])
@@ -339,10 +447,91 @@ class CompressionBreakout250(IStrategy):
             & (dataframe["atr_pct"] <= self.buy_atr_max.value)
             & (dataframe["volume"] > 0)
         )
-        dataframe.loc[
-            trend_4h & trend_1h & execution,
-            ["enter_long", "enter_tag"],
-        ] = (1, "slow_20d_donchian_breakout")
+
+        if pair == "BTC/USDT":
+            champion_quality = dataframe["volume_ratio"] >= 1.00
+        elif pair == "ETH/USDT":
+            profile = self.PAIR_PROFILES[pair]
+            persistence_col = f"trend_persist_{int(profile['persistence_bars'])}_4h"
+            champion_quality = (
+                (dataframe["adx_4h"] >= float(profile["adx_min"]))
+                & (dataframe["momentum_30d_4h"] >= float(profile["momentum_min"]))
+                & (dataframe["rsi_4h"] >= float(profile["rsi_min"]))
+                & (dataframe["rsi_4h"] <= float(profile["rsi_max"]))
+                & (dataframe[persistence_col] > 0)
+                & (
+                    dataframe["breakout_strength_atr_4h"]
+                    >= float(profile["breakout_strength_min_atr"])
+                )
+                & (
+                    dataframe["breakout_strength_atr_4h"]
+                    <= float(profile["breakout_strength_max_atr"])
+                )
+            )
+        elif pair in self.BROAD_CORE_PAIRS:
+            champion_quality = dataframe["volume"] > 0
+        else:  # Defensive: ALLOWED_PAIRS and routing must never drift apart.
+            dataframe["no_trade_reason"] = "missing_pair_route"
+            return dataframe
+
+        champion_qualified = base_4h & trend_1h & champion_quality
+        champion_signal = champion_qualified & execution
+
+        dataframe.loc[champion_qualified, "regime_state"] = self.REGIME_TREND
+        dataframe.loc[champion_qualified, "no_trade_reason"] = "wait_execution_gate"
+        dataframe.loc[champion_signal, "route_family"] = self.FAMILY_DONCHIAN
+        dataframe.loc[champion_signal, "no_trade_reason"] = ""
+        dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
+            1,
+            f"v12_15_{asset}_champion_donchian",
+        )
+
+        if pair in self.RECLAIM_PROFILES:
+            reclaim_profile = self.RECLAIM_PROFILES[pair]
+            reclaim_4h = (
+                (dataframe["close_4h"] > dataframe["ema_fast_4h"])
+                & (dataframe["ema_fast_4h"] > dataframe["ema_slow_4h"])
+                & (dataframe["ema_fast_rising_4h"] > 0)
+                & (dataframe["adx_4h"] >= reclaim_profile["adx_min"])
+                & (
+                    dataframe["momentum_30d_4h"]
+                    >= reclaim_profile["momentum_min"]
+                )
+                & (dataframe["rsi_4h"] >= 50)
+                & (dataframe["rsi_4h"] <= reclaim_profile["rsi_4h_max"])
+            )
+            reclaim_execution = (
+                (dataframe["pullback_touch_recent"] > 0)
+                & (dataframe["ema20_reclaim"] > 0)
+                & (dataframe["ema_exec_rising"] > 0)
+                & (dataframe["ema_exec"] > dataframe["ema_fast"])
+                & (dataframe["close"] > dataframe["ema_fast"])
+                & (dataframe["rsi"] >= 52)
+                & (dataframe["rsi"] <= 78)
+                & (dataframe["atr_pct"] >= self.buy_atr_min.value)
+                & (dataframe["atr_pct"] <= self.buy_atr_max.value)
+                & (dataframe["volume"] > 0)
+            )
+            reclaim_volume = (
+                dataframe["volume_ratio"] >= reclaim_profile["volume_min"]
+                if reclaim_profile["volume_min"] > 0
+                else dataframe["volume"] > 0
+            )
+            reclaim_signal = (
+                reclaim_4h
+                & trend_1h
+                & reclaim_execution
+                & reclaim_volume
+                & ~champion_signal
+            )
+            dataframe.loc[reclaim_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[reclaim_signal, "route_family"] = self.FAMILY_RECLAIM
+            dataframe.loc[reclaim_signal, "no_trade_reason"] = ""
+            dataframe.loc[reclaim_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                f"v12_15_{asset}_trend_reclaim",
+            )
+
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -355,7 +544,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "slow_trend_exit")
+        ] = (1, "v12_15_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -366,8 +555,6 @@ class CompressionBreakout250(IStrategy):
         current_time: datetime,
         **kwargs: Any,
     ) -> None:
-        """Persist the causal 4h breakout support used by the early failure guard."""
-
         del pair, current_time, kwargs
         try:
             if (
@@ -380,13 +567,43 @@ class CompressionBreakout250(IStrategy):
             if dataframe.empty:
                 return
             candle = dataframe.iloc[-1].squeeze()
+
             level = float(candle["donchian_entry_4h"])
-            atr = float(candle["atr_4h"])
-            if math.isfinite(level) and math.isfinite(atr) and atr > 0:
+            atr_4h = float(candle["atr_4h"])
+            if math.isfinite(level) and math.isfinite(atr_4h) and atr_4h > 0:
                 trade.set_custom_data(key="entry_breakout_level", value=level)
-                trade.set_custom_data(key="entry_atr_4h", value=atr)
+                trade.set_custom_data(key="entry_atr_4h", value=atr_4h)
+
+            ema_fast = float(candle["ema_fast"])
+            atr_15m = float(candle["atr"])
+            if math.isfinite(ema_fast) and math.isfinite(atr_15m) and atr_15m > 0:
+                trade.set_custom_data(key="entry_ema_fast_15m", value=ema_fast)
+                trade.set_custom_data(key="entry_atr_15m", value=atr_15m)
         except Exception:
             return
+
+    def custom_stoploss(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        after_fill: bool,
+        **kwargs: Any,
+    ) -> float | None:
+        """Lock one initial risk unit only after an exceptional champion move."""
+
+        del pair, current_time, current_rate, after_fill, kwargs
+        enter_tag = str(getattr(trade, "enter_tag", "") or "")
+        if "_champion_donchian" not in enter_tag or current_profit < 0.30:
+            return None
+        return stoploss_from_open(
+            0.05,
+            current_profit,
+            is_short=bool(getattr(trade, "is_short", False)),
+            leverage=float(getattr(trade, "leverage", 1.0) or 1.0),
+        )
 
     def custom_exit(
         self,
@@ -397,20 +614,51 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Cut a fresh 4h breakout only if its original support clearly fails."""
-
-        del pair, kwargs
+        """Use distinct failure logic for champion and reclaim entries."""
+        del kwargs
         try:
-            age_hours = (current_time - trade.open_date_utc).total_seconds() / 3600.0
-            if age_hours > 48 or current_profit >= 0:
+            age_hours = (
+                current_time - trade.open_date_utc
+            ).total_seconds() / 3600.0
+            enter_tag = str(getattr(trade, "enter_tag", "") or "")
+
+            if "_trend_reclaim" in enter_tag:
+                if current_profit >= 0:
+                    return None
+                ema_fast = trade.get_custom_data(
+                    key="entry_ema_fast_15m", default=None
+                )
+                atr_15m = trade.get_custom_data(key="entry_atr_15m", default=None)
+                if (
+                    age_hours <= 24.0
+                    and ema_fast is not None
+                    and atr_15m is not None
+                    and float(current_rate)
+                    < float(ema_fast) - 0.50 * float(atr_15m)
+                ):
+                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_failed"
+                if age_hours >= 48.0:
+                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_time_stop"
+                return None
+
+            if current_profit >= 0:
+                return None
+            if pair == "ETH/USDT":
+                failure_atr = 0.45
+                failure_hours = 36.0
+            else:
+                failure_atr = 0.50
+                failure_hours = 48.0
+
+            if age_hours > failure_hours:
                 return None
             level = trade.get_custom_data(key="entry_breakout_level", default=None)
             atr = trade.get_custom_data(key="entry_atr_4h", default=None)
             if level is None or atr is None:
                 return None
-            failure = float(level) - self.buy_failure_atr.value * float(atr)
+            failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return "failed_4h_breakout"
+                return f"v12_15_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None
@@ -429,7 +677,6 @@ class CompressionBreakout250(IStrategy):
         **kwargs: Any,
     ) -> float:
         del pair, current_time, current_rate, entry_tag, kwargs
-
         try:
             if side != "long" or float(leverage) != 1.0:
                 return 0.0
@@ -440,9 +687,6 @@ class CompressionBreakout250(IStrategy):
                 return 0.0
             return max(0.0, capped_stake)
         except Exception:
-            # Freqtrade's outer callback wrapper falls back to the proposed
-            # stake on exceptions. Swallow expected conversion/state errors
-            # here and deny the order instead.
             return 0.0
 
     def confirm_trade_entry(
@@ -458,16 +702,11 @@ class CompressionBreakout250(IStrategy):
         **kwargs: Any,
     ) -> bool:
         del entry_tag, kwargs
-
         try:
             if side != "long":
                 return False
-
-            # Backtests and hyperopt already enforce the configured wallet and
-            # stake. Avoid filesystem/DB state in deterministic analysis modes.
             if not self._runtime_entry_guards_enabled():
                 return True
-
             if self._runmode_value(self.config) not in {"live", "dry_run"}:
                 return False
             if str(self.config.get("trading_mode", "")).lower() != "spot":
@@ -476,7 +715,7 @@ class CompressionBreakout250(IStrategy):
                 return False
             if str(self.config.get("stake_currency", "")).upper() != "USDT":
                 return False
-            if pair not in {"BTC/USDT", "ETH/USDT", "SOL/USDT"}:
+            if pair not in self.ALLOWED_PAIRS:
                 return False
             if order_type != "limit" or time_in_force != "GTC":
                 return False
@@ -492,7 +731,10 @@ class CompressionBreakout250(IStrategy):
 
             now_utc = current_time.astimezone(UTC)
             day_start_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-            if self._closed_profit_since(day_start_utc) <= -self.MAX_DAILY_LOSS_USDT:
+            if (
+                self._closed_profit_since(day_start_utc, pair)
+                <= -self.MAX_DAILY_LOSS_USDT_PER_PAIR
+            ):
                 return False
 
             requested_stake = max(0.0, float(amount) * float(rate))
@@ -510,7 +752,4 @@ class CompressionBreakout250(IStrategy):
                 <= (min(configured_cap, self.MAX_TOTAL_EXPOSURE_USDT) + 1e-6)
             )
         except Exception:
-            # Freqtrade's outer wrapper defaults confirm_trade_entry to True
-            # when callbacks raise. Expected local state failures must be
-            # converted into an explicit denial here.
             return False

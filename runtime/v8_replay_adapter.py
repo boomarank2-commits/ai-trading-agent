@@ -1,12 +1,13 @@
-"""Exact-source V8 signal adapter for the historical live replay.
+"""Exact-source signal adapter for deterministic historical live replay.
 
-No V8 indicator or entry/exit formula is reimplemented here. The adapter loads
-the exact hashed strategy source and invokes its own indicator/signal callbacks.
-The only glue is point-in-time informative-timeframe alignment.
+The adapter never reimplements strategy formulas. It loads the exact hashed
+strategy source and calls its own indicators/signals. Legacy strategies may
+optionally request BTC 4h context; independent strategies such as V10 do not.
 """
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -34,6 +35,8 @@ class _ReplayTradeProxy:
 
 
 class V8ReplayAdapter:
+    """Compatibility name for the exact-source replay adapter."""
+
     def __init__(
         self,
         *,
@@ -57,9 +60,6 @@ class V8ReplayAdapter:
             raise RuntimeError(
                 f"unsupported replay trading mode: {trading_mode_value!r}"
             ) from exc
-        # Freqtrade normally derives this field while constructing Exchange.
-        # Replay intentionally never constructs a live Exchange, so provide only
-        # this deterministic enum-derived value before instantiating IStrategy.
         self.config.setdefault("candle_type_def", CandleType.get_default(trading_mode))
         strategy_type, source_text = _load_exact_strategy(
             strategy_source, strategy_sha256, strategy_class
@@ -123,6 +123,14 @@ class V8ReplayAdapter:
         )
         return merged.drop(columns=["_available_at"], errors="ignore")
 
+    @staticmethod
+    def _finite_float(value: Any) -> float | None:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
+
     def decisions(
         self,
         *,
@@ -137,16 +145,25 @@ class V8ReplayAdapter:
         base = self._normalize(candles_15m)
         one_hour = self._normalize(candles_1h)
         four_hour = self._normalize(candles_4h)
-        btc = self._normalize(btc_4h)
 
         base = self.strategy.populate_indicators(base, {"pair": pair})
         one_hour = self.strategy.populate_indicators_1h(one_hour, {"pair": pair})
         four_hour = self.strategy.populate_indicators_4h(four_hour, {"pair": pair})
-        btc = self.strategy.populate_indicators_btc_4h(btc, {"pair": "BTC/USDT"})
 
         merged = self._merge_informative(base, one_hour, minutes=60, prefix="")
         merged = self._merge_informative(merged, four_hour, minutes=240, prefix="")
-        merged = self._merge_informative(merged, btc, minutes=240, prefix="btc_")
+
+        # Legacy V8/V9 strategies explicitly depend on BTC 4h for altcoin regime.
+        # V10 deliberately has no such callback, so BTC data is not merged and
+        # cannot influence its ETH/SOL decisions.
+        btc_callback = getattr(self.strategy, "populate_indicators_btc_4h", None)
+        if callable(btc_callback):
+            btc = self._normalize(btc_4h)
+            btc = btc_callback(btc, {"pair": "BTC/USDT"})
+            merged = self._merge_informative(
+                merged, btc, minutes=240, prefix="btc_"
+            )
+
         merged = self.strategy.populate_entry_trend(merged, {"pair": pair})
         merged = self.strategy.populate_exit_trend(merged, {"pair": pair})
 
@@ -155,15 +172,27 @@ class V8ReplayAdapter:
         feature_names = (
             "fresh_breakout_4h",
             "donchian_entry_4h",
+            "breakout_24",
+            "breakout_20",
+            "breakout_16",
             "atr_4h",
             "adx_4h",
             "rsi_4h",
             "momentum_30d_4h",
             "ema_fast_rising_4h",
+            "ema_exec_4h",
+            "ema_fast_4h",
+            "ema_slow_4h",
+            "ema_exec_1h",
+            "ema_fast_1h",
+            "ema_slow_1h",
+            "adx_1h",
+            "rsi_1h",
             "ema_exec",
             "ema_fast",
             "atr_pct",
             "rsi",
+            "adx",
             "volume",
             "volume_ratio",
             "btc_close_4h",
@@ -188,14 +217,20 @@ class V8ReplayAdapter:
                     continue
                 try:
                     number = float(value)
-                    if number == number and abs(number) != float("inf"):
+                    if math.isfinite(number):
                         features[name] = number
                 except (TypeError, ValueError):
                     features[name] = str(value)
+
             breakout = row.get("donchian_entry_4h")
-            atr_4h = row.get("atr_4h")
-            breakout_value = float(breakout) if breakout == breakout else None
-            atr_value = float(atr_4h) if atr_4h == atr_4h else None
+            if breakout is None:
+                for candidate in ("breakout_24", "breakout_20", "breakout_16"):
+                    candidate_value = row.get(candidate)
+                    if candidate_value is not None:
+                        breakout = candidate_value
+                        break
+            breakout_value = self._finite_float(breakout)
+            atr_value = self._finite_float(row.get("atr_4h"))
             close_4h = features.get("close_4h")
             if (
                 breakout_value is not None
@@ -206,6 +241,7 @@ class V8ReplayAdapter:
                 features["breakout_distance_atr"] = (
                     close_4h - breakout_value
                 ) / atr_value
+
             btc_values = [
                 features.get("btc_close_4h"),
                 features.get("btc_ema_fast_4h"),
@@ -220,6 +256,7 @@ class V8ReplayAdapter:
                     and btc_rising > 0
                     and btc_momentum > 0
                 )
+
             decisions.append(
                 StrategyDecision(
                     pair=pair,

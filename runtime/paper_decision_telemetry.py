@@ -1,8 +1,9 @@
-"""Behavior-preserving paper decision capture for later replay parity checks.
+"""Behavior-preserving paper decision capture for replay/parity analysis.
 
-All wrappers call the original V8 callbacks exactly once and return their exact
-result. Telemetry failures are swallowed so observability can never place or
-block an order. No credentials or full config are written.
+All wrappers call the original strategy callbacks exactly once and return their
+exact result. Telemetry failures are swallowed so observability can never place
+or block an order. Pair-local candidates additionally record regime, selected
+strategy family and NO_TRADE reason without feeding telemetry back into trading.
 """
 
 from __future__ import annotations
@@ -51,6 +52,18 @@ def _safe_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if number == number and abs(number) != float("inf") else None
+
+
+def _safe_text(value: Any) -> str | None:
+    try:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text or text.lower() in {"nan", "none"}:
+            return None
+        return text
+    except Exception:
+        return None
 
 
 def _iso(value: Any) -> str | None:
@@ -110,7 +123,7 @@ def _safe_config_fingerprint(config: dict[str, Any]) -> str:
 
 def _risk_policy_fingerprint(config: dict[str, Any], strategy_sha256: str) -> str:
     payload = {
-        "policy_version": "v8-paper-risk-observation-v1",
+        "policy_version": "paper-risk-observation-v1",
         "strategy_sha256_raw": strategy_sha256,
         **{
             name: config.get(name)
@@ -144,7 +157,11 @@ def _git_sha() -> str | None:
 
 class PaperDecisionRecorder:
     def __init__(
-        self, config: dict[str, Any], strategy_sha256: str, strategy_name: str
+        self,
+        config: dict[str, Any],
+        strategy_sha256: str,
+        strategy_name: str,
+        strategy_version: str | None = None,
     ) -> None:
         root = Path(str(config.get("user_data_dir", "user_data"))) / "paper_telemetry"
         root.mkdir(parents=True, exist_ok=True)
@@ -155,10 +172,17 @@ class PaperDecisionRecorder:
         )
         self.strategy_sha256 = strategy_sha256
         self.strategy_name = strategy_name
+        self.legacy_unversioned = strategy_version is None
+        self.strategy_version = strategy_version or "UNKNOWN"
+        default_experiment = (
+            "V8-PAPER-FORWARD"
+            if self.legacy_unversioned
+            else f"{self.strategy_version}-PAPER-FORWARD"
+        )
         configured_experiment = os.environ.get(
-            "AI_TRADING_EXPERIMENT_ID", "V8-PAPER-FORWARD"
+            "AI_TRADING_EXPERIMENT_ID", default_experiment
         ).strip()
-        self.experiment_id = configured_experiment or "V8-PAPER-FORWARD"
+        self.experiment_id = configured_experiment or default_experiment
         self.git_sha = _git_sha()
         self.config_hash = _safe_config_fingerprint(config)
         self.risk_policy_hash = _risk_policy_fingerprint(config, strategy_sha256)
@@ -172,6 +196,7 @@ class PaperDecisionRecorder:
                 "run_id": self.run_id,
                 "git_sha": self.git_sha,
                 "strategy_name": self.strategy_name,
+                "strategy_version": self.strategy_version,
                 "strategy_sha256_raw": self.strategy_sha256,
                 "config_hash": self.config_hash,
                 "risk_policy_hash": self.risk_policy_hash,
@@ -197,20 +222,42 @@ class PaperDecisionRecorder:
             if self._last_signal_candle.get(key) == candle_open:
                 return
             self._last_signal_candle[key] = candle_open
+
+            # Keep legacy V8 fields for parity readers while adding pair-local
+            # candidate diagnostics. Missing columns are simply omitted.
             fields = (
                 "fresh_breakout_4h",
                 "donchian_entry_4h",
                 "atr_4h",
                 "adx_4h",
+                "adx_1h",
                 "rsi_4h",
+                "rsi_1h",
                 "momentum_30d_4h",
                 "ema_fast_rising_4h",
                 "ema_exec",
                 "ema_fast",
+                "ema_slow",
                 "atr_pct",
                 "rsi",
+                "adx",
                 "volume",
                 "volume_ratio",
+                "bb_width",
+                "bb_width_1h",
+                "bb_lower",
+                "bb_mid",
+                "bb_upper",
+                "orb_high",
+                "orb_low",
+                "orb_range_pct",
+                "orb_breakout_recent",
+                "tenkan",
+                "kijun",
+                "cloud_top",
+                "cloud_bottom",
+                "future_cloud_bull",
+                "chikou_clear",
                 "btc_close_4h",
                 "btc_ema_fast_4h",
                 "btc_ema_slow_4h",
@@ -233,6 +280,10 @@ class PaperDecisionRecorder:
                 and close_4h is not None
             ):
                 features["breakout_distance_atr"] = (close_4h - breakout) / atr_4h
+
+            # Backward-compatible V8 diagnostic only. Current pair-local
+            # candidates have no btc_* columns, so this cannot create a
+            # cross-pair dependency in the active V12.15 path.
             btc_values = [
                 features.get("btc_close_4h"),
                 features.get("btc_ema_fast_4h"),
@@ -247,6 +298,7 @@ class PaperDecisionRecorder:
                     and btc_rising > 0
                     and btc_momentum > 0
                 )
+
             enter_long = bool(row.get("enter_long", 0) == 1)
             exit_long = bool(row.get("exit_long", 0) == 1)
             self.write(
@@ -257,11 +309,14 @@ class PaperDecisionRecorder:
                     "candle_open_utc": candle_open,
                     "candle_close_utc": _candle_close_iso(row.get("date")),
                     "reference_price": _safe_float(row.get("close")),
+                    "regime_state": _safe_text(row.get("regime_state")),
+                    "strategy_family": _safe_text(row.get("route_family")),
+                    "no_trade_reason": _safe_text(row.get("no_trade_reason")),
                     "entry_candidate": enter_long,
                     "enter_long": enter_long,
                     "exit_long": exit_long,
-                    "enter_tag": str(row.get("enter_tag")) if enter_long else None,
-                    "exit_tag": str(row.get("exit_tag")) if exit_long else None,
+                    "enter_tag": _safe_text(row.get("enter_tag")) if enter_long else None,
+                    "exit_tag": _safe_text(row.get("exit_tag")) if exit_long else None,
                     "features": features,
                 }
             )
@@ -283,7 +338,10 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
         return
 
     recorder = PaperDecisionRecorder(
-        instance.config, strategy_sha256, type(instance).__name__
+        instance.config,
+        strategy_sha256,
+        type(instance).__name__,
+        _safe_text(getattr(instance, "STRATEGY_VERSION", None)),
     )
     original_entry = instance.populate_entry_trend
     original_exit = instance.populate_exit_trend
@@ -344,7 +402,13 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
                 "entry_tag": entry_tag,
                 "entry_allowed": result,
                 "entry_rejection_reason": (
-                    None if result else "v8_confirm_trade_entry_rejected"
+                    None
+                    if result
+                    else (
+                        "v8_confirm_trade_entry_rejected"
+                        if recorder.legacy_unversioned
+                        else "strategy_confirm_trade_entry_rejected"
+                    )
                 ),
                 "allowed": result,
             }
@@ -359,6 +423,7 @@ def install_paper_strategy_telemetry(instance: Any, strategy_sha256: str) -> Non
         {
             "type": "paper_telemetry_started",
             "strategy": type(instance).__name__,
+            "strategy_version": _safe_text(getattr(instance, "STRATEGY_VERSION", None)),
             "dry_run": True,
             "timeframe": getattr(instance, "timeframe", None),
         }

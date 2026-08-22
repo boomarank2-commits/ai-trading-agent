@@ -6,10 +6,12 @@ The original research/prompt layer in this repository was cloned from:
 - Upstream commit: `11ac32173cdd993af517265cac502e5d914c997d`
 - Upstream license: MIT; the original `LICENSE` and copyright notice are retained.
 
-The upstream `README.md`, `SKILL.md`, `skills/`, `prompts/`, `loop/`, `examples/`, and original
-documentation describe an AI research workflow backed by the proprietary Trader Dev MCP service.
-They do not contain a backtest engine or a live order executor and explicitly prohibit live orders
-from research loops.
+The upstream project described an AI research workflow backed by the proprietary Trader Dev MCP
+service. It did not contain this backtest engine or a live order executor. This focused fork keeps
+only the `loop/` role files still referenced by `research/desk.json`; unused upstream README,
+skill/prompt/example packages, contribution material, and promotional documentation were removed
+in the repository cleanup. The original license, copyright notice, commit reference, and this
+provenance record remain intact.
 
 ## Local additions
 

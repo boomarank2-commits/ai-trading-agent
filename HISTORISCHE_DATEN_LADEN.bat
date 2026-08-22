@@ -2,6 +2,7 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONDONTWRITEBYTECODE=1"
 title Historische Binance-Daten fuer V8 Replay
 
 echo ================================================================

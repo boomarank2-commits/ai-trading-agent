@@ -11,7 +11,14 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-EXPECTED_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+EXPECTED_PAIRS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+]
 
 
 def _exact(label: str, actual: Any, expected: Any) -> None:
