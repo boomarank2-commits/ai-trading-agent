@@ -38,6 +38,11 @@ Der verbindliche Weiterentwicklungsplan steht in [`RESEARCH_MASTERPLAN_DE.md`](R
 
 Der konkrete Soll/Ist-Abgleich gegen die aktuellen Deep-Research-Berichte steht in [`docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`](docs/DEEP_RESEARCH_GAP_AUDIT_DE.md). Dort werden vorhandene, teilweise vorhandene und noch fehlende Teile ausdrücklich getrennt. Ein vorhandenes Grundgerüst darf nicht als fertige Umsetzung ausgegeben werden.
 
+Das neue Zielbild mit zehn Paaren, getrennten Ein-/Drei-Jahres-Einzeltests und
+einem gemeinsamen 250-USDT-Portfolio steht in
+[`docs/ZEHN_PAARE_ROADMAP_DE.md`](docs/ZEHN_PAARE_ROADMAP_DE.md). Aktuell sind
+sechs Paare aktiv; vier weitere müssen einzeln und schrittweise validiert werden.
+
 ## Zielbild
 
 Langfristig entsteht kein einzelner ständig handelnder Bot, sondern eine deterministische Multi-Strategy Execution Engine mit separater AI Research Plane.
@@ -105,6 +110,11 @@ Alle sechs Pairs laufen dabei gemeinsam auf einem Konto. „Alle 14 Backtests“
 ergänzt diese echte Portfolio-Sicht um zwölf Einzelpaar-Zellen zur Attribution
 und zeigt, wie viel Kapitalzeit tatsächlich genutzt wurde. Der gesperrte Runner
 prüft dabei die wirklich verwendeten Strategy-, Config- und Candle-Dateien.
+
+Für das spätere Zehn-Paare-Ziel bleibt diese Trennung erhalten: Jedes Paar erhält
+einen eigenen Ein-/Drei-Jahres-Diagnoselauf mit 250 USDT Startwert; maßgeblich
+ist danach jedoch ausschließlich der gemeinsame chronologische Portfoliolauf mit
+einem einzigen 250-USDT-Wallet und höchstens drei 80-USDT-Positionen insgesamt.
 
 Für lokale historische Backtests kann außerdem verwendet werden:
 

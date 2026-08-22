@@ -524,3 +524,39 @@ Walk-Forward-/PBO-/DSR-/Plateau-Gates. Erst nach deren dokumentiertem Bestehen
 darf Bollinger als separate 15m-Range-Familie (20/2-Default, unteres Band
 berühren/unterschreiten, Schluss zurück im Band, kausales Range-Regime, Exit am
 Mittelband, long-only, kein DCA) vorregistriert und implementiert werden.
+
+## Verbindliches neues Ziel: zehn Paare, weiterhin nur 250 USDT
+
+Der Nutzer hat am 22.08.2026 als langfristiges Universumsziel insgesamt zehn
+Spot-Paare festgelegt. Die vollständige Spezifikation und Reihenfolge steht in
+`docs/ZEHN_PAARE_ROADMAP_DE.md` und muss von späteren Bearbeitern vor Änderungen
+vollständig gelesen werden.
+
+Wichtige Klarstellung: V12.15 enthält bereits BTC, ETH, SOL, XRP, BNB und DOGE.
+Damit sind sechs der zehn Zielpaare vorhanden; es fehlen vier, nicht sieben.
+XRP, BNB und DOGE zählen bereits als drei Erweiterungen des ursprünglichen
+BTC-/ETH-/SOL-Kerns. ADA wurde als siebtes Paar getestet, wegen verschlechterter
+gemeinsamer Slot-Chronologie verworfen und darf nicht mit identischem
+Fingerabdruck auf demselben Fenster wiederholt werden.
+
+Jedes der späteren zehn Paare soll separat mit 250 USDT Startwert über feste
+Ein- und Drei-Jahres-Fenster diagnostiziert werden. Diese Einzeltests sind keine
+zehn Live-Wallets und dürfen nicht summiert werden. Der entscheidende
+Gesamttest verwendet alle aktiven Paare chronologisch auf **einem** gemeinsamen
+250-USDT-Wallet, höchstens drei Positionen zu je 80 USDT und maximal 240 USDT
+Gesamtengagement. Strategy-/Config-/Datenhash, Gebühren, Stops, ROI, Exits,
+Protections und verwendete Dateien müssen dem zugehörigen Botstand entsprechen.
+
+Der Nutzerwunsch, notfalls drei getrennte 80-USDT-Slots im selben Paar zu
+belegen, ist dokumentiert, aber technisch noch nicht aktiv: V12.15 erlaubt nur
+einen offenen Trade je Paar und hat Position Adjustment/DCA deaktiviert. Eine
+Mehrfachbelegung desselben Paares wäre ein eigener Portfolio-/Execution-
+Challenger mit Konzentrations-, Stop-, Restart- und Reconciliation-Tests. Bis
+zu dessen ausdrücklicher Validierung bleiben höchstens drei **verschiedene**
+gleichzeitig offene Paare die verbindliche Regel.
+
+Die vier fehlenden Paare werden nacheinander vorregistriert, einzeln getestet
+und jeweils in einem neuen gemeinsamen Portfolio geprüft. Kein Bearbeiter darf
+vier Paare gleichzeitig hinzufügen, das Gesamtwallet auf 2.500 USDT erhöhen,
+zehn Einzelresultate addieren oder einen positiven Einzeltest automatisch als
+Portfolio-Promotion behandeln.
