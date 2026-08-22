@@ -477,3 +477,50 @@ zurückgeführt. Lehre: Ein positiver Zusatzmarkt kann im geteilten 250-USDT-
 Wallet durch Slot-Verdrängung trotzdem den Kern verschlechtern. ADA nicht auf
 demselben historischen Fenster weiteroptimieren. V12.15 bleibt der aktive
 Paper-/Dry-run-Kandidat; keine Echtgeldfreigabe.
+
+## Infrastrukturprüfung vor einem eigenständigen Bollinger-Challenger
+
+Zeitpunkt: 22.08.2026. Es wurde noch keine Bollinger-Strategie implementiert,
+vorregistriert oder finanziell getestet. Der verbindliche Masterplan verlangt
+zuerst Replay-/Paritäts-, Kosten-, Diagnose- und Meta-Research-Gates.
+
+Bei der Vorbereitung fiel auf, dass der als eingefrorener V8-Replay bezeichnete
+Runner die aktive Datei unter `runtime/user_data/strategies/` lud. Damit hätte
+ein V12.15-Lauf fälschlich als V8-Evidenz erscheinen können. Der Runner lädt nun
+ausschließlich `research/baselines/V8/CompressionBreakout250.py`, prüft vor dem
+Start den festgeschriebenen LF-SHA-256
+`9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280`
+und schreibt Raw- sowie LF-Hash ins Abschlussmanifest. Außerdem bestimmt das
+automatische Enddatum jetzt das gemeinsame Ende aller drei Paare und aller vier
+benötigten Zeitrahmen statt nur der 1m-Dateien.
+
+Ein lokaler Ablauf-Preflight vom 01.08. bis 08.08.2026 verarbeitete 10.080
+Minuten, erzeugte 2.016 Signalentscheidungen, las genau 12 Candle-Sätze und
+schloss mit vollständigem Manifest. In diesem kurzen Zeitfenster entstand kein
+Trade; der Lauf ist deshalb ein Techniknachweis und ausdrücklich keine
+Performance-Evidenz.
+
+Der Paper-/Replay-Vergleich war zusätzlich zu schwach: Er konnte bisher
+verschiedene Strategie-, Config- oder Risk-Policy-Stände vergleichen und den
+Exit-Code nur an der Signalfolge festmachen. Er schlägt nun bei fehlendem
+Abschlussmanifest, Hash-Abweichung, fehlender Signalparität oder fehlender
+Risk-Parität geschlossen fehl. Die 40 Replay-Tests bestanden.
+
+Die vorhandenen, als `V8-PAPER-FORWARD` bezeichneten Aufzeichnungen vom
+16.08.2026 sind nicht verwendbar: Ihre Raw-Strategiehashes lauten
+`c0e7ec274987d9194b4f950c4a982be7fa58e7c021ffb00dc1f4cbb4da06f747`
+und `bbe343c02d0d3bdeeb7b8ef7f2549a307f6fbb2e0a8bea8e0c138a60ef49aa66`
+statt `a079c7fe73b151618ddc48559763d70da990a35d9d424fea6b0458463cdff8fc`;
+zudem enthalten beide nur je 12 Signalzeilen. Der reale Vergleich bestätigte
+zusätzlich abweichende Config- und Risk-Policy-Hashes sowie keinen
+überlappenden Replay-Zeitraum.
+
+Konsequenz: **Bollinger bleibt blockiert und V12.15 unverändert aktiv.** Der
+nächste Bearbeiter darf nicht einfach einen Bollinger-Backtest starten. Zuerst
+muss ein frischer, exakt hashgleicher Paper-Zeitraum gesammelt werden, ohne eine
+bestehende Nutzerinstanz ungefragt anzufassen. Danach folgen passender Replay,
+mehrjähriger Full-History-Lauf, Fee-Stress, Diagnostik sowie die noch offenen
+Walk-Forward-/PBO-/DSR-/Plateau-Gates. Erst nach deren dokumentiertem Bestehen
+darf Bollinger als separate 15m-Range-Familie (20/2-Default, unteres Band
+berühren/unterschreiten, Schluss zurück im Band, kausales Range-Regime, Exit am
+Mittelband, long-only, kein DCA) vorregistriert und implementiert werden.

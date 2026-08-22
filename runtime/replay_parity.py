@@ -25,6 +25,69 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def compare_artifact_contracts(paper_path: Path, replay_path: Path) -> dict[str, Any]:
+    """Fail closed when paper and replay do not describe the same runtime."""
+
+    paper_rows = _jsonl(paper_path)
+    paper_header = next(
+        (row for row in paper_rows if row.get("type") == "paper_telemetry_started"),
+        None,
+    )
+    manifest_path = replay_path.parent / "manifest.json"
+    replay_manifest: dict[str, Any] | None = None
+    if manifest_path.is_file():
+        value = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if isinstance(value, dict):
+            replay_manifest = value
+
+    reasons: list[str] = []
+    if paper_header is None:
+        reasons.append("paper telemetry header is missing")
+    if replay_manifest is None:
+        reasons.append("completed replay manifest is missing")
+
+    comparisons: dict[str, dict[str, Any]] = {}
+    if paper_header is not None and replay_manifest is not None:
+        for name, paper_value, replay_value in (
+            (
+                "strategy_name",
+                paper_header.get("strategy_name"),
+                replay_manifest.get("strategy_name"),
+            ),
+            (
+                "strategy_sha256_raw",
+                paper_header.get("strategy_sha256_raw"),
+                replay_manifest.get("strategy_sha256_raw"),
+            ),
+            (
+                "config_hash",
+                paper_header.get("config_hash"),
+                replay_manifest.get("paper_config_hash"),
+            ),
+            (
+                "risk_policy_hash",
+                paper_header.get("risk_policy_hash"),
+                replay_manifest.get("paper_risk_policy_hash"),
+            ),
+        ):
+            same = bool(paper_value) and paper_value == replay_value
+            comparisons[name] = {
+                "paper": paper_value,
+                "replay": replay_value,
+                "same": same,
+            }
+            if not same:
+                reasons.append(f"{name} differs or is missing")
+
+    return {
+        "compatible": not reasons,
+        "reasons": reasons,
+        "comparisons": comparisons,
+        "paper_header_found": paper_header is not None,
+        "completed_replay_manifest_found": replay_manifest is not None,
+    }
+
+
 def compare_signal_decisions(paper_path: Path, replay_path: Path) -> dict[str, Any]:
     paper_rows = [
         row
@@ -137,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     result = {
+        "contract": compare_artifact_contracts(args.paper, args.replay),
         "signals": compare_signal_decisions(args.paper, args.replay),
         "risk": compare_runtime_confirmations(args.paper, args.replay),
     }
@@ -145,7 +209,12 @@ def main(argv: list[str] | None = None) -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(raw, encoding="utf-8", newline="\n")
     print(raw, end="")
-    return 0 if result["signals"]["signal_parity"] else 2
+    passed = (
+        result["contract"]["compatible"]
+        and result["signals"]["signal_parity"]
+        and result["risk"]["risk_confirmation_parity"]
+    )
+    return 0 if passed else 2
 
 
 if __name__ == "__main__":
