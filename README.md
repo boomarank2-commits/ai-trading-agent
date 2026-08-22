@@ -31,6 +31,8 @@ nicht verschwiegen, nicht als vollständig bestanden bezeichnet und durch seinen
 versionierten Fingerabdruck nicht identisch wiederholt.
 V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 wurde vorab
 registriert, bestand alle Gates und ist der aktive Paper-/Dry-run-Kandidat.
+V12.16 (ADA-Erweiterung) ist als verworfener, nicht zu wiederholender Versuch
+in der Research-Akte erhalten.
 
 ## Start und Auswertung
 

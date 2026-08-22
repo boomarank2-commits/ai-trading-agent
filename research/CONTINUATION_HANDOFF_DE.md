@@ -415,3 +415,65 @@ keine Echtgeldfreigabe und kein Profitversprechen. Der laufende Bot darf nur
 dieselbe Strategy-/Config-Logik laden. Nächster sinnvoller Schritt ist frische
 Dry-run-Evidenz oder ein vorab festgelegtes, nicht identisches Validierungsfenster;
 der exakte Drei-Jahres-Fingerabdruck ist dauerhaft gesperrt.
+
+## Vorabregistrierter nächster Versuch: V12.16
+
+Zeitpunkt der Festlegung: 22.08.2026, **vor jeder V12.16-Codeänderung und vor
+jedem ADA-Strategieergebnis**.
+
+V12.15 bleibt der feste Rückfallstand. V12.16 verändert genau eine große
+Dimension: `ADA/USDT` wird als siebter Spot-Markt in die bereits vorhandene
+Broad-Core-Gruppe aufgenommen. ADA erhält exakt dieselben Entry-, Exit-,
+Stoploss-, Protection- und Stake-Regeln wie SOL/XRP/BNB/DOGE. Es gibt keinen
+ADA-spezifischen Parameter, keinen Reclaim-Einstieg und keine nachträgliche
+Optimierung. Wallet 250 USDT, Stake 80 USDT, maximal drei Positionen,
+Gebührenannahme 0,2 % je Seite und 1m-Detail bleiben unverändert.
+
+Auswahlgrund: ADA wurde vor Kenntnis eines ADA-Strategieergebnisses aus einer
+öffentlichen Binance-Spot-Liquiditätsprüfung als reifer, liquider, nicht
+gehebelter Nicht-Stablecoin gewählt. Neue Hype-Paare, Stablecoins sowie
+gehebelte/Sonderprodukte wurden ausgeschlossen. Die Hypothese lautet: Ein
+zusätzlicher liquider Markt schafft mehr unabhängige Einstiegschancen und nutzt
+das Kapital häufiger, ohne die Qualität des bestehenden Sechs-Pair-Kerns zu
+verschlechtern.
+
+### Unveränderliche Annahmekriterien V12.16
+
+V12.16 wird nur übernommen, wenn der einzige exakte Drei-Jahres-Lauf:
+
+1. den formalen Audit mit genau 28 erwarteten Candle-Sätzen besteht;
+2. mehr als 295,409 USDT Nettogewinn und mehr als 545,409 USDT Endkapital erzielt;
+3. Profit Factor mindestens 2,5554 erreicht;
+4. geschlossenen Drawdown höchstens 10 % hält;
+5. mehr als 23,07 % Kapitalzeit und weniger als 61,33 % Zeit ohne Position erreicht;
+6. alle sieben Pairs positiv hält;
+7. den ursprünglichen Sechs-Pair-Kern zusammen nicht unter den V12.12-Gewinn
+   von 288,646 USDT drückt;
+8. die seltene ROI-Gewinnquelle sichtbar erhält;
+9. alle Paritäts-, Sicherheits-, Unit- und Governance-Tests besteht.
+
+Tradezahl und ADA-Einzelgewinn sind nur Diagnosewerte. Kein Gate wird nach
+Kenntnis des Ergebnisses gelockert. Bei einem FAIL bleiben Ergebnis,
+Fingerabdruck und Begründung dokumentiert; aktive Strategy, Config, UI und
+Startskripte werden vollständig auf V12.15 zurückgesetzt. Derselbe
+Fingerabdruck darf nie erneut ausgeführt werden.
+
+## Abgeschlossenes Ergebnis V12.16 und Rückkehr auf V12.15
+
+Der einzige Lauf `20260822T202801Z-699e3b83` verwendete Commit `4725766`,
+Strategy-Hash `9ad6f3e96d0f440a8a9cf4029cb6f64b7f6b73aba6ab524310f192797c1b6acf`
+und Fingerabdruck `5b791472759974c22f2b5dad4f426247c53c9643938deaa0b7c4c96344510f65`.
+Der Audit bestand mit genau 28 Candle-Sätzen, ohne Lücken, Duplikate,
+unerwartete Repo-Lesezugriffe oder Kindprozesse.
+
+V12.16 erreichte 548,135 USDT Endkapital (+298,135), 122 Trades, Profit
+Factor 2,5356, 11,84 % Drawdown, 24,37 % Kapitalzeit und 60,50 % Zeit ohne
+Position. ADA war mit +27,809 USDT positiv. Dennoch wurde SOL mit −1,025 USDT
+negativ und die ursprünglichen sechs Pairs fielen zusammen auf 270,326 USDT.
+Damit scheiterten Profit-Factor-, Drawdown-, All-Pairs- und Kernschutz-Gate.
+
+Entscheidung: **REJECT.** Die aktive Technik wurde exakt auf V12.15
+zurückgeführt. Lehre: Ein positiver Zusatzmarkt kann im geteilten 250-USDT-
+Wallet durch Slot-Verdrängung trotzdem den Kern verschlechtern. ADA nicht auf
+demselben historischen Fenster weiteroptimieren. V12.15 bleibt der aktive
+Paper-/Dry-run-Kandidat; keine Echtgeldfreigabe.

@@ -24,7 +24,8 @@ V12.15 verwendet wieder die vollständige V12.12-Signallogik und deren
 pair-lokale Pause nach zwei Verlusten. Die einzige Strategieänderung ist ein
 später Gewinn-Ratchet nur für Champion-Donchian-Trades: erst ab +30 % laufendem
 Gewinn wird ein +5-%-Boden gesetzt. Sechs Pairs, alle normalen Exits und die
-250/80/3-Kapitalgrenzen bleiben unverändert.
+250/80/3-Kapitalgrenzen bleiben unverändert. V12.16 mit ADA wurde nach dem
+vorab registrierten Drei-Jahres-Test verworfen und technisch zurückgebaut.
 
 Der einzige V12.12-Drei-Jahres-Lauf lieferte eine starke diagnostische
 Verbesserung, scheiterte aber formal am ersten nativen Candle-Dateiaudit. Der
