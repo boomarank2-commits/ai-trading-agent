@@ -8,7 +8,7 @@ Aktueller Entwicklungszweig: `agent/v12-adaptive-league`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.12"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.15"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
@@ -24,21 +24,23 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.12 macht
+## Was V12.15 macht
 
 Alle sechs Pairs werden unabhängig voneinander bewertet. Jedes Pair nutzt nur
-seine eigenen 15m/1h/4h-Daten. V12.12 verändert keine Schwelle der V12.9-Logik.
+seine eigenen 15m/1h/4h-Daten. V12.15 behält alle V12.12-Schwellen und Exits.
 
-- BTC und ETH testen zusätzlich einen separat markierten EMA20-Trend-Reclaim.
+- BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
 - SOL, XRP, BNB und DOGE verwenden keinen Reclaim-Challenger, sondern nur den
   bereits vorhandenen breiten Donchian-Kern.
 - Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
   pair-lokale `LowProfitPairs`-Protection dieses Pair für 72 Stunden.
+- Nur bei Champion-Donchian-Trades wird nach mindestens +30 % laufendem Gewinn
+  ein +5-%-Stopboden gesetzt; Reclaims und normale Bewegungen bleiben unberührt.
 - Der feste Stop-Loss bleibt bei −5,5 %; DCA und Shorting bleiben deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.12 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
-Universumserweiterung erhöht weder Positionsgröße noch Maximalengagement.
+V12.15 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI
 

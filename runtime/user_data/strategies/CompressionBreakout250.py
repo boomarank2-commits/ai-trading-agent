@@ -1,15 +1,15 @@
-"""V12.12 V12.9 core with a controlled liquid-universe expansion.
+"""V12.15 V12.12 core with a late champion-profit ratchet.
 
 V12.9 keeps every V12.8 champion entry path intact, removes the SOL +5% -> +1%
 profit ratchet after the exact 1m-detail backtest showed that it clipped the
 economics of the broader SOL core, and adds one deliberately simple challenger:
 a causal 15m EMA20 reclaim inside an already-established 1h/4h uptrend.
 
-The V12.9 signal and exit thresholds remain unchanged. XRP, BNB and DOGE are
-added as one isolated universe experiment and receive only the already-existing
-broad slow-Donchian core used by SOL. They do not receive the BTC/ETH reclaim
-challenger or any newly tuned threshold. Every pair retains its own pair-local
-loss-cluster wall. Large winners remain uncapped.
+The V12.12 pair universe, signal thresholds, BTC/ETH reclaim paths, exits and
+loss protections remain unchanged. The only decision change is a deliberately
+late profit ratchet for champion-Donchian trades: after at least +30% open
+profit, the stop may rise to +5% from entry. Reclaims do not use the ratchet.
+Before +30%, the original hard stop remains unchanged.
 
 Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
 stretch objective, not an optimization constraint. No threshold is allowed to
@@ -29,15 +29,21 @@ from typing import Any, ClassVar
 
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
+from freqtrade.strategy import (
+    DecimalParameter,
+    IntParameter,
+    IStrategy,
+    informative,
+    stoploss_from_open,
+)
 from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.12: unchanged V12.9 logic across a six-pair liquid universe."""
+    """V12.15: V12.12 signals with a +30% to +5% champion ratchet."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.12"
+    STRATEGY_VERSION = "V12.15"
 
     can_short = False
     timeframe = "15m"
@@ -145,7 +151,7 @@ class CompressionBreakout250(IStrategy):
     minimal_roi: ClassVar[dict[str, float]] = {"0": 0.50}
     stoploss = -0.055
     trailing_stop = False
-    use_custom_stoploss = False
+    use_custom_stoploss = True
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
@@ -477,7 +483,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[champion_signal, "no_trade_reason"] = ""
         dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_12_{asset}_champion_donchian",
+            f"v12_15_{asset}_champion_donchian",
         )
 
         if pair in self.RECLAIM_PROFILES:
@@ -523,7 +529,7 @@ class CompressionBreakout250(IStrategy):
             dataframe.loc[reclaim_signal, "no_trade_reason"] = ""
             dataframe.loc[reclaim_signal, ["enter_long", "enter_tag"]] = (
                 1,
-                f"v12_12_{asset}_trend_reclaim",
+                f"v12_15_{asset}_trend_reclaim",
             )
 
         return dataframe
@@ -538,7 +544,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_12_slow_trend_exit")
+        ] = (1, "v12_15_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -576,6 +582,29 @@ class CompressionBreakout250(IStrategy):
         except Exception:
             return
 
+    def custom_stoploss(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        after_fill: bool,
+        **kwargs: Any,
+    ) -> float | None:
+        """Lock one initial risk unit only after an exceptional champion move."""
+
+        del pair, current_time, current_rate, after_fill, kwargs
+        enter_tag = str(getattr(trade, "enter_tag", "") or "")
+        if "_champion_donchian" not in enter_tag or current_profit < 0.30:
+            return None
+        return stoploss_from_open(
+            0.05,
+            current_profit,
+            is_short=bool(getattr(trade, "is_short", False)),
+            leverage=float(getattr(trade, "leverage", 1.0) or 1.0),
+        )
+
     def custom_exit(
         self,
         pair: str,
@@ -607,9 +636,9 @@ class CompressionBreakout250(IStrategy):
                     and float(current_rate)
                     < float(ema_fast) - 0.50 * float(atr_15m)
                 ):
-                    return f"v12_12_{pair.split('/')[0].lower()}_reclaim_failed"
+                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_failed"
                 if age_hours >= 48.0:
-                    return f"v12_12_{pair.split('/')[0].lower()}_reclaim_time_stop"
+                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_time_stop"
                 return None
 
             if current_profit >= 0:
@@ -629,7 +658,7 @@ class CompressionBreakout250(IStrategy):
                 return None
             failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_12_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_15_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None

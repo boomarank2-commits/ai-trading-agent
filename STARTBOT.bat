@@ -5,16 +5,16 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.12: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   TESTBOT V12.15: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.12 behaelt alle Signal- und Exit-Schwellen von V12.9 unveraendert.
-echo BTC/ETH testen zusaetzlich einen separat markierten Trend-Reclaim nach
-echo einem 15m-Pullback innerhalb bestaetigter 1h/4h-Aufwaertstrends.
-echo SOL/XRP/BNB/DOGE nutzen nur den breiteren Donchian-Kern.
+echo V12.15 behaelt alle V12.12-Signale und sechs Pairs unveraendert.
+echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
+echo SOL/XRP/BNB/DOGE handeln ihre unveraenderten Donchian-Kerne.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
-echo innerhalb von 14 Tagen fuer drei Tage. Gewinner bleiben uncapped.
+echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitten.
+echo Nur Champion-Trades sichern nach mindestens +30%% einen +5%%-Gewinnboden.
 echo Forschungsziel: >1 USDT/Tag ist ein Stretch-Ziel, keine Backtest-Zwangsvorgabe.
 echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
 echo Es werden KEINE echten Orders aufgegeben.
@@ -69,7 +69,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=%FREQTRADE__API_SERVER__PASSWORD%-ws"
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.12
+echo Bot Name : Testbot V12.15
 echo Benutzer : testbot
 if "%FIRST_LOGIN_HELP%"=="1" (
     echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%

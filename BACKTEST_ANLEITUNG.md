@@ -9,7 +9,7 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
 Auf dem Branch `agent/v12-adaptive-league` ist diese aktive Strategy-Quelle der
-**V12.12-Dry-run-Kandidat**. Die eingefrorene V8-Baseline unter
+**V12.15-Dry-run-Kandidat**. Die eingefrorene V8-Baseline unter
 `research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
 ## Auswahl
@@ -30,9 +30,12 @@ Der Gesamtportfolio-Modus ist die maßgebliche Sicht auf die Nutzung der echten
 zu je 80 USDT. Die Einzelpaar-Läufe sind nur für Attribution und Diagnose; ihre
 Gewinne dürfen nicht als sechs getrennte 250-USDT-Konten addiert werden.
 
-Alle Signale bleiben **pair-lokal**. V12.12 injiziert kein BTC-Regime in andere
-Pairs. Der zusätzliche, separat markierte Trend-Reclaim ist nur für BTC und ETH
-aktiv; SOL, XRP, BNB und DOGE bleiben beim bestehenden breiten Donchian-Kern.
+Alle Signale bleiben **pair-lokal**. V12.15 injiziert kein BTC-Regime in andere
+Pairs. Die separat markierten Trend-Reclaims sind wie in V12.12 für BTC und ETH
+aktiv; SOL, XRP, BNB und DOGE handeln ausschließlich ihre unveränderten
+Donchian-Kerne. Die ursprüngliche 72-Stunden-Pairpause nach zwei unprofitablen
+Trades bleibt bestehen. Die einzige neue Entscheidung ist ein +5-%-Stopboden
+für Champion-Trades, nachdem sie mindestens +30 % erreicht haben.
 
 ## Benötigte Daten
 

@@ -1,12 +1,12 @@
-# Start hier: V12.12-Testbot, V8-Baseline und Deep-Research-System
+# Start hier: V12.15-Testbot, V8-Baseline und Deep-Research-System
 
 ## Aktueller Stand
 
 Der eingefrorene Research-Champion bleibt `CompressionBreakout250` / V8. Die
 aktuell vom Dry-run-Testbot geladene Kandidatendatei ist jedoch
-`CompressionBreakout250` / **V12.12** auf `agent/v12-adaptive-league`.
+`CompressionBreakout250` / **V12.15** auf `agent/v12-adaptive-league`.
 
-V12.12 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
+V12.15 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
 
 - Binance Spot / USDT
 - BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT
@@ -16,9 +16,15 @@ V12.12 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
 - maximal drei Positionen / 240 USDT Gesamtengagement
 
 V8 bleibt unter `research/baselines/V8/` unverändert für Replay, Reproduktion
-und Research-Governance erhalten. V12.12 verändert diese Baseline nicht.
+und Research-Governance erhalten. V12.15 verändert diese Baseline nicht.
 
-Status: **V12.12 RESEARCH-/PAPER-KANDIDAT – NOT READY FOR REAL MONEY.**
+Status: **V12.15 BESTANDENER PAPER-/DRY-RUN-KANDIDAT – NOT READY FOR REAL MONEY.**
+
+V12.15 verwendet wieder die vollständige V12.12-Signallogik und deren
+pair-lokale Pause nach zwei Verlusten. Die einzige Strategieänderung ist ein
+später Gewinn-Ratchet nur für Champion-Donchian-Trades: erst ab +30 % laufendem
+Gewinn wird ein +5-%-Boden gesetzt. Sechs Pairs, alle normalen Exits und die
+250/80/3-Kapitalgrenzen bleiben unverändert.
 
 Der einzige V12.12-Drei-Jahres-Lauf lieferte eine starke diagnostische
 Verbesserung, scheiterte aber formal am ersten nativen Candle-Dateiaudit. Der
@@ -58,7 +64,7 @@ Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedlich
 
 Der spätere Research-Router ist bereits als fail-closed Contract in
 `runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in die
-aktive V12.12-Kandidatenstrategie verdrahtet und verändert deshalb keine aktuelle
+aktive V12.15-Kandidatenstrategie verdrahtet und verändert deshalb keine aktuelle
 Paper-Handelsentscheidung.
 
 Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
@@ -90,7 +96,7 @@ Die Bedienung des Paperbots steht in [`TESTBOT_ANLEITUNG.md`](TESTBOT_ANLEITUNG.
 
 ## Normaler Backtest
 
-Der integrierte Backtest simuliert die aktuell geladene V12.12-Strategie; es gibt
+Der integrierte Backtest simuliert die aktuell geladene V12.15-Strategie; es gibt
 keine separate zweite Backtest-Strategie.
 
 In der Oberfläche ist **Gesamtportfolio** die maßgebliche 250-USDT-Prüfung.

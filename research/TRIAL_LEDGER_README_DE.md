@@ -89,5 +89,5 @@ und vollständige Resultat-ZIPs bleiben weiterhin lokal außerhalb von Git.
 ```
 
 Der Check prüft unter anderem Masterplan, V8-Freeze, Ledger-Schema,
-Parent-Referenzen, eindeutige Strategy-Hashes, die exakte V12.12-Registrierung und
+Parent-Referenzen, eindeutige Strategy-Hashes, die exakten V12.12- bis V12.15-Registrierungen und
 die vorregistrierten Volume-Schwellen.

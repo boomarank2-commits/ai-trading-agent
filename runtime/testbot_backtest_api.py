@@ -1,6 +1,6 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
-Every run hashes and loads the exact strategy file used by STARTBOT. V12.12 can
+Every run hashes and loads the exact strategy file used by STARTBOT. V12.15 can
 test one selected pair or the real six-pair 250 USDT portfolio. All pairs remain
 independent pair-local engines; portfolio mode changes only the execution/account
 simulation and injects no cross-pair market-regime signal.
@@ -34,6 +34,7 @@ try:
         build_test_identity,
         current_git_commit,
         find_archived_strategy_source,
+        find_git_strategy_source,
         load_config_contract,
         registered_experiment,
         strategy_change_diff,
@@ -50,6 +51,7 @@ except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime
         build_test_identity,
         current_git_commit,
         find_archived_strategy_source,
+        find_git_strategy_source,
         load_config_contract,
         registered_experiment,
         strategy_change_diff,
@@ -149,7 +151,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
 
 
 def _btc_context_pair(pair: str) -> None:
-    """Compatibility hook: pair-local V12.12 never requests another pair as context."""
+    """Compatibility hook: pair-local V12.15 never requests another pair as context."""
 
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
@@ -501,16 +503,17 @@ def _prepare_run_contract(run_id: str, pair: str, years: int) -> tuple[dict[str,
         )
 
     parent = lineage[-2] if len(lineage) > 1 else None
-    parent_source = find_archived_strategy_source(
-        _RESULTS_ROOT, parent.get("strategy_hash", "") if parent else ""
-    )
+    parent_hash = parent.get("strategy_hash", "") if parent else ""
+    parent_source = find_archived_strategy_source(_RESULTS_ROOT, parent_hash)
+    if parent and parent_source is None:
+        parent_source = find_git_strategy_source(_REPO_ROOT, _STRATEGY, parent_hash)
     if parent and parent_source is None:
         raise HTTPException(
             status_code=409,
             detail=(
                 "Backtest gesperrt: Die exakte Strategy-Quelle des Vorgängers ist "
-                "nicht im erhaltenen Archiv auffindbar; die Änderung kann nicht "
-                "zuverlässig geprüft werden."
+                "weder im erhaltenen Archiv noch als exakt hashgleicher Git-Blob "
+                "auffindbar; die Änderung kann nicht zuverlässig geprüft werden."
             ),
         )
     if parent_source and (
@@ -753,7 +756,7 @@ def _execute_backtest(
             for current_pair in pairs
         }
 
-        _set_state(stage="Historische Daten geladen - V12.12 Backtest startet", progress=45)
+        _set_state(stage="Historische Daten geladen - V12.15 Backtest startet", progress=45)
         backtest_args = [
             sys.executable,
             str(_BACKTEST_RUNNER),
@@ -795,7 +798,7 @@ def _execute_backtest(
             "--breakdown",
             "month",
         ]
-        _set_state(stage="V12.12 wird historisch simuliert", progress=60)
+        _set_state(stage="V12.15 wird historisch simuliert", progress=60)
         _run_checked(backtest_args, log_path)
 
         _set_state(stage="Ergebnis und Strategie-Familien werden ausgewertet", progress=92)

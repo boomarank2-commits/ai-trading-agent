@@ -1,11 +1,11 @@
-# AI Trading Agent – lokaler V12.12-Testbot
+# AI Trading Agent – lokaler V12.15-Testbot
 
 Deutscher Einstieg und aktueller Projektstatus: [`START_HERE_DE.md`](START_HERE_DE.md).
 
 Dieses Repository enthält den lokalen Freqtrade-/Binance-Testbot, seine
 Sicherheitsverträge sowie die Werkzeuge für Backtest, Replay, Audit und
 reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
-`CompressionBreakout250` / V12.12 ausschließlich im Paper-/Dry-run-Modus.
+`CompressionBreakout250` / V12.15 ausschließlich im Paper-/Dry-run-Modus.
 
 ## Aktueller Betriebsrahmen
 
@@ -17,16 +17,20 @@ reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
 - kein Futures, Margin, Short, Hebel, DCA, Martingale oder automatische
   Echtgeld-Freigabe
 
-V12.12 verändert keine Signal- oder Exit-Schwelle von V12.9. BTC und ETH
-behalten ihren getrennt markierten EMA20-Trend-Reclaim. XRP, BNB und DOGE sind
-die einzige neue Strategieänderung und nutzen wie SOL ausschließlich den
-bestehenden breiten Donchian-Kern. Alle sechs Märkte verwenden eine pair-lokale
-Sperre gegen Verlustcluster.
+V12.15 übernimmt das vollständige V12.12-Sechs-Pair-Portfolio einschließlich
+der BTC- und ETH-Reclaims sowie der ursprünglichen Verlustsperre nach zwei
+unprofitablen Trades. Als einzige Entscheidungsänderung sichert ein später
+Gewinn-Ratchet bei Champion-Trades nach mindestens +30 % Bewegung einen
++5-%-Boden. Alle langsamen Kerne,
+Schwellen, Exits, Stopps, Positionsgrößen und pair-lokalen Verlustcluster-
+Sperren bleiben unverändert.
 
-Der erste gemeinsame V12.12-Drei-Jahres-Lauf ist als starke, aber formal am
+Der V12.12-Drei-Jahres-Lauf bleibt als starke, aber formal am
 ersten nativen Candle-Dateiaudit gescheiterte Diagnose dokumentiert. Er wird
 nicht verschwiegen, nicht als vollständig bestanden bezeichnet und durch seinen
 versionierten Fingerabdruck nicht identisch wiederholt.
+V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 wurde vorab
+registriert, bestand alle Gates und ist der aktive Paper-/Dry-run-Kandidat.
 
 ## Start und Auswertung
 

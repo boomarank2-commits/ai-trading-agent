@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,9 +11,49 @@ from runtime.backtest_experiment import (
     DETAILED_EXPERIMENT_FIELDS,
     build_test_identity,
     config_contract,
+    find_git_strategy_source,
     registered_experiment,
     strategy_hashes,
 )
+
+
+def test_exact_parent_strategy_can_be_recovered_from_git_history(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    strategy = repo / "runtime" / "user_data" / "strategies" / "Candidate.py"
+    strategy.parent.mkdir(parents=True)
+    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "test@example.invalid"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.name", "Test"],
+        check=True,
+    )
+    parent_source = b"VALUE = 1\n"
+    strategy.write_bytes(parent_source)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "parent"],
+        check=True,
+        capture_output=True,
+    )
+    strategy.write_bytes(b"VALUE = 2\n")
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "candidate"],
+        check=True,
+        capture_output=True,
+    )
+
+    recovered = find_git_strategy_source(
+        repo,
+        strategy,
+        hashlib.sha256(parent_source).hexdigest(),
+    )
+
+    assert recovered == parent_source
+    assert find_git_strategy_source(repo, strategy, "f" * 64) is None
 
 
 def test_logic_hash_ignores_comments_docstrings_and_version_labels() -> None:

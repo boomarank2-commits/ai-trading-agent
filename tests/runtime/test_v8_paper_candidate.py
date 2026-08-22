@@ -17,11 +17,11 @@ def _lf_sha256(path: Path) -> str:
     return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_baseline_is_preserved_and_v12_12_is_active_candidate() -> None:
+def test_v8_baseline_is_preserved_and_v12_15_is_active_candidate() -> None:
     assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
 
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.12"' in text
+    assert 'STRATEGY_VERSION = "V12.15"' in text
     assert "PAIR_PROFILES" in text
     assert "RECLAIM_PROFILES" in text
     assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
@@ -34,9 +34,9 @@ def test_v8_baseline_is_preserved_and_v12_12_is_active_candidate() -> None:
     assert "BOLLINGER_MR" not in text
     assert 'champion_quality = dataframe["volume_ratio"] >= 1.00' in text
     assert '"method": "LowProfitPairs"' in text
-    assert "use_custom_stoploss = False" in text
-    assert "stoploss_from_open" not in text
-    assert "v12_12_" in text
+    assert "use_custom_stoploss = True" in text
+    assert "stoploss_from_open" in text
+    assert "v12_15_" in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert '"only_per_pair": True' in text

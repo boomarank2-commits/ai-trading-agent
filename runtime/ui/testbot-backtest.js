@@ -164,7 +164,31 @@
               <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 14 Backtests</button>
             </div>
           </div>
-          <div class="tb-info">V12.12 ändert keine Signal- oder Exit-Schwelle von V12.9. XRP, BNB und DOGE erweitern ausschließlich das Universum und nutzen wie SOL nur den bestehenden breiten, langsamen Donchian-Kern. Der BTC/ETH-Trend-Reclaim bleibt auf BTC und ETH beschränkt. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test ist die maßgebliche 250-USDT-Sicht. Alle sechs Märkte konkurrieren gemeinsam um höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur der Pair-Attribution und dürfen nicht als sechs getrennte 250-USDT-Konten addiert werden.<br><br><strong>Dateikontrolle:</strong> Der gesperrte Backtest protokolliert geöffnete Repo-, Konfigurations- und Strategy-Dateien. Native Arrow-Candle-Ladevorgänge werden an Freqtrades Dateinamen-Grenze mit SHA-256 vor und nach dem Lauf gebunden. Der Lauf scheitert, wenn eine andere Strategy, eine andere Konfiguration, Kerzen eines nicht angeforderten Pairs oder ein unerwarteter Kindprozess verwendet wird.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Auch ein technisch fehlgeschlagener Versuch mit Ergebnis-ZIP bleibt blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test.<br><br><strong>Alle 14 Backtests</strong> prüft Gesamtportfolio und alle sechs Einzelpaare jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
+          <div class="tb-info">
+            V12.15 übernimmt alle sechs V12.12-Pairs, Signale, Exits und Risikogrenzen.
+            BTC- und ETH-Trend-Reclaim sowie alle Donchian-Kerne bleiben unverändert.
+            Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades
+            innerhalb von 14 Tagen für drei Tage. Nur Champion-Trades erhalten nach
+            mindestens +30 % einen +5-%-Gewinnboden. Der feste -5,5-%-Hard-Stop bleibt
+            bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test
+            ist die maßgebliche 250-USDT-Sicht. Alle sechs Märkte konkurrieren gemeinsam
+            um höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur der
+            Pair-Attribution und dürfen nicht als sechs getrennte 250-USDT-Konten
+            addiert werden.<br><br><strong>Dateikontrolle:</strong> Der gesperrte
+            Backtest protokolliert geöffnete Repo-, Konfigurations- und Strategy-Dateien.
+            Native Arrow-Candle-Ladevorgänge werden an Freqtrades Dateinamen-Grenze mit
+            SHA-256 vor und nach dem Lauf gebunden. Der Lauf scheitert, wenn eine andere
+            Strategy, eine andere Konfiguration, Kerzen eines nicht angeforderten Pairs
+            oder ein unerwarteter Kindprozess verwendet wird.<br><br><strong>Keine
+            Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und
+            das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener
+            Fingerabdruck wird vor Download und Simulation blockiert. Auch ein technisch
+            fehlgeschlagener Versuch mit Ergebnis-ZIP bleibt blockiert. Nur Version,
+            Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test.<br><br>
+            <strong>Alle 14 Backtests</strong> prüft Gesamtportfolio und alle sechs
+            Einzelpaare jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen
+            werden sauber als Doppeltest übersprungen.
+          </div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>

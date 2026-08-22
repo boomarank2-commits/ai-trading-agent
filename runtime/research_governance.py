@@ -17,6 +17,9 @@ from typing import Any
 
 V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
 V12_12_SHA256 = "9978cbcc00af80bb77933f8246cd9e78c73ef1d54b0a60e0b8f24e85e8f39993"
+V12_13_SHA256 = "043916a93ef9aafac3622425496ca2cd75f01c639bb3dc345a79887e882813d9"
+V12_14_SHA256 = "0141348dda98810508f23e6c1b63ed19fb9f5e384841b35a4d49f84d870a77f2"
+V12_15_SHA256 = "3c5aaf823e16c1a2901c4861fcf6dbc21da4dd0f1314385d78be1f2de86c4a97"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
 GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
@@ -173,12 +176,45 @@ def validate_trial_ledger(path: Path) -> list[str]:
         if baseline.get("status", "").strip() != "FROZEN_CHAMPION":
             errors.append("V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision")
 
-    current = next(
+    v12_12 = next(
         (row for row in rows if row.get("experiment_id") == "V12.12-LIQUID-UNIVERSE"),
         None,
     )
-    if current is None or current.get("strategy_hash", "").strip() != V12_12_SHA256:
-        errors.append("V12.12 current strategy is not exactly registered in trial ledger")
+    if v12_12 is None or v12_12.get("strategy_hash", "").strip() != V12_12_SHA256:
+        errors.append("V12.12 strategy is not exactly registered in trial ledger")
+
+    v12_13 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.13-REMOVE-ETH-RECLAIM"
+        ),
+        None,
+    )
+    if v12_13 is None or v12_13.get("strategy_hash", "").strip() != V12_13_SHA256:
+        errors.append("V12.13 strategy is not exactly registered in trial ledger")
+
+    v12_14 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.14-FIRST-LOSS-PAIR-PAUSE"
+        ),
+        None,
+    )
+    if v12_14 is None or v12_14.get("strategy_hash", "").strip() != V12_14_SHA256:
+        errors.append("V12.14 strategy is not exactly registered in trial ledger")
+
+    current = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.15-LATE-PROFIT-RATCHET"
+        ),
+        None,
+    )
+    if current is None or current.get("strategy_hash", "").strip() != V12_15_SHA256:
+        errors.append("V12.15 current strategy is not exactly registered in trial ledger")
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()

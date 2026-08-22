@@ -34,12 +34,14 @@ Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 
 ## Aktive Dry-run-Strategie
 
-Der Testbot lädt `CompressionBreakout250` / V12.12. Die Strategie verwendet
+Der Testbot lädt `CompressionBreakout250` / V12.15. Die Strategie verwendet
 pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
-einen separat markierten EMA20-Trend-Reclaim innerhalb eines bestätigten
-1h/4h-Aufwärtstrends; SOL, XRP, BNB und DOGE bleiben beim bereits vorhandenen
-breiten Donchian-Kern. Eine pair-lokale
-`LowProfitPairs`-Protection begrenzt Verlustcluster.
+ihre separat markierten EMA20-Trend-Reclaims innerhalb eines bestätigten
+1h/4h-Aufwärtstrends. SOL, XRP, BNB und DOGE bleiben beim bereits vorhandenen
+breiten Donchian-Kern. Eine pair-lokale `LowProfitPairs`-Protection pausiert das
+betroffene Pair nach zwei unprofitablen Trades für 72 Stunden. Nur ein
+Champion-Trade, der bereits mindestens +30 % erreicht hat, erhält einen
++5-%-Gewinnboden.
 
 Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 
@@ -50,7 +52,7 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-V12.12 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+V12.15 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
 eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
 Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
 Erwartung.
@@ -125,7 +127,7 @@ Dateizugriffsaudit bestehen.
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
 Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
-V12.12-Kandidaten ist keine Promotion oder Freigabe für Echtgeld.
+V12.15-Kandidaten ist keine Freigabe für Echtgeld.
 
 ## Kill-Switch
 

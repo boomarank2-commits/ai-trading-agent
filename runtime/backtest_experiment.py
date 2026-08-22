@@ -248,6 +248,67 @@ def find_archived_strategy_source(results_root: Path, strategy_hash: str) -> byt
     return None
 
 
+def find_git_strategy_source(
+    repo_root: Path,
+    strategy_path: Path,
+    strategy_hash: str,
+) -> bytes | None:
+    """Return only a versioned strategy blob matching the exact registered hash."""
+    if not strategy_hash:
+        return None
+    try:
+        root = repo_root.resolve()
+        relative_path = strategy_path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+    safe_directory = str(root).replace("\\", "/")
+    history = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={safe_directory}",
+            "-C",
+            str(root),
+            "log",
+            "--format=%H",
+            "--",
+            relative_path,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    if history.returncode != 0:
+        return None
+
+    for commit in history.stdout.splitlines():
+        commit = commit.strip()
+        if len(commit) != 40:
+            continue
+        blob = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={safe_directory}",
+                "-C",
+                str(root),
+                "show",
+                f"{commit}:{relative_path}",
+            ],
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if (
+            blob.returncode == 0
+            and hashlib.sha256(blob.stdout).hexdigest() == strategy_hash
+        ):
+            return blob.stdout
+    return None
+
+
 def strategy_change_diff(parent_source: bytes | None, current_source: bytes) -> str:
     if parent_source is None:
         return "Parent strategy source is not available in the preserved archive.\n"

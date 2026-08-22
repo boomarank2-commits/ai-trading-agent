@@ -408,7 +408,11 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         periods = sorted(
             {run["period_years"] for run in selected if run["period_years"] is not None}
         )
-        matrix_pairs = v12_12_pairs if version == "V12.12" else legacy_pairs
+        matrix_pairs = (
+            v12_12_pairs
+            if version in {"V12.12", "V12.13", "V12.14", "V12.15"}
+            else legacy_pairs
+        )
         expected = {(pair, years) for pair in matrix_pairs for years in periods}
         complete = bool(periods) and expected == set(latest_by_cell)
         matrices.append(
