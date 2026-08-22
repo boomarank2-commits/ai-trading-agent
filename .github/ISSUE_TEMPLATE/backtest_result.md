@@ -6,7 +6,7 @@ labels: backtest
 
 ## Strategy name
 
-## Prompt or skill used
+## Strategy version and SHA-256
 
 ## Symbols tested
 

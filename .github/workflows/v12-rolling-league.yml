@@ -1,0 +1,56 @@
+name: V12 rolling causal league
+
+on:
+  push:
+    branches:
+      - agent/v12-adaptive-league
+    paths:
+      - runtime/adaptive_rolling_league.py
+      - runtime/adaptive_family_league.py
+      - runtime/adaptive_pair_optimizer.py
+      - .github/workflows/v12-rolling-league.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rolling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --all-extras --python 3.12
+      - name: Run rolling pair-local league
+        run: |
+          .venv/bin/python runtime/adaptive_rolling_league.py \
+            --trade-start 2023-08-01 \
+            --trade-end 2026-08-01 \
+            --step-days 90 \
+            --cache runtime/user_data/v12_public_cache \
+            --out v12-results/v12_rolling_league.json
+      - name: Print aggregates
+        if: always()
+        run: |
+          if [ -f v12-results/v12_rolling_league.json ]; then
+            .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('v12-results/v12_rolling_league.json').read_text())
+          for symbol,modes in p['results'].items():
+              for mode,result in modes.items():
+                  a=result['aggregate']; r=a['result']; s=a['stress']
+                  print(symbol, mode, 'pnl=',round(r['pnl'],2),'PF=',round(r['pf'],3),
+                        'DD=',round(r['dd'],2),'trades=',r['trades'],
+                        'positive_periods=',a['positive_periods'],
+                        'negative_periods=',a['negative_periods'],
+                        'no_trade_periods=',a['no_trade_periods'],
+                        'stress=',round(s['pnl'],2),'families=',a['family_pnl'])
+          PY
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v12-rolling-league-results
+          path: v12-results/

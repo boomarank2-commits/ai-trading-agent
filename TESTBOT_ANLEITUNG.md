@@ -1,176 +1,117 @@
-# Testbot per Doppelklick starten
+# Testbot starten und bedienen
 
-## Was `STARTBOT.bat` startet
+## Start
 
-Ein Doppelklick auf [`STARTBOT.bat`](STARTBOT.bat) startet ausschließlich
-Freqtrade im **Dry-run**. Der Bot liest öffentliche Binance-Marktdaten, gibt
-aber keine echten Orders auf und benötigt keine Binance-API-Schlüssel.
+`STARTBOT.bat` startet Freqtrade ausschließlich im **Dry-run** mit öffentlichen Binance-Marktdaten. Es werden keine echten Orders gesendet.
 
-Zusätzlich bleibt das Konsolenfenster mit den laufenden Freqtrade-Meldungen
-offen und die lokale FreqUI-Weboberfläche wird automatisch als eigene
-Edge-/Chrome-App geöffnet. Die Oberfläche läuft ausschließlich auf diesem
-Rechner unter `http://127.0.0.1:8080`.
+Aktueller Entwicklungszweig: `agent/v12-adaptive-league`.
 
-Die festen Testeinstellungen sind:
+Die tatsächlich geladene Strategy-Datei ist
+`runtime/user_data/strategies/CompressionBreakout250.py` mit
+`STRATEGY_VERSION = "V12.15"`. Die eingefrorene V8-Datei unter
+`research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
+und Research-Governance.
 
-- 250 virtuelle USDT Startkapital;
-- höchstens drei gleichzeitig offene Positionen;
-- höchstens 80 virtuelle USDT je Position und 240 USDT Gesamtexposition;
-- neue Entries werden nach 10 virtuellen USDT realisiertem Tagesverlust gesperrt;
-- Stop-Loss bei 5,5 Prozent unter dem Einstieg;
-- ausschließlich `BTC/USDT`, `ETH/USDT` und `SOL/USDT` auf Binance Spot.
+## Aktueller Sicherheitsrahmen
 
-Das ist ein simulierter Forward-Test mit echten öffentlichen Marktdaten, kein
-Echtgeldbetrieb. Der Starter lädt keine Schlüssel und kann mit diesen
-Einstellungen kein Echtgeld handeln.
+- Binance Spot / USDT
+- BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT
+- long-only, 1x
+- 250 virtuelle USDT
+- maximal 80 USDT je Position
+- maximal drei offene Positionen / 240 USDT Exposition
+- kein DCA, kein Martingale, kein Futures/Margin/Short
+- Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
+- kein automatischer Echtgeld-Release
 
-## FreqUI im Browser
+## Was V12.15 macht
 
-Nach dem Start wartet der lokale Supervisor, bis die Freqtrade-API wirklich
-bereit ist, und öffnet dann automatisch `http://127.0.0.1:8080` als eigene
-Browser-App. Dafür wird Microsoft Edge oder Google Chrome benötigt. Der
-Supervisor verwendet ein separates lokales Browserprofil nur für den Testbot.
-Das Konsolenfenster bleibt gleichzeitig geöffnet und zeigt weiterhin die
-laufenden Meldungen und Heartbeats.
+Alle sechs Pairs werden unabhängig voneinander bewertet. Jedes Pair nutzt nur
+seine eigenen 15m/1h/4h-Daten. V12.15 behält alle V12.12-Schwellen und Exits.
 
-Für die ausschließlich lokale Paper-Test-Oberfläche gelten:
+- BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
+- SOL, XRP, BNB und DOGE verwenden keinen Reclaim-Challenger, sondern nur den
+  bereits vorhandenen breiten Donchian-Kern.
+- Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
+  pair-lokale `LowProfitPairs`-Protection dieses Pair für 72 Stunden.
+- Nur bei Champion-Donchian-Trades wird nach mindestens +30 % laufendem Gewinn
+  ein +5-%-Stopboden gesetzt; Reclaims und normale Bewegungen bleiben unberührt.
+- Der feste Stop-Loss bleibt bei −5,5 %; DCA und Shorting bleiben deaktiviert.
+- Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-- Benutzer: `testbot`
-- Passwort: `PaperOnly-250-USDT!`
-- Adresse: `http://127.0.0.1:8080`
+V12.15 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
-Die API bindet ausdrücklich nur an `127.0.0.1` und wird nicht im Netzwerk oder
-Internet veröffentlicht. Die Browser-App ist gleichzeitig Teil des
-Lebenszeitschutzes: Wird dieses überwachte Testbot-UI geschlossen, beendet der
-Supervisor auch den Bot. Ein manuell zusätzlich geöffnetes normales Browser-Tab
-unter derselben Adresse ersetzt diese überwachte App nicht.
+## FreqUI
 
-FreqUI kann nicht nur Werte anzeigen, sondern besitzt auch Bedienfunktionen.
-Für einen unveränderten Beobachtungstest sollten keine manuellen Start-, Stop-,
-Force-Entry- oder Force-Exit-Aktionen in der Oberfläche ausgelöst werden.
-`force_entry_enable` bleibt im Testbot technisch deaktiviert.
+Nach dem Start öffnet der lokale Supervisor die FreqUI auf `127.0.0.1:8080` und überwacht den Prozessbaum. Zugangsdaten werden vom Starter selbst angezeigt bzw. aus der lokalen Passwortdatei gelesen. Diese Anleitung enthält absichtlich keine fest kopierten Zugangsdaten.
 
-## Erster Start auf einem neuen Rechner
+Für einen unveränderten Beobachtungstest sollten keine manuellen Force-Entry-/Force-Exit-Aktionen verwendet werden.
 
-Voraussetzungen sind eine Internetverbindung, Windows WinGet und Microsoft Edge
-oder Google Chrome. `STARTBOT.bat` prüft beim Doppelklick automatisch, ob
-[`uv`](https://docs.astral.sh/uv/getting-started/installation/) bereits vorhanden
-ist. Fehlt `uv`, versucht der Starter es selbst über WinGet mit
-`winget install --id=astral-sh.uv -e` zu installieren. Der Benutzer muss also
-normalerweise keine Eingabeaufforderung öffnen und keinen Installationsbefehl
-von Hand eingeben.
+## Beenden
 
-Falls WinGet selbst auf dem Rechner fehlt oder die automatische Installation
-nicht erfolgreich abgeschlossen werden kann, stoppt der Starter mit einer klaren
-Fehlermeldung und startet keinen Bot.
+- `Strg+C` im Konsolenfenster: kontrollierter Shutdown.
+- Konsolenfenster schließen: fail-closed; der überwachte Prozessbaum soll beendet werden.
+- überwachte Testbot-UI schließen: Supervisor beendet den Bot.
+- nach Neustart von Windows startet der Bot nicht automatisch; `STARTBOT.bat` erneut ausführen.
 
-Nach erfolgreicher `uv`-Prüfung gleicht der Starter die lokale Umgebung bei jedem
-Start mit `uv.lock` ab. Fehlt die lokale `.venv`, führt er automatisch
+## Hilfsdateien
 
-```powershell
-uv sync --frozen --all-extras --python 3.12
-```
+Diese Dateien bleiben bewusst erhalten, weil sie unterschiedliche Betriebs-/Research-Aufgaben haben:
 
-aus. Dadurch wird die in `uv.lock` festgelegte Python-3.12-Umgebung angelegt.
-Abhängig von Internetverbindung und Rechner kann der erste Start einige Minuten
-dauern; spätere unveränderte Prüfungen sind deutlich kürzer.
+- `STOP_NEUE_TESTTRADES.bat` – neue simulierte Entries sperren.
+- `TESTTRADES_FREIGEBEN.bat` – Test-Entry-Sperre wieder entfernen.
+- `TESTBOT_AUSWERTUNG.bat` – Dry-run-Datenbank sowie alle alten und neuen
+  UI-Backtests gemeinsam auswerten.
+- `HISTORISCHE_DATEN_LADEN.bat` – historische Daten für Replay/Research vorbereiten.
+- `HISTORISCHER_LIVE_REPLAY.bat` – Full-System-Replay.
+- `HISTORISCHE_AUSWERTUNG.bat` – Replay-/Research-Diagnostik.
+- `STATISTIK_AUDIT.bat` – Trial-/Statistikdiagnostik.
 
-Fehlt die FreqUI-Weboberfläche in der lokalen Freqtrade-Installation, führt der
-Setup-Pfad zusätzlich einmalig den offiziellen Befehl `freqtrade install-ui`
-aus. Danach startet Freqtrade automatisch. Spätere Starts installieren die UI
-nicht erneut, solange sie vorhanden ist.
+Diese Helfer sind keine alternativen Trading-Strategien.
 
-## Betrieb und Beenden
+## Backtest
 
-Der Testbot läuft nur, solange seine sichtbaren Lebensanker vorhanden sind. Vor
-dem eigentlichen Botstart setzt der Supervisor ein Windows Job Object mit
-`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Dadurch dürfen Freqtrade, Python und die
-zugehörigen lokalen Hilfsprozesse den Supervisor nicht überleben.
+Der integrierte Backtest verwendet die tatsächlich aktive Strategy-Quelle. Details stehen in `BACKTEST_ANLEITUNG.md`.
 
-Folgende Regeln gelten:
+Für die Frage, wie sinnvoll die 250 USDT tatsächlich eingesetzt werden, ist
+der **Gesamtportfolio-Test** maßgeblich: alle sechs Pairs teilen dort ein
+einziges Konto. Die Einzelpaar-Tests bleiben als Diagnose erhalten. Die
+Oberfläche zeigt zusätzlich Kapitalzeit, Zeit ohne Position sowie
+durchschnittlich und maximal gleichzeitig offene Positionen. Der Dateiaudit
+stoppt einen Lauf, sobald eine unerwartete Strategy-, Config-, Candle- oder
+Repo-Datei beziehungsweise ein Kindprozess verwendet wird.
 
-- **Strg+C im Konsolenfenster**: kontrollierter Shutdown; Sitzungsdaten werden
-  abgeschlossen und der Abschlussbericht wird erzeugt.
-- **Konsolenfenster über X schließen**: Fail-closed; Windows beendet den gesamten
-  Bot-Prozessbaum. Der Bot darf danach nicht unsichtbar im Hintergrund laufen.
-- **Testbot-UI schließen**: Der UI-Wächter beendet den Supervisor; dadurch wird
-  ebenfalls der gesamte Bot-Prozessbaum beendet.
-- **Supervisor abstürzen oder per Taskkill beendet werden**: Das Windows Job
-  Object beendet verbleibende Bot-Child-Prozesse automatisch.
-- **Bot endet kontrolliert**: Die überwachte Testbot-Browser-App wird zusammen
-  mit dem Supervisor ebenfalls geschlossen.
+V12-Optimizer- und Family-League-Runs sind davon getrennte Research-Werkzeuge. Ein Research-Gewinner wird nicht automatisch in den laufenden Bot übernommen.
 
-Bei einem abrupten Fenster-/Prozessabbruch hat die sofortige Beendigung des Bots
-Vorrang vor einem Abschlussbericht. Die persistente Dry-run-Datenbank bleibt
-erhalten und `TESTBOT_AUSWERTUNG.bat` kann die vorhandenen Daten danach separat
-auswerten. Ein kontrolliertes Beenden mit Strg+C bleibt der bevorzugte Weg,
-wenn das Fenster noch verfügbar ist.
+## Lokale Daten
 
-Solange der Bot läuft, blockiert der Starter den normalen Windows-Energiesparmodus.
-Zuklappen des Laptops, Ruhezustand, Herunterfahren, ein Windows-Neustart oder ein
-Stromausfall können den Prozess trotzdem beenden.
+Marktdaten, Backtest-/Replay-Artefakte, Logs, lokale Datenbanken und Zugangsdaten bleiben lokal und gehören nicht in Git.
 
-Es gibt keinen automatischen Start nach einem Windows-Neustart. Danach einfach
-erneut auf `STARTBOT.bat` doppelklicken. Die persistente Dry-run-Datenbank wird
-weiterverwendet; bereits gespeicherte simulierte Trades werden fortgesetzt.
-Auch nach einem seltenen fatalen Programmfehler startet der Supervisor nicht
-ungefragt neu. Nach der Prüfung kann derselbe Doppelklick die persistente
-Datenbank wieder aufnehmen.
+Automatisch erzeugte Dateien bleiben geordnet unter `runtime/user_data/`:
 
-## Weitere Doppelklick-Dateien
+- `data/` – notwendige lokale Kerzendaten
+- `backtest_results/` – nachvollziehbare Backtest-Rohresultate
+- `logs/sessions/` – Laufprotokolle, Manifest und Abschlussbericht je Sitzung
+- `paper_telemetry/` und `replay_results/` – Paritäts-/Auditdaten
+- `tradesv8.dryrun.sqlite*` – persistenter aktueller Dry-run-Zustand
 
-- [`STOP_NEUE_TESTTRADES.bat`](STOP_NEUE_TESTTRADES.bat) sperrt neue
-  simulierte Entries. Bereits offene Testpositionen werden weiter verwaltet.
-  Der getrennte Echtgeld-Kill-Switch wird dabei nicht verändert.
-- [`TESTTRADES_FREIGEBEN.bat`](TESTTRADES_FREIGEBEN.bat) entfernt nur diese
-  Test-Entry-Sperre und erlaubt dem laufenden oder nächsten Dry-run wieder neue
-  simulierte Entries.
-- [`TESTBOT_AUSWERTUNG.bat`](TESTBOT_AUSWERTUNG.bat) erstellt jederzeit eine
-  neue Gesamtauswertung der persistenten Testdatenbank. Das funktioniert auch,
-  wenn der Bot gerade nicht läuft.
+Die beim ersten Setup erzeugte `.venv/` im Repository-Stamm ist die benötigte,
+gelockte Python-/Freqtrade-Umgebung und bleibt von Git ausgeschlossen. Bot und
+UI schreiben dort keine Sitzungs-, Markt- oder Ergebnisdateien.
+Wegwerfbarer Python-Bytecode-Cache wird in den Startpfaden deaktiviert.
+Audit-, Replay-, Backtest- und Dry-run-Daten werden nicht automatisch gelöscht.
+Nach jedem neuen UI-Backtest wird eine Gesamtauswertung aller erhaltenen Läufe
+als Markdown und JSON unter `runtime/user_data/backtest_results/ui/` erneuert.
+Historische Datenbanken aus älteren Strategiephasen werden vom aktuellen
+Testbot nicht neu erzeugt; eine Entfernung darf nur bei beendetem Bot und nach
+bewusster Prüfung erfolgen.
 
-## Gespeicherte Daten und Berichte
+## Maßgebliche Projektunterlagen
 
-Die Ergebnisse bleiben lokal unter `runtime/user_data/` erhalten:
+- `START_HERE_DE.md`
+- `RESEARCH_MASTERPLAN_DE.md`
+- `docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`
+- `research/trial_ledger.csv`
 
-- `tradesv8.dryrun.sqlite`: eigene persistente Freqtrade-Datenbank des V8-Paper-Forward-Tests. Alte V2/V3-Datenbanken bleiben getrennt erhalten und werden nicht in die V8-Auswertung gemischt;
-- `logs/sessions/<Sitzungs-ID>/freqtrade.log`: Freqtrade-Protokoll der Sitzung;
-- `logs/sessions/<Sitzungs-ID>/supervisor.log`: Start-, Laufzeit- und
-  Abschlussmeldungen;
-- `logs/sessions/<Sitzungs-ID>/session-manifest.json`: Zeiten, Einstellungen,
-  Pfade und Hashes der verwendeten Strategie, Konfiguration und Abhängigkeiten;
-- `logs/sessions/<Sitzungs-ID>/dryrun-report-<Sitzungs-ID>.json`: strukturierter
-  Bericht für eine spätere maschinelle Analyse;
-- `logs/sessions/<Sitzungs-ID>/dryrun-report-<Sitzungs-ID>.md`: lesbare
-  Auswertung derselben Sitzung;
-- `logs/reports/`: manuell mit `TESTBOT_AUSWERTUNG.bat` erzeugte JSON- und
-  Markdown-Gesamtberichte.
-
-Die Berichte berechnen Gewinn und Verlust nur aus geschlossenen simulierten
-Trades sowie bereits realisierten Teilverkäufen offener Trades. Teilverkäufe
-offener Trades erscheinen im Gesamtwert, können ohne Order-Zeitstempel aber
-nicht sicher einer einzelnen Sitzung zugeordnet werden. Unrealisiertes P/L
-(Gewinn oder Verlust) noch offener Positionen ist ausdrücklich ausgeschlossen.
-Der Bericht bezeichnet `250 USDT + realisiertes Ergebnis` deshalb als
-Kapitalwert, nicht als aktuellen Wallet- oder Marktwert.
-
-## Ergebnisse richtig einordnen
-
-Die Strategie handelt selten. Auch nach 24 Stunden können **null Trades** ein
-technisch normales Ergebnis sein; für eine aussagekräftigere Beobachtung kann
-der Test mehrere Tage laufen.
-
-Der aktuelle V8-Kandidat ist eine langsame 4h-Donchian-Trendstrategie und wurde
-vor dem Paper-Start deutlich breiter geprüft als die verworfenen V1–V7-Varianten.
-Unter dem konservativen historischen Kostenproxy blieb das gemeinsame
-BTC/ETH/SOL-Portfolio unter anderem im Drei-Jahres-, älteren Holdout- und
-Fünf-Jahres-Test positiv. Die Detailzahlen und Gegenbeispiele stehen in
-`docs/V8_PAPER_CANDIDATE_REPORT_DE.md`.
-
-Das ist trotzdem **kein Profitversprechen**. Die Strategie besitzt eine niedrige
-Trefferquote, kann lange Verlustserien haben und war in einzelnen historischen
-Jahresslices negativ. Wenige große Trends tragen einen wesentlichen Teil des
-Ertrags. Genau deshalb startet V8 in einer frischen `tradesv8.dryrun.sqlite` und
-muss zuerst unverändert im Paper-Forward-Test bestehen. Ein mehrtägiges Plus,
-ein einzelner großer Gewinner oder ein guter Backtest rechtfertigt weiterhin
-keinen Echtgeldbetrieb.
+Ältere V8/V9/V10/V11-Statusberichte sind historische Evidenz und keine parallelen aktuellen Anweisungen.

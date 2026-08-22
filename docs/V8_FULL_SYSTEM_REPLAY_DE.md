@@ -138,7 +138,7 @@ PAPER_REPLAY_PARITAET.bat
 
 Der gelockte `trade`-Bootstrap instrumentiert nur Dry-run-Strategieinstanzen. Der klassische gelockte Backtest aktiviert diese Paper-Telemetrie nicht. Die Wrapper rufen Originalcallbacks exakt einmal auf und geben deren Originalresultat unverändert zurück.
 
-Ein grüner Unit-/Golden-Test beweist die Replay-State-Machine, nicht automatisch historische Gleichheit mit einem echten Dry-run. Empirische Paper-/Replay-Parität gilt erst als bestanden, wenn ein real überlappender Candle-Zeitraum vorliegt und Signal-/Risk-Entscheidungen erklärbar übereinstimmen. Unerklärte Abweichungen sind **Blocker** und werden nicht durch Parameteränderungen kaschiert.
+Ein grüner Unit-/Golden-Test beweist die Replay-State-Machine, nicht automatisch historische Gleichheit mit einem echten Dry-run. Empirische Paper-/Replay-Parität gilt erst als bestanden, wenn ein real überlappender Candle-Zeitraum vorliegt, Strategie-, Konfigurations- und Risk-Policy-Hashes identisch sind und Signal-/Risk-Entscheidungen erklärbar übereinstimmen. Der Vergleich schlägt bei fehlendem Abschlussmanifest, Hash-Abweichungen oder fehlender Risk-Parität geschlossen fehl. Unerklärte Abweichungen sind **Blocker** und werden nicht durch Parameteränderungen kaschiert.
 
 ## Fault-Injection / Fail Closed
 

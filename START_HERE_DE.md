@@ -1,23 +1,47 @@
-# Start hier: V8-Paperbot und Deep-Research-System
+# Start hier: V12.15-Testbot, V8-Baseline und Deep-Research-System
 
 ## Aktueller Stand
 
-Der aktuelle Champion ist `CompressionBreakout250` / V8.
+Der eingefrorene Research-Champion bleibt `CompressionBreakout250` / V8. Die
+aktuell vom Dry-run-Testbot geladene Kandidatendatei ist jedoch
+`CompressionBreakout250` / **V12.15** auf `agent/v12-adaptive-league`.
 
-V8 bleibt eingefroren und läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
+V12.15 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
 
 - Binance Spot / USDT
-- BTC/USDT, ETH/USDT, SOL/USDT
+- BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT
 - long-only, 1x
 - 250 virtuelle USDT
 - maximal 80 USDT je Position
 - maximal drei Positionen / 240 USDT Gesamtengagement
 
-Status: **READY FOR EXTENDED PAPER TEST – NOT READY FOR REAL MONEY.**
+V8 bleibt unter `research/baselines/V8/` unverändert für Replay, Reproduktion
+und Research-Governance erhalten. V12.15 verändert diese Baseline nicht.
+
+Status: **V12.15 BESTANDENER PAPER-/DRY-RUN-KANDIDAT – NOT READY FOR REAL MONEY.**
+
+V12.15 verwendet wieder die vollständige V12.12-Signallogik und deren
+pair-lokale Pause nach zwei Verlusten. Die einzige Strategieänderung ist ein
+später Gewinn-Ratchet nur für Champion-Donchian-Trades: erst ab +30 % laufendem
+Gewinn wird ein +5-%-Boden gesetzt. Sechs Pairs, alle normalen Exits und die
+250/80/3-Kapitalgrenzen bleiben unverändert. V12.16 mit ADA wurde nach dem
+vorab registrierten Drei-Jahres-Test verworfen und technisch zurückgebaut.
+
+Der einzige V12.12-Drei-Jahres-Lauf lieferte eine starke diagnostische
+Verbesserung, scheiterte aber formal am ersten nativen Candle-Dateiaudit. Der
+Fehler lag in der Audit-Instrumentierung, nicht in der Simulation; der Lauf wird
+trotzdem nicht als vollständig bestanden ausgegeben und sein identischer
+Fingerabdruck darf nicht erneut getestet werden. Details und alle Kennzahlen:
+[`research/V12_12_LIQUID_UNIVERSE_DE.md`](research/V12_12_LIQUID_UNIVERSE_DE.md).
 
 Der verbindliche Weiterentwicklungsplan steht in [`RESEARCH_MASTERPLAN_DE.md`](RESEARCH_MASTERPLAN_DE.md). Ältere Codex-Phasen sind keine aktive Sollvorgabe mehr.
 
 Der konkrete Soll/Ist-Abgleich gegen die aktuellen Deep-Research-Berichte steht in [`docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`](docs/DEEP_RESEARCH_GAP_AUDIT_DE.md). Dort werden vorhandene, teilweise vorhandene und noch fehlende Teile ausdrücklich getrennt. Ein vorhandenes Grundgerüst darf nicht als fertige Umsetzung ausgegeben werden.
+
+Das neue Zielbild mit zehn Paaren, getrennten Ein-/Drei-Jahres-Einzeltests und
+einem gemeinsamen 250-USDT-Portfolio steht in
+[`docs/ZEHN_PAARE_ROADMAP_DE.md`](docs/ZEHN_PAARE_ROADMAP_DE.md). Aktuell sind
+sechs Paare aktiv; vier weitere müssen einzeln und schrittweise validiert werden.
 
 ## Zielbild
 
@@ -44,7 +68,10 @@ Market Data
 
 Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedliche Schwerpunkte. Deshalb werden **ORB-Retest und Ichimoku nicht miteinander vermischt und nicht stillschweigend gegeneinander entschieden**. Beide sind spätere eigenständige Trend-Challenger; Bollinger MR ist die separate Range-/Mean-Reversion-Familie. Ein Hybrid kommt erst nach Einzelvalidierung.
 
-Der spätere Research-Router ist bereits als fail-closed Contract in `runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in V8 verdrahtet und verändert deshalb keine aktuelle Paper-Handelsentscheidung.
+Der spätere Research-Router ist bereits als fail-closed Contract in
+`runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in die
+aktive V12.15-Kandidatenstrategie verdrahtet und verändert deshalb keine aktuelle
+Paper-Handelsentscheidung.
 
 Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
 
@@ -75,7 +102,19 @@ Die Bedienung des Paperbots steht in [`TESTBOT_ANLEITUNG.md`](TESTBOT_ANLEITUNG.
 
 ## Normaler Backtest
 
-Der integrierte Backtest simuliert die aktuell geladene Strategie; es gibt keine separate zweite Backtest-Strategie.
+Der integrierte Backtest simuliert die aktuell geladene V12.15-Strategie; es gibt
+keine separate zweite Backtest-Strategie.
+
+In der Oberfläche ist **Gesamtportfolio** die maßgebliche 250-USDT-Prüfung.
+Alle sechs Pairs laufen dabei gemeinsam auf einem Konto. „Alle 14 Backtests“
+ergänzt diese echte Portfolio-Sicht um zwölf Einzelpaar-Zellen zur Attribution
+und zeigt, wie viel Kapitalzeit tatsächlich genutzt wurde. Der gesperrte Runner
+prüft dabei die wirklich verwendeten Strategy-, Config- und Candle-Dateien.
+
+Für das spätere Zehn-Paare-Ziel bleibt diese Trennung erhalten: Jedes Paar erhält
+einen eigenen Ein-/Drei-Jahres-Diagnoselauf mit 250 USDT Startwert; maßgeblich
+ist danach jedoch ausschließlich der gemeinsame chronologische Portfoliolauf mit
+einem einzigen 250-USDT-Wallet und höchstens drei 80-USDT-Positionen insgesamt.
 
 Für lokale historische Backtests kann außerdem verwendet werden:
 

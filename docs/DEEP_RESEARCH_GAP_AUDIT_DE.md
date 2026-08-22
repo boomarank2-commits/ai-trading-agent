@@ -1,6 +1,6 @@
 # Deep-Research-Soll/Ist-Audit
 
-Stand: 16.08.2026
+Stand: 22.08.2026
 
 Dieses Dokument verhindert, dass ein vorhandenes Grundgerüst versehentlich als vollständige Umsetzung der aktuellen Deep-Research-Zielarchitektur bezeichnet wird.
 
@@ -29,13 +29,13 @@ Statuswerte:
 | Anforderung | Status | Befund |
 |---|---|---|
 | monotone Simulationsuhr | **DONE** | Replay erzwingt monotone Zeit. |
-| nur geschlossene Candles / kausale Informative-Daten | **DONE/PARTIAL** | Replay-/V8-Adapter ist auf geschlossene historische Daten ausgelegt; reale Full-History-Abnahme steht noch aus. |
+| nur geschlossene Candles / kausale Informative-Daten | **DONE/PARTIAL** | Replay-/V8-Adapter ist auf geschlossene historische Daten ausgelegt. Ein siebentägiger lokaler Ablauf-Preflight über alle 12 benötigten Candle-Sätze bestand; reale Full-History-Abnahme steht noch aus. |
 | gemeinsames 250-USDT-Wallet BTC/ETH/SOL | **DONE** | Full-System-Replay-Grundgerüst vorhanden. |
-| V8-Hashbindung | **DONE** | LF-normalisierter V8-SHA ist Governance-Vertrag. |
+| V8-Hashbindung | **DONE** | LF-normalisierter V8-SHA ist Governance-Vertrag. Der Runner lädt die eingefrorene Research-Baseline und verweigert einen Lauf bei Hash-Abweichung; die zuvor mögliche Verwechslung mit der aktiven V12-Datei ist geschlossen. |
 | Checkpoint/Restart-Determinismus | **DONE** | Schema 2 persistiert zusätzlich Partial-Fill-/Duplicate-State; Golden-/Restart-Tests sind grün. |
 | Datenmanifest, UTC, Gaps, Duplikate | **DONE** | Replay-Datenpfad besitzt Manifest-/Integritätsprüfungen. |
 | Golden Replay | **DONE** | Fixture/Test vorhanden; Handelsresultat blieb trotz Schema-2-Erweiterung unverändert. |
-| Paper-vs-Replay-Parität | **EMPIRICAL-GATE** | Checker vorhanden; echte überlappende Paper-Periode noch nicht lokal abgenommen. |
+| Paper-vs-Replay-Parität | **BLOCKED / EMPIRICAL-GATE** | Checker verlangt jetzt identische Strategie-, Config- und Risk-Policy-Hashes sowie Signal- und Risk-Parität. Vorhandene als V8 bezeichnete Paper-Dateien vom 16.08.2026 enthalten andere Strategiehashes und nur je 12 Signalzeilen; sie sind kein V8-Paritätsnachweis. Ein frischer exakt passender Paper-Zeitraum fehlt. |
 | mehrjähriger Full-History-Replay | **EMPIRICAL-GATE** | Code vorhanden; aktueller neuer Gesamtlauf noch nicht ausgeführt. |
 | Fee-Stress 0,004 je Seite | **EMPIRICAL-GATE** | vorgesehen; aktueller neuer Replay-Lauf noch nicht ausgeführt. |
 
@@ -85,7 +85,7 @@ Die Matrix ist damit wesentlich weiter, aber weiterhin **nicht vollständig**. O
 | B1 Volume >=1.00 | **REJECTED** | globaler Filter verworfen |
 | B2 Volume >=1.25 | **BLOCKED** | bis Replay-/Diagnose-Gates pausiert |
 | ORB-Retest als separater Challenger | **PLANNED** | Bericht A; noch nicht implementieren, bevor Infrastruktur-Gates schließen |
-| Bollinger MR als separater Challenger | **PLANNED** | Range-Engine; 20/2 nur Research-Default |
+| Bollinger MR als separater Challenger | **BLOCKED / PLANNED** | Range-Engine; 20/2 nur Research-Default. Keine Implementierung und kein Backtest vor geschlossenem Paper-/Replay-, Full-History-, Kosten-, Diagnose- und Meta-Research-Gate. |
 | Ichimoku als separater Trend-Challenger | **PLANNED** | Bericht B; 9/26/52 als Research-Default, Golden Indicator Tests erforderlich |
 | FVG/BOS | **BLOCKED/PLANNED** | erst nach einfacher ORB-Baseline |
 | Regime Router | **DONE als fail-closed Contract / PLANNED produktiv** | Research-Contract trennt ORB/Ichimoku/Bollinger und fällt bei Mismatch auf NO_TRADE; noch nicht mit produktiven Strategien verdrahtet. |

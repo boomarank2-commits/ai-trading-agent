@@ -1,0 +1,48 @@
+name: V12 Family League
+
+on:
+  push:
+    branches:
+      - agent/v12-adaptive-league
+    paths:
+      - "runtime/adaptive_pair_optimizer.py"
+      - "runtime/adaptive_family_league.py"
+      - ".github/workflows/v12-family-league.yml"
+  workflow_dispatch:
+
+jobs:
+  league:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync locked environment
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Run development-validation-blind league
+        run: |
+          .venv/bin/python runtime/adaptive_family_league.py \
+            --start 2021-08-01 \
+            --folds 3 \
+            --cache runtime/user_data/v12_public_cache \
+            --out v12-results/v12_family_league.json
+      - name: Compact results
+        if: always()
+        run: |
+          if [ -f v12-results/v12_family_league.json ]; then
+            .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('v12-results/v12_family_league.json').read_text())
+          for symbol,modes in p['results'].items():
+              for mode,result in modes.items():
+                  a=result['aggregate']; b=a['blind']; s=a['stress']
+                  print(symbol, mode, 'pnl=',round(b['pnl'],2),'PF=',round(b['pf'],3),'DD=',round(b['dd'],2),'trades=',b['trades'],'positive_folds=',a['positive_folds'],'active_folds=',a['active_folds'],'stress=',round(s['pnl'],2),'families=',a['family_pnl'])
+          PY
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v12-family-league-results
+          path: v12-results/
+          if-no-files-found: warn

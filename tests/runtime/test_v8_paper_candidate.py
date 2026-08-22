@@ -7,25 +7,44 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_DATA = REPO_ROOT / "runtime" / "user_data"
 STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
+V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout250.py"
 CONFIG = USER_DATA / "config.json"
 EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
 
 
-def test_exact_validated_v8_strategy_source_is_promoted() -> None:
-    # Git normalizes repository text to LF, while a Windows checkout may expose
-    # CRLF depending on core.autocrlf. Fingerprint the normalized source so the
-    # test locks strategy semantics rather than the checkout's newline policy.
-    source = STRATEGY.read_bytes().replace(b"\r\n", b"\n")
-    assert hashlib.sha256(source).hexdigest() == EXPECTED_V8_LF_SHA256
-    text = source.decode("utf-8")
-    assert "slow_20d_donchian_breakout" in text
-    assert "failed_4h_breakout" in text
-    assert "slow_trend_exit" in text
+def _lf_sha256(path: Path) -> str:
+    source = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_paper_configuration_keeps_validated_execution_contract() -> None:
+def test_v8_baseline_is_preserved_and_v12_15_is_active_candidate() -> None:
+    assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
+
+    text = STRATEGY.read_text(encoding="utf-8")
+    assert 'STRATEGY_VERSION = "V12.15"' in text
+    assert "PAIR_PROFILES" in text
+    assert "RECLAIM_PROFILES" in text
+    assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
+    assert 'REGIME_NO_TRADE = "NO_TRADE"' in text
+    assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text
+    assert 'FAMILY_RECLAIM = "TREND_RECLAIM"' in text
+    assert "FAST_DONCHIAN_TREND" not in text
+    assert "ORB_RETEST" not in text
+    assert "ICHIMOKU_TREND" not in text
+    assert "BOLLINGER_MR" not in text
+    assert 'champion_quality = dataframe["volume_ratio"] >= 1.00' in text
+    assert '"method": "LowProfitPairs"' in text
+    assert "use_custom_stoploss = True" in text
+    assert "stoploss_from_open" in text
+    assert "v12_15_" in text
+    assert "populate_indicators_btc_4h" not in text
+    assert "btc_market_up" not in text
+    assert '"only_per_pair": True' in text
+    assert "_closed_profit_since(day_start_utc, pair)" in text
+
+
+def test_paper_configuration_keeps_validated_execution_contract() -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
-    assert config["bot_name"] == "slow-donchian-v8-250-dryrun"
     assert config["dry_run"] is True
     assert config["dry_run_wallet"] == 250
     assert config["available_capital"] == 250
@@ -39,11 +58,14 @@ def test_v8_paper_configuration_keeps_validated_execution_contract() -> None:
         "BTC/USDT",
         "ETH/USDT",
         "SOL/USDT",
+        "XRP/USDT",
+        "BNB/USDT",
+        "DOGE/USDT",
     ]
     assert config["db_url"] == "sqlite:///user_data/tradesv8.dryrun.sqlite"
 
 
-def test_v8_forward_database_is_isolated_from_legacy_paper_history() -> None:
+def test_existing_paper_database_is_isolated_from_legacy_v2_v3_history() -> None:
     launcher = (REPO_ROOT / "runtime" / "scripts" / "start-testbot-24x7.ps1").read_text(
         encoding="utf-8"
     )

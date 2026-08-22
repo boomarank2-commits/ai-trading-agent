@@ -2,7 +2,8 @@
 
 Diese Laufzeit ist eine vorsichtige Forschungs- und Integrationsbasis, kein
 Renditeversprechen. Sie ist auf Freqtrade `2026.7` festgesetzt und nutzt nur
-`BTC/USDT`, `ETH/USDT` und `SOL/USDT` auf Binance Spot.
+`BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `BNB/USDT` und `DOGE/USDT`
+auf Binance Spot.
 
 Der Doppelklick-Ablauf für den ausschließlich simulierten 24/7-Test,
 einschließlich Stoppschalter, persistenter Datenbank und Auswertung, steht in
@@ -31,12 +32,16 @@ Die Tagesverlustlogik ist eine Entry-Sperre, keine garantierte harte
 Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 überschreiten.
 
-## Baseline-Strategie
+## Aktive Dry-run-Strategie
 
-`CompressionBreakout250` sucht auf geschlossenen 15-Minuten-Kerzen nach
-Volatilitätskompression, `EMA 50 > EMA 200`, einem Ausbruch über das vorherige
-20-Kerzen-Hoch und bestätigendem Volumen. Referenzfenster sind um eine Kerze
-verschoben, damit die aktuelle Kerze ihren eigenen Schwellenwert nicht setzt.
+Der Testbot lädt `CompressionBreakout250` / V12.15. Die Strategie verwendet
+pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
+ihre separat markierten EMA20-Trend-Reclaims innerhalb eines bestätigten
+1h/4h-Aufwärtstrends. SOL, XRP, BNB und DOGE bleiben beim bereits vorhandenen
+breiten Donchian-Kern. Eine pair-lokale `LowProfitPairs`-Protection pausiert das
+betroffene Pair nach zwei unprofitablen Trades für 72 Stunden. Nur ein
+Champion-Trade, der bereits mindestens +30 % erreicht hat, erhält einen
++5-%-Gewinnboden.
 
 Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 
@@ -47,8 +52,10 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-Die Baseline ist trotzdem nicht profitabel und deshalb nicht freigegeben.
-Sicherheitsprüfungen ersetzen keine positive Erwartung.
+V12.15 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
+Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
+Erwartung.
 
 ## Installation
 
@@ -82,6 +89,30 @@ Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
+Der UI-Modus `Gesamtportfolio` simuliert alle sechs Pairs gemeinsam mit genau
+einem 250-USDT-Wallet und den bestehenden Positionsgrenzen. Die Einzelpaar-
+Läufe dienen der Attribution. Ergebnis und Gesamtauswertung weisen zusätzlich
+Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
+gleichzeitig offene Positionen aus.
+
+Alle automatisch erzeugten Runtime-Dateien liegen unter `user_data/`: Daten in
+`data/`, UI-Backtests in `backtest_results/`, Sitzungsberichte in
+`logs/sessions/`, Paper-/Replay-Evidenz in `paper_telemetry/` beziehungsweise
+`replay_results/`. Diese Pfade sind von Git ausgeschlossen. Wegwerfbarer
+Python-Bytecode-Cache wird in den Startpfaden deaktiviert, sodass der
+Repository-Stamm frei von Laufzeitartefakten bleibt. Die dort beim Setup
+erzeugte `.venv/` ist die notwendige gelockte Python-/Freqtrade-Umgebung und
+kein Bot-Ergebnis.
+
+`backtest_history_analysis.py` liest alle erhaltenen UI-Backtest-ZIPs, markiert
+abgebrochene Versuche getrennt und erneuert `GESAMTAUSWERTUNG.md` sowie
+`gesamt-auswertung.json`. Rohresultate werden dabei niemals gelöscht;
+überlappende Testfenster werden nicht als eine gemeinsame Kapitalkurve
+ausgegeben. Portfolio-Läufe werden getrennt von der historischen
+historischen Sechs-Zellen- beziehungsweise aktuellen Zwölf-Zellen-
+Einzelpaar-Matrix ausgewertet. Jeder neue Lauf muss zusätzlich seinen
+Dateizugriffsaudit bestehen.
+
 ## Dry-run
 
 ```powershell
@@ -95,9 +126,8 @@ beweist weder Profitabilität noch vollständige Bias-Freiheit.
 `STARTBOT.bat` setzt immer `dry_run=true`; geerbte
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
-Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test der
-historisch negativen Baseline ist nur eine technische Beobachtung und keine
-Promotion oder Freigabe für Echtgeld.
+Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
+V12.15-Kandidaten ist keine Freigabe für Echtgeld.
 
 ## Kill-Switch
 

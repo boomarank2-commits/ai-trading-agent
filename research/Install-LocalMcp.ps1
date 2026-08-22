@@ -6,6 +6,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
+$env:PYTHONDONTWRITEBYTECODE = "1"
+$env:PYTHONUTF8 = "1"
 $pythonPath = Join-Path $repoRoot ".venv\Scripts\python.exe"
 
 if ([string]::IsNullOrWhiteSpace($Database)) {

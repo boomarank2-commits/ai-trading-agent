@@ -21,8 +21,15 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from paper_decision_telemetry import _risk_policy_fingerprint, _safe_config_fingerprint
 from replay_core import MinuteBar, ReplayEngine, ReplayPolicy, StrategyDecision, final_metrics
-from replay_data import build_manifest, feather_path, sha256_file
+from replay_data import (
+    REQUIRED_TIMEFRAMES,
+    TIMEFRAME_SECONDS,
+    build_manifest,
+    feather_path,
+    sha256_file,
+)
 from replay_telemetry import JsonlReplaySink, finalize_run, write_json_atomic
 from v8_replay_adapter import V8ReplayAdapter
 
@@ -32,15 +39,41 @@ USER_DATA = RUNTIME_ROOT / "user_data"
 DEFAULT_DATA_ROOT = USER_DATA / "data" / "binance"
 DEFAULT_OUTPUT_ROOT = USER_DATA / "replay_results"
 CONFIG = USER_DATA / "config.json"
-STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
+STRATEGY = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout250.py"
 STRATEGY_CLASS = "CompressionBreakout250"
+EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
 PAIRS = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
+ACTIVE_DRYRUN_PAIRS = (
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+)
 WARMUP_DAYS = 75
 
 
 def _sha256_json(payload: Any) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _lf_sha256_file(path: Path) -> str:
+    """Hash strategy text after the repository's documented LF normalization."""
+
+    normalized = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def _validate_frozen_strategy() -> str:
+    actual = _lf_sha256_file(STRATEGY)
+    if actual != EXPECTED_V8_LF_SHA256:
+        raise RuntimeError(
+            "frozen V8 LF SHA-256 mismatch; refusing mislabeled replay: "
+            f"expected {EXPECTED_V8_LF_SHA256}, got {actual} from {STRATEGY}"
+        )
+    return actual
 
 
 def _package_version(name: str) -> str:
@@ -72,14 +105,15 @@ def _parse_time(value: str) -> datetime:
 def _latest_common_end(data_root: Path) -> datetime:
     latest: list[datetime] = []
     for pair in PAIRS:
-        path = feather_path(data_root, pair, "1m")
-        if not path.is_file():
-            raise RuntimeError(f"missing 1m data: {path}")
-        dates = pd.read_feather(path, columns=["date"])["date"]
-        if dates.empty:
-            raise RuntimeError(f"empty 1m data: {path}")
-        last = pd.to_datetime(dates.iloc[-1], utc=True).to_pydatetime()
-        latest.append(last + timedelta(minutes=1))
+        for timeframe in REQUIRED_TIMEFRAMES:
+            path = feather_path(data_root, pair, timeframe)
+            if not path.is_file():
+                raise RuntimeError(f"missing {timeframe} data: {path}")
+            dates = pd.read_feather(path, columns=["date"])["date"]
+            if dates.empty:
+                raise RuntimeError(f"empty {timeframe} data: {path}")
+            last = pd.to_datetime(dates.iloc[-1], utc=True).to_pydatetime()
+            latest.append(last + timedelta(seconds=TIMEFRAME_SECONDS[timeframe]))
     return min(latest).astimezone(UTC)
 
 
@@ -129,8 +163,13 @@ def _validate_contract(config: dict[str, Any]) -> None:
         "trailing_stop": False,
         "trading_mode": "spot",
         "margin_mode": "",
-        "pair_whitelist": list(PAIRS),
+        # The replay remains frozen to PAIRS.  This field validates the current
+        # dry-run bundle and must not silently force that bundle back to V8's
+        # historical three-pair universe.
+        "pair_whitelist": list(ACTIVE_DRYRUN_PAIRS),
     }
+    if not set(PAIRS).issubset(ACTIVE_DRYRUN_PAIRS):
+        raise RuntimeError("frozen V8 replay pairs are missing from active dry-run contract")
     if safe != expected:
         raise RuntimeError(
             "replay safety contract mismatch; refusing run:\n"
@@ -207,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     _validate_contract(config)
+    strategy_lf_hash = _validate_frozen_strategy()
     start, end = _resolve_window(args)
     warmup_start = start - timedelta(days=WARMUP_DAYS)
 
@@ -216,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     data_manifest_hash = _sha256_json(data_manifest)
     strategy_hash = sha256_file(STRATEGY)
     config_hash = sha256_file(CONFIG)
+    paper_config_hash = _safe_config_fingerprint(config)
+    paper_risk_policy_hash = _risk_policy_fingerprint(config, strategy_hash)
     safe_config = _safe_runtime_config(config)
     policy = ReplayPolicy(
         start_capital=250.0,
@@ -294,7 +336,10 @@ def main(argv: list[str] | None = None) -> int:
         "git_commit_sha": _git_sha(),
         "strategy_name": STRATEGY_CLASS,
         "strategy_sha256_raw": strategy_hash,
+        "strategy_sha256_lf": strategy_lf_hash,
         "config_sha256": config_hash,
+        "paper_config_hash": paper_config_hash,
+        "paper_risk_policy_hash": paper_risk_policy_hash,
         "safe_config": safe_config,
         "risk_policy": asdict(policy),
         "risk_policy_hash": _sha256_json(asdict(policy)),

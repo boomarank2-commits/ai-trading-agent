@@ -1,6 +1,7 @@
 # Local AI trading desk instructions
 
-This repository contains an upstream prompt layer plus an independent local runtime.
+This repository contains a focused local runtime plus the retained upstream role
+files that are still used by the disabled offline Research Desk.
 
 ## Current authoritative plan
 
@@ -18,13 +19,13 @@ The current rule is deliberately conservative:
 - The long-term strategy state model is `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION`, or `NO_TRADE`.
 - `NO_TRADE` is the default when data quality, regime, signal or risk approval is uncertain.
 
-## Preserve upstream
+## Preserve provenance and used upstream roles
 
-Treat these paths as read-only upstream source material unless the human explicitly asks to update the upstream snapshot:
+Treat these paths as read-only source/provenance material unless the human
+explicitly asks to update the upstream snapshot:
 
-- `README.md`, `SKILL.md`, `LICENSE`, `CONTRIBUTING.md`
-- `skills/`, `prompts/`, `loop/`, `examples/`
-- upstream documentation under `docs/`, except repository-owned local/research documentation
+- `LICENSE`, `NOTICE.md`, `docs/UPSTREAM.md`
+- role files under `loop/` that are referenced by `research/desk.json`
 
 Put local work in `src/local_trader/`, `runtime/`, `local-prompts/`, `research/`, and `tests/`.
 

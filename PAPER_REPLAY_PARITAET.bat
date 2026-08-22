@@ -2,6 +2,7 @@
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONDONTWRITEBYTECODE=1"
 title V8 Paper-Replay-Paritaet
 
 if not exist ".venv\Scripts\python.exe" (
