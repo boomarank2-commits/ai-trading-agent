@@ -1,25 +1,32 @@
-# AI Trading Agent – lokaler V12.9-Testbot
+# AI Trading Agent – lokaler V12.12-Testbot
 
 Deutscher Einstieg und aktueller Projektstatus: [`START_HERE_DE.md`](START_HERE_DE.md).
 
 Dieses Repository enthält den lokalen Freqtrade-/Binance-Testbot, seine
 Sicherheitsverträge sowie die Werkzeuge für Backtest, Replay, Audit und
 reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
-`CompressionBreakout250` / V12.9 ausschließlich im Paper-/Dry-run-Modus.
+`CompressionBreakout250` / V12.12 ausschließlich im Paper-/Dry-run-Modus.
 
 ## Aktueller Betriebsrahmen
 
 - Branch: `agent/v12-adaptive-league`
-- Binance Spot, BTC/USDT, ETH/USDT und SOL/USDT
+- Binance Spot: BTC, ETH, SOL, XRP, BNB und DOGE gegen USDT
 - long-only, 1x, ausschließlich virtuelles Kapital
 - 250 USDT Startkapital, maximal 80 USDT je Position
 - maximal drei Positionen beziehungsweise 240 USDT Gesamtengagement
 - kein Futures, Margin, Short, Hebel, DCA, Martingale oder automatische
   Echtgeld-Freigabe
 
-V12.9 behält die pair-spezifischen Donchian-Einstiege, ergänzt für BTC und ETH
-einen getrennt markierten EMA20-Trend-Reclaim und verwendet eine pair-lokale
-Sperre gegen Verlustcluster. SOL nutzt den Reclaim-Challenger nicht.
+V12.12 verändert keine Signal- oder Exit-Schwelle von V12.9. BTC und ETH
+behalten ihren getrennt markierten EMA20-Trend-Reclaim. XRP, BNB und DOGE sind
+die einzige neue Strategieänderung und nutzen wie SOL ausschließlich den
+bestehenden breiten Donchian-Kern. Alle sechs Märkte verwenden eine pair-lokale
+Sperre gegen Verlustcluster.
+
+Der erste gemeinsame V12.12-Drei-Jahres-Lauf ist als starke, aber formal am
+ersten nativen Candle-Dateiaudit gescheiterte Diagnose dokumentiert. Er wird
+nicht verschwiegen, nicht als vollständig bestanden bezeichnet und durch seinen
+versionierten Fingerabdruck nicht identisch wiederholt.
 
 ## Start und Auswertung
 
@@ -37,10 +44,13 @@ Zeiträume nicht zu einer künstlichen Kapitalkurve. Neue identische UI-Läufe
 werden über einen inhaltlichen Fingerabdruck vor dem Start blockiert;
 Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
-Der UI-Backtest bietet zusätzlich eine echte Gesamtportfolio-Sicht: BTC, ETH
-und SOL teilen sich ein 250-USDT-Wallet. Sie ist für Kapitalnutzung und
-Portfolioergebnis maßgeblich; die sechs Einzelpaar-Läufe bleiben als
-Attribution erhalten.
+Der UI-Backtest bietet zusätzlich eine echte Gesamtportfolio-Sicht: alle sechs
+Märkte teilen sich ein 250-USDT-Wallet. Sie ist für Kapitalnutzung und
+Portfolioergebnis maßgeblich; die zwölf Einzelpaar-/Zeitraum-Zellen bleiben als
+Attribution erhalten. Jeder Lauf protokolliert außerdem die tatsächlich
+geöffnete Strategie und Konfigurationskette sowie die nativen Candle-Ladevorgänge
+mit Datei-Hash und bricht bei einer
+unerwarteten Repo-Datei oder einem Kindprozess ab.
 
 ## Research und Sicherheit
 

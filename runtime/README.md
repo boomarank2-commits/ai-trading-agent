@@ -2,7 +2,8 @@
 
 Diese Laufzeit ist eine vorsichtige Forschungs- und Integrationsbasis, kein
 Renditeversprechen. Sie ist auf Freqtrade `2026.7` festgesetzt und nutzt nur
-`BTC/USDT`, `ETH/USDT` und `SOL/USDT` auf Binance Spot.
+`BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `BNB/USDT` und `DOGE/USDT`
+auf Binance Spot.
 
 Der Doppelklick-Ablauf für den ausschließlich simulierten 24/7-Test,
 einschließlich Stoppschalter, persistenter Datenbank und Auswertung, steht in
@@ -33,10 +34,11 @@ Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 
 ## Aktive Dry-run-Strategie
 
-Der Testbot lädt `CompressionBreakout250` / V12.9. Die Strategie verwendet
+Der Testbot lädt `CompressionBreakout250` / V12.12. Die Strategie verwendet
 pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
 einen separat markierten EMA20-Trend-Reclaim innerhalb eines bestätigten
-1h/4h-Aufwärtstrends; SOL bleibt beim Donchian-Kern. Eine pair-lokale
+1h/4h-Aufwärtstrends; SOL, XRP, BNB und DOGE bleiben beim bereits vorhandenen
+breiten Donchian-Kern. Eine pair-lokale
 `LowProfitPairs`-Protection begrenzt Verlustcluster.
 
 Zusätzliche Runtime-Callbacks arbeiten fail-closed:
@@ -48,7 +50,7 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-V12.9 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+V12.12 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
 eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
 Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
 Erwartung.
@@ -85,7 +87,7 @@ Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
-Der UI-Modus `Gesamtportfolio` simuliert BTC, ETH und SOL gemeinsam mit genau
+Der UI-Modus `Gesamtportfolio` simuliert alle sechs Pairs gemeinsam mit genau
 einem 250-USDT-Wallet und den bestehenden Positionsgrenzen. Die Einzelpaar-
 Läufe dienen der Attribution. Ergebnis und Gesamtauswertung weisen zusätzlich
 Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
@@ -105,7 +107,9 @@ abgebrochene Versuche getrennt und erneuert `GESAMTAUSWERTUNG.md` sowie
 `gesamt-auswertung.json`. Rohresultate werden dabei niemals gelöscht;
 überlappende Testfenster werden nicht als eine gemeinsame Kapitalkurve
 ausgegeben. Portfolio-Läufe werden getrennt von der historischen
-Sechs-Zellen-Einzelpaar-Matrix ausgewertet.
+historischen Sechs-Zellen- beziehungsweise aktuellen Zwölf-Zellen-
+Einzelpaar-Matrix ausgewertet. Jeder neue Lauf muss zusätzlich seinen
+Dateizugriffsaudit bestehen.
 
 ## Dry-run
 
@@ -121,7 +125,7 @@ Sechs-Zellen-Einzelpaar-Matrix ausgewertet.
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
 Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
-V12.9-Kandidaten ist keine Promotion oder Freigabe für Echtgeld.
+V12.12-Kandidaten ist keine Promotion oder Freigabe für Echtgeld.
 
 ## Kill-Switch
 

@@ -91,6 +91,24 @@ def test_history_keeps_completed_and_incomplete_attempts_separate(tmp_path: Path
     assert report["incomplete_runs"][0]["run_id"] == "run-incomplete"
 
 
+def test_failed_run_contract_keeps_generated_zip_as_incomplete_evidence(tmp_path: Path) -> None:
+    _write_result(tmp_path, "audit-failed", pair="BTC/USDT", profit=5.0)
+    result_path = tmp_path / "audit-failed" / "experiment-result.json"
+    result_path.write_text(
+        json.dumps({"outcome": "failed", "error": "native candle audit missing"}),
+        encoding="utf-8",
+    )
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+
+    assert report["summary"]["completed"] == 0
+    assert report["summary"]["incomplete"] == 1
+    failed = report["incomplete_runs"][0]
+    assert failed["run_id"] == "audit-failed"
+    assert failed["test_fingerprint"]
+    assert "native candle audit missing" in failed["reason"]
+
+
 def test_history_writes_json_and_readable_markdown(tmp_path: Path) -> None:
     results = tmp_path / "results"
     _write_result(results, "run-good", pair="ETH/USDT", profit=-3.0)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "v12-9-champion-reclaim-cluster-250-dryrun",
+  "bot_name": "v12-12-liquid-universe-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,
@@ -81,7 +81,10 @@
     "pair_whitelist": [
       "BTC/USDT",
       "ETH/USDT",
-      "SOL/USDT"
+      "SOL/USDT",
+      "XRP/USDT",
+      "BNB/USDT",
+      "DOGE/USDT"
     ],
     "pair_blacklist": []
   },

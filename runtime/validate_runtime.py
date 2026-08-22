@@ -13,7 +13,14 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-EXPECTED_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+EXPECTED_PAIRS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+]
 EXPECTED_FREQTRADE_VERSION = "2026.7"
 EMPTY_IMPORTS_SHA256 = hashlib.sha256(b"").hexdigest()
 HASH_LENGTH = 64

@@ -1,0 +1,2 @@
+test_fingerprint,run_id,experiment_id,strategy_hash,pair,years,executed_at_utc,outcome,formal_valid,profit_usdt,trades,notes
+eff234f7f9b9f1ac40af3e4176dc920efde3e6cd34dd7aaf5d4de69f44f62db1,20260822T072248Z-df00496d,V12.12-LIQUID-UNIVERSE,e56c2b87cd76b5e33a481957d288236afdc9421e669dcd4b536d4ccb6cb93524,PORTFOLIO,3,2026-08-22T07:22:50Z,AUDIT_FAILED_AFTER_SIMULATION,false,288.6463,122,"Exact strategy/config/process contract observed; native Arrow candle reads were invisible to the first Python open hook. Diagnostic only; exact rerun forbidden."

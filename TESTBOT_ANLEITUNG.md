@@ -8,14 +8,14 @@ Aktueller Entwicklungszweig: `agent/v12-adaptive-league`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.9"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.12"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
 ## Aktueller Sicherheitsrahmen
 
 - Binance Spot / USDT
-- BTC/USDT, ETH/USDT, SOL/USDT
+- BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT
 - long-only, 1x
 - 250 virtuelle USDT
 - maximal 80 USDT je Position
@@ -24,20 +24,21 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.9 macht
+## Was V12.12 macht
 
-BTC, ETH und SOL werden unabhängig voneinander bewertet. Jedes Pair nutzt nur
-seine eigenen 15m/1h/4h-Daten. Die paarweise kalibrierten Donchian-Einstiege des
-V12.8-Champions bleiben erhalten.
+Alle sechs Pairs werden unabhängig voneinander bewertet. Jedes Pair nutzt nur
+seine eigenen 15m/1h/4h-Daten. V12.12 verändert keine Schwelle der V12.9-Logik.
 
 - BTC und ETH testen zusätzlich einen separat markierten EMA20-Trend-Reclaim.
-- SOL verwendet keinen Reclaim-Challenger.
+- SOL, XRP, BNB und DOGE verwenden keinen Reclaim-Challenger, sondern nur den
+  bereits vorhandenen breiten Donchian-Kern.
 - Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
   pair-lokale `LowProfitPairs`-Protection dieses Pair für 72 Stunden.
 - Der feste Stop-Loss bleibt bei −5,5 %; DCA und Shorting bleiben deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.9 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**.
+V12.12 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+Universumserweiterung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI
 
@@ -72,10 +73,12 @@ Diese Helfer sind keine alternativen Trading-Strategien.
 Der integrierte Backtest verwendet die tatsächlich aktive Strategy-Quelle. Details stehen in `BACKTEST_ANLEITUNG.md`.
 
 Für die Frage, wie sinnvoll die 250 USDT tatsächlich eingesetzt werden, ist
-der neue **Gesamtportfolio-Test** maßgeblich: BTC, ETH und SOL teilen dort ein
+der **Gesamtportfolio-Test** maßgeblich: alle sechs Pairs teilen dort ein
 einziges Konto. Die Einzelpaar-Tests bleiben als Diagnose erhalten. Die
 Oberfläche zeigt zusätzlich Kapitalzeit, Zeit ohne Position sowie
-durchschnittlich und maximal gleichzeitig offene Positionen.
+durchschnittlich und maximal gleichzeitig offene Positionen. Der Dateiaudit
+stoppt einen Lauf, sobald eine unerwartete Strategy-, Config-, Candle- oder
+Repo-Datei beziehungsweise ein Kindprozess verwendet wird.
 
 V12-Optimizer- und Family-League-Runs sind davon getrennte Research-Werkzeuge. Ein Research-Gewinner wird nicht automatisch in den laufenden Bot übernommen.
 

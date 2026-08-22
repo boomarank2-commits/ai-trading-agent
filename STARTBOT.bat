@@ -5,14 +5,14 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.9: Binance-Marktdaten, aber ausschliesslich Testgeld
-echo   250 virtuelle USDT ^| BTC/ETH/SOL ^| KEIN ECHTGELD
+echo   TESTBOT V12.12: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.9 behaelt die V12.8-Champion-Einstiege unveraendert.
+echo V12.12 behaelt alle Signal- und Exit-Schwellen von V12.9 unveraendert.
 echo BTC/ETH testen zusaetzlich einen separat markierten Trend-Reclaim nach
 echo einem 15m-Pullback innerhalb bestaetigter 1h/4h-Aufwaertstrends.
-echo SOL bleibt beim breiteren Donchian-Kern; der V12.8 +5%%-Ratchet ist wieder entfernt.
+echo SOL/XRP/BNB/DOGE nutzen nur den breiteren Donchian-Kern.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
 echo innerhalb von 14 Tagen fuer drei Tage. Gewinner bleiben uncapped.
 echo Forschungsziel: >1 USDT/Tag ist ein Stretch-Ziel, keine Backtest-Zwangsvorgabe.
@@ -41,23 +41,41 @@ if errorlevel 1 (
 
 set "LOCAL_UI_PASSWORD_FILE=%~dp0runtime\user_data\.testbot-ui-password"
 set "FREQTRADE__API_SERVER__USERNAME=testbot"
-set "FREQTRADE__API_SERVER__PASSWORD=PaperOnly-250-USDT!"
 set "FIRST_LOGIN_HELP=1"
-if exist "%LOCAL_UI_PASSWORD_FILE%" (
-    set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
+if not exist "%LOCAL_UI_PASSWORD_FILE%" (
+    set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) ^| Out-Null; [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
+    set "TESTBOT_PASSWORD_FILE="
+    if errorlevel 1 (
+        echo.
+        echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort konnte nicht erzeugt werden.
+        echo Der Testbot wird nicht gestartet.
+        pause
+        exit /b 1
+    )
+) else (
     set "FIRST_LOGIN_HELP=0"
 )
+set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
+if not defined FREQTRADE__API_SERVER__PASSWORD (
+    echo.
+    echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort ist leer oder nicht lesbar.
+    echo Mit PASSWORT_AENDERN.bat kann ein neues Passwort gesetzt werden.
+    pause
+    exit /b 1
+)
+set "FREQTRADE__API_SERVER__JWT_SECRET_KEY=%FREQTRADE__API_SERVER__PASSWORD%-jwt"
+set "FREQTRADE__API_SERVER__WS_TOKEN=%FREQTRADE__API_SERVER__PASSWORD%-ws"
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.9
+echo Bot Name : Testbot V12.12
 echo Benutzer : testbot
 if "%FIRST_LOGIN_HELP%"=="1" (
-    echo Passwort : PaperOnly-250-USDT!
+    echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
     echo.
-    echo ERSTE ANMELDUNG: Die Login-Hilfe wird zusaetzlich geoeffnet.
-    echo Nach erfolgreichem Login kann mit PASSWORT_AENDERN.bat ein eigenes
-    echo lokales Passwort gesetzt werden. Es wird erst nach Bot-Neustart aktiv.
+    echo ERSTE ANMELDUNG: Dieses zufaellig erzeugte Passwort gilt nur lokal.
+    echo Die Login-Hilfe wird zusaetzlich geoeffnet.
     start "" "%~dp0LOGIN_HILFE.html"
 ) else (
     echo Passwort : eigenes lokales Passwort ist aktiv

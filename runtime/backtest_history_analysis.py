@@ -386,6 +386,8 @@ def _group_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    legacy_pairs = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
+    v12_12_pairs = (*legacy_pairs, "XRP/USDT", "BNB/USDT", "DOGE/USDT")
     by_hash: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for run in completed:
         by_hash[(run["strategy_sha256"], run["strategy_version"])].append(run)
@@ -406,9 +408,8 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         periods = sorted(
             {run["period_years"] for run in selected if run["period_years"] is not None}
         )
-        expected = {
-            (pair, years) for pair in ("BTC/USDT", "ETH/USDT", "SOL/USDT") for years in periods
-        }
+        matrix_pairs = v12_12_pairs if version == "V12.12" else legacy_pairs
+        expected = {(pair, years) for pair in matrix_pairs for years in periods}
         complete = bool(periods) and expected == set(latest_by_cell)
         matrices.append(
             {
@@ -420,7 +421,13 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "expected_cells": len(expected),
                 "period_years": periods,
                 "matrix_complete": complete,
-                "current_six_run_matrix": complete and periods == [1, 3],
+                "matrix_pairs": list(matrix_pairs),
+                "current_six_run_matrix": (
+                    complete and matrix_pairs == legacy_pairs and periods == [1, 3]
+                ),
+                "current_twelve_cell_matrix": (
+                    complete and matrix_pairs == v12_12_pairs and periods == [1, 3]
+                ),
                 "positive_cells": sum(run["profit_usdt"] > 0 for run in selected),
                 "independent_profit_sum_usdt": round(
                     sum(run["profit_usdt"] for run in selected), 4
@@ -514,6 +521,12 @@ def analyze_backtest_history(
                     record["experiment_result"] = json.loads(
                         result_path.read_text(encoding="utf-8")
                     )
+                    if record["experiment_result"].get("outcome") == "failed":
+                        record["status"] = "incomplete"
+                        record["reason"] = (
+                            "Simulation erzeugte ein ZIP, aber der Laufvertrag schlug fehl: "
+                            + str(record["experiment_result"].get("error") or "unbekannt")
+                        )
                 records.append(record)
             except (BadZipFile, json.JSONDecodeError, KeyError, OSError, ValueError) as exc:
                 records.append(_incomplete_run(run_dir, f"Nicht lesbar: {exc}"))

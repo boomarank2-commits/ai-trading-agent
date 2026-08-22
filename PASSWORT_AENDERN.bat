@@ -45,8 +45,7 @@ echo   1. Falls der Bot laeuft: im Bot-Fenster Strg+C druecken.
 echo   2. STARTBOT.bat erneut starten.
 echo   3. In FreqUI Benutzer testbot und das neue Passwort verwenden.
 echo.
-echo Wenn dieses eigene Passwort spaeter verloren geht, ist der einfache
-echo Reset-Weg ein frischer Download/Klon des Bots in einen neuen Ordner.
-echo Dort gilt wieder das dokumentierte Erstpasswort.
+echo Wenn dieses eigene Passwort spaeter verloren geht, dieses Programm erneut
+echo ausfuehren und ein neues lokales Passwort setzen.
 echo.
 pause

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
-V12_9_SHA256 = "b78d1c0171120e6b61f309520c28ee8016cd986b9044155441d26eadc4a8bf64"
+V12_12_SHA256 = "9978cbcc00af80bb77933f8246cd9e78c73ef1d54b0a60e0b8f24e85e8f39993"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
 GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
@@ -48,6 +48,20 @@ REQUIRED_LEDGER_COLUMNS = (
     "decision",
     "lessons",
     "next_experiment",
+)
+REQUIRED_TEST_FINGERPRINT_COLUMNS = (
+    "test_fingerprint",
+    "run_id",
+    "experiment_id",
+    "strategy_hash",
+    "pair",
+    "years",
+    "executed_at_utc",
+    "outcome",
+    "formal_valid",
+    "profit_usdt",
+    "trades",
+    "notes",
 )
 
 ALLOWED_VOLUME_PARAMETER_HASHES = {"volume_ratio>=1.00", "volume_ratio>=1.25"}
@@ -160,11 +174,11 @@ def validate_trial_ledger(path: Path) -> list[str]:
             errors.append("V8-B0 must remain FROZEN_CHAMPION until a manual promotion decision")
 
     current = next(
-        (row for row in rows if row.get("experiment_id") == "V12.9-RECLAIM-CLUSTER"),
+        (row for row in rows if row.get("experiment_id") == "V12.12-LIQUID-UNIVERSE"),
         None,
     )
-    if current is None or current.get("strategy_hash", "").strip() != V12_9_SHA256:
-        errors.append("V12.9 current strategy is not exactly registered in trial ledger")
+    if current is None or current.get("strategy_hash", "").strip() != V12_12_SHA256:
+        errors.append("V12.12 current strategy is not exactly registered in trial ledger")
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()
@@ -176,6 +190,37 @@ def validate_trial_ledger(path: Path) -> list[str]:
                 "only 1.00 and 1.25 are allowed by the masterplan"
             )
 
+    return errors
+
+
+def validate_test_fingerprint_ledger(path: Path) -> list[str]:
+    if not path.is_file():
+        return [f"missing executed-test ledger: {path.name}"]
+    with path.open("r", encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        header = reader.fieldnames or []
+        rows = list(reader)
+    errors = [
+        f"executed-test ledger missing column: {column}"
+        for column in REQUIRED_TEST_FINGERPRINT_COLUMNS
+        if column not in header
+    ]
+    fingerprints = []
+    for index, row in enumerate(rows, start=2):
+        fingerprint = str(row.get("test_fingerprint") or "").strip()
+        fingerprints.append(fingerprint)
+        if len(fingerprint) != 64 or any(ch not in "0123456789abcdef" for ch in fingerprint):
+            errors.append(f"executed-test row {index}: invalid fingerprint")
+        if str(row.get("formal_valid") or "").lower() not in {"true", "false"}:
+            errors.append(f"executed-test row {index}: formal_valid must be true or false")
+    duplicate_fingerprints = sorted(
+        {value for value in fingerprints if value and fingerprints.count(value) > 1}
+    )
+    if duplicate_fingerprints:
+        errors.append(
+            "duplicate executed test fingerprints: "
+            + ", ".join(value[:12] for value in duplicate_fingerprints)
+        )
     return errors
 
 
@@ -229,6 +274,11 @@ def validate_repository(repo_root: Path) -> dict[str, Any]:
                 errors.append(f"START_HERE_DE.md missing current architecture marker: {phrase}")
 
     errors.extend(validate_trial_ledger(repo_root / "research" / "trial_ledger.csv"))
+    errors.extend(
+        validate_test_fingerprint_ledger(
+            repo_root / "research" / "executed_test_fingerprints.csv"
+        )
+    )
 
     return {
         "ok": not errors,

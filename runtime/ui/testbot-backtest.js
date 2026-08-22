@@ -11,7 +11,13 @@
     { pair: "ETH/USDT", years: 3 },
     { pair: "ETH/USDT", years: 1 },
     { pair: "SOL/USDT", years: 3 },
-    { pair: "SOL/USDT", years: 1 }
+    { pair: "SOL/USDT", years: 1 },
+    { pair: "XRP/USDT", years: 3 },
+    { pair: "XRP/USDT", years: 1 },
+    { pair: "BNB/USDT", years: 3 },
+    { pair: "BNB/USDT", years: 1 },
+    { pair: "DOGE/USDT", years: 3 },
+    { pair: "DOGE/USDT", years: 1 }
   ];
   let pollTimer = null;
   let batchRunning = false;
@@ -130,16 +136,19 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest</h1>
-        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Gesamtportfolio-Modus teilt ein einziges 250-USDT-Konto realistisch auf BTC, ETH und SOL auf.</p>
+        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Gesamtportfolio-Modus teilt ein einziges 250-USDT-Konto realistisch auf alle sechs freigegebenen Märkte auf.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
               <label for="tb-pair">Prüfmodus</label>
               <select id="tb-pair">
-                <option value="PORTFOLIO" selected>Gesamtportfolio · BTC + ETH + SOL</option>
+                <option value="PORTFOLIO" selected>Gesamtportfolio · 6 liquide Spot-Pairs</option>
                 <option value="BTC/USDT">Bitcoin · BTC/USDT</option>
                 <option value="ETH/USDT">Ethereum · ETH/USDT</option>
                 <option value="SOL/USDT">Solana · SOL/USDT</option>
+                <option value="XRP/USDT">XRP · XRP/USDT</option>
+                <option value="BNB/USDT">BNB · BNB/USDT</option>
+                <option value="DOGE/USDT">Dogecoin · DOGE/USDT</option>
               </select>
             </div>
             <div class="tb-field">
@@ -152,10 +161,10 @@
             </div>
             <div class="tb-actions">
               <button id="tb-start" class="tb-button">Backtest starten</button>
-              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 8 Backtests</button>
+              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 14 Backtests</button>
             </div>
           </div>
-          <div class="tb-info">V12.9 lässt die V12.8-Champion-Einstiege unverändert. BTC und ETH testen zusätzlich einen separat markierten 15m-EMA20-Trend-Reclaim innerhalb bestätigter 1h/4h-Aufwärtstrends. SOL bleibt beim breiteren Donchian-Kern; der V12.8-Gewinn-Ratchet ist entfernt, damit große Gewinner wieder uncapped laufen. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test ist die maßgebliche 250-USDT-Sicht. Er simuliert alle drei Märkte gemeinsam mit höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur dazu, Gewinner und Verlierer einem Pair zuzuordnen; ihre Ergebnisse dürfen nicht als drei getrennte 250-USDT-Konten zusammengerechnet werden.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test. Jeder echte neue Versuch muss mit Vorgänger, Hypothese, exakter Änderung, Erfolgskriterium und nächstem Schritt im Versuchsregister stehen.<br><br><strong>Alle 8 Backtests</strong> prüft Gesamtportfolio, BTC, ETH und SOL jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
+          <div class="tb-info">V12.12 ändert keine Signal- oder Exit-Schwelle von V12.9. XRP, BNB und DOGE erweitern ausschließlich das Universum und nutzen wie SOL nur den bestehenden breiten, langsamen Donchian-Kern. Der BTC/ETH-Trend-Reclaim bleibt auf BTC und ETH beschränkt. Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades innerhalb von 14 Tagen für drei Tage. Der feste -5,5-%-Hard-Stop bleibt bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test ist die maßgebliche 250-USDT-Sicht. Alle sechs Märkte konkurrieren gemeinsam um höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur der Pair-Attribution und dürfen nicht als sechs getrennte 250-USDT-Konten addiert werden.<br><br><strong>Dateikontrolle:</strong> Der gesperrte Backtest protokolliert geöffnete Repo-, Konfigurations- und Strategy-Dateien. Native Arrow-Candle-Ladevorgänge werden an Freqtrades Dateinamen-Grenze mit SHA-256 vor und nach dem Lauf gebunden. Der Lauf scheitert, wenn eine andere Strategy, eine andere Konfiguration, Kerzen eines nicht angeforderten Pairs oder ein unerwarteter Kindprozess verwendet wird.<br><br><strong>Keine Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener Fingerabdruck wird vor Download und Simulation blockiert. Auch ein technisch fehlgeschlagener Versuch mit Ergebnis-ZIP bleibt blockiert. Nur Version, Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test.<br><br><strong>Alle 14 Backtests</strong> prüft Gesamtportfolio und alle sechs Einzelpaare jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen werden sauber als Doppeltest übersprungen.</div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
           <div class="tb-status-line"><span id="tb-stage" class="tb-stage">Bereit</span><span id="tb-progress-text" class="tb-progress-text">0 %</span></div>
@@ -168,7 +177,7 @@
           <div id="tb-note" class="tb-note"></div>
         </div>
         <div id="tb-batch-results" class="tb-panel tb-results">
-          <div class="tb-result-head"><h2>Alle 8 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
+          <div class="tb-result-head"><h2>Alle 14 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
               <thead><tr><th>Test</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Kapitalzeit</th><th>Ohne Position</th><th>Status</th></tr></thead>
@@ -239,7 +248,11 @@
       const exits = breakdownText(r.exit_reason_breakdown, "Keine Exit-Attribution verfügbar");
       const experiment = r.experiment || {};
       const identity = r.test_identity || {};
-      document.getElementById("tb-note").textContent = `Experiment ${experiment.experiment_id || "nicht angegeben"}; Vorgänger ${experiment.parent_experiment_id || "keiner"}. Geändert: ${experiment.change_summary || "nicht angegeben"}. Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… und Test-Fingerabdruck ${String(identity.test_fingerprint || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      const fileAudit = r.execution_file_audit || {};
+      const auditText = fileAudit.passed
+        ? `${Number(fileAudit.observed_candle_files?.length || 0)} erwartete Candle-Dateien, exakte Strategy/Configs, keine fremde Repo-Datei und kein Kindprozess`
+        : "keine Dateiaudit-Bestätigung";
+      document.getElementById("tb-note").textContent = `Experiment ${experiment.experiment_id || "nicht angegeben"}; Vorgänger ${experiment.parent_experiment_id || "keiner"}. Geändert: ${experiment.change_summary || "nicht angegeben"}. Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… und Test-Fingerabdruck ${String(identity.test_fingerprint || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}. Dateiaudit: ${auditText}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }

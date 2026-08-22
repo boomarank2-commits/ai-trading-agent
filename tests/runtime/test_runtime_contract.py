@@ -21,7 +21,14 @@ PUBLIC_OVERLAY_PATH = USER_DATA / "config-public.json"
 ANALYSIS_OVERLAY_PATH = USER_DATA / "config-analysis.json"
 STRATEGY_PATH = USER_DATA / "strategies" / "CompressionBreakout250.py"
 
-PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+PAIRS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+]
 
 
 def load_json(path: Path) -> dict:

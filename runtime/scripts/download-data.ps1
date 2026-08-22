@@ -13,7 +13,7 @@ $commandArgs = @(
     "--config", $script:PublicOverlayPath,
     "--userdir", $script:UserDataPath,
     "--timeframes", "15m",
-    "--pairs", "BTC/USDT", "ETH/USDT", "SOL/USDT",
+    "--pairs", "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "BNB/USDT", "DOGE/USDT",
     "--trading-mode", "spot",
     "--days", $Days.ToString()
 )

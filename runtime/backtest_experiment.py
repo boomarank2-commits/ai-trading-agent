@@ -267,8 +267,17 @@ def strategy_change_diff(parent_source: bytes | None, current_source: bytes) -> 
 
 
 def current_git_commit(repo_root: Path) -> str | None:
+    safe_directory = str(repo_root.resolve()).replace("\\", "/")
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        [
+            "git",
+            "-c",
+            f"safe.directory={safe_directory}",
+            "-C",
+            str(repo_root),
+            "rev-parse",
+            "HEAD",
+        ],
         capture_output=True,
         text=True,
         check=False,

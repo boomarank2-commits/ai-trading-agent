@@ -74,6 +74,14 @@ Nach Sicht auf B1/B2 wird keine neue Schwelle spontan ergänzt. B1 ist als globa
 
 PBO und Deflated Sharpe sind Research-Diagnostik und keine Echtgeldfreigabe.
 
+## Lauf-Fingerabdrücke
+
+`executed_test_fingerprints.csv` enthält jeden bereits ausgeführten materiellen
+Test-Fingerabdruck, auch wenn der Lauf nach der Simulation an einem technischen
+Audit-Gate scheiterte. Dadurch bleibt derselbe Strategy-/Config-/Pair-/Zeitraum-
+Test nach einem Git-Pull oder in einem zweiten Arbeitsordner gesperrt. Rohdaten
+und vollständige Resultat-ZIPs bleiben weiterhin lokal außerhalb von Git.
+
 ## Automatischer Governance-Check
 
 ```bat
@@ -81,5 +89,5 @@ PBO und Deflated Sharpe sind Research-Diagnostik und keine Echtgeldfreigabe.
 ```
 
 Der Check prüft unter anderem Masterplan, V8-Freeze, Ledger-Schema,
-Parent-Referenzen, eindeutige Strategy-Hashes, die exakte V12.9-Registrierung und
+Parent-Referenzen, eindeutige Strategy-Hashes, die exakte V12.12-Registrierung und
 die vorregistrierten Volume-Schwellen.

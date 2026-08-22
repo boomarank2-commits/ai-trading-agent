@@ -43,7 +43,14 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             "cancel_open_orders_on_exit": False,
             "exchange": {
                 "name": "binance",
-                "pair_whitelist": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+                "pair_whitelist": [
+                    "BTC/USDT",
+                    "ETH/USDT",
+                    "SOL/USDT",
+                    "XRP/USDT",
+                    "BNB/USDT",
+                    "DOGE/USDT",
+                ],
             },
             "order_types": {
                 "entry": "limit",

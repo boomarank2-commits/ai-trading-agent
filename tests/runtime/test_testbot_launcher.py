@@ -33,6 +33,32 @@ def test_double_click_launchers_are_explicitly_test_only() -> None:
     assert "export-dryrun-report.ps1" in report
 
 
+def test_startbot_creates_local_random_ui_password_without_repository_default() -> None:
+    start = (REPO_ROOT / "STARTBOT.bat").read_text(encoding="utf-8")
+    help_page = (REPO_ROOT / "LOGIN_HILFE.html").read_text(encoding="utf-8")
+    public_config = json.loads(
+        (REPO_ROOT / "runtime" / "user_data" / "config-public.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "RandomNumberGenerator" in start
+    assert ".testbot-ui-password" in start
+    assert "FREQTRADE__API_SERVER__PASSWORD" in start
+    assert "FREQTRADE__API_SERVER__JWT_SECRET_KEY" in start
+    assert "FREQTRADE__API_SERVER__WS_TOKEN" in start
+    assert {
+        key: public_config["api_server"][key]
+        for key in ("password", "jwt_secret_key", "ws_token")
+    } == {
+        "password": "LOCAL_ENV_REQUIRED",
+        "jwt_secret_key": "LOCAL_ENV_REQUIRED_JWT_32_CHARS_MINIMUM",
+        "ws_token": "LOCAL_ENV_REQUIRED_WS_32_CHARS_MINIMUM",
+    }
+    assert 'set "FREQTRADE__API_SERVER__PASSWORD=' not in start
+    assert "nicht im Repository gespeichert" in help_page
+
+
 def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     source = (SCRIPTS / "start-testbot-24x7.ps1").read_text(encoding="utf-8")
 

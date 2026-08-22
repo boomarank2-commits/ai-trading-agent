@@ -67,7 +67,8 @@ risk envelope server-side.
 ## Risk envelope
 
 - Binance Spot and USDT only.
-- Pairs: BTC/USDT, ETH/USDT, SOL/USDT.
+- Aktiver Dry-run: BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT.
+- Eingefrorener V8-Replay: BTC/USDT, ETH/USDT, SOL/USDT.
 - Maximum capital: 250 USDT.
 - Maximum stake: 80 USDT.
 - Maximum concurrent positions: 3.
