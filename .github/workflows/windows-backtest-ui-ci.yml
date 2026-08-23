@@ -1,35 +1,46 @@
 name: Testbot Backtest UI
 
-# Exact-strategy loading and candle/history integrity gate for main and the active V12 research branch.
+# Exact-strategy loading and candle/history integrity gate for main and active research branches.
 on:
   push:
     branches:
       - main
       - agent/v12-adaptive-league
+      - agent/v12-17-ten-pair-research-ui
     paths:
       - "runtime/testbot_backtest_api.py"
+      - "runtime/ten_pair_backtest_api.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
+      - "runtime/ui/testbot-backtest-ten-pair.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/user_data/config-ten-pair-research.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "runtime/user_data/strategies/CompressionBreakout250TenPair.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
+      - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   pull_request:
     paths:
       - "runtime/testbot_backtest_api.py"
+      - "runtime/ten_pair_backtest_api.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
+      - "runtime/ui/testbot-backtest-ten-pair.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/user_data/config-ten-pair-research.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "runtime/user_data/strategies/CompressionBreakout250TenPair.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
+      - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   workflow_dispatch:
 
@@ -45,12 +56,30 @@ jobs:
         run: uv sync --frozen --all-extras --python 3.12
       - name: Unit tests
         shell: powershell
-        run: .\.venv\Scripts\python.exe -m pytest -q tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+        run: >-
+          .\.venv\Scripts\python.exe -m pytest -q
+          tests\test_testbot_backtest_api.py
+          tests\test_backtest_history_coverage.py
+          tests\test_backtest_candle_integrity.py
+          tests\runtime\test_v12_17_ten_pair_research_contract.py
       - name: Ruff runtime and tests
         shell: powershell
-        run: .\.venv\Scripts\ruff.exe check runtime\testbot_backtest_api.py runtime\locked_backtest_freqtrade.py runtime\locked_freqtrade.py runtime\patch_frequi.py tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
-      - name: Ruff Freqtrade strategy
+        run: >-
+          .\.venv\Scripts\ruff.exe check
+          runtime\testbot_backtest_api.py
+          runtime\ten_pair_backtest_api.py
+          runtime\locked_backtest_freqtrade.py
+          runtime\locked_freqtrade.py
+          runtime\patch_frequi.py
+          tests\test_testbot_backtest_api.py
+          tests\test_backtest_history_coverage.py
+          tests\test_backtest_candle_integrity.py
+          tests\runtime\test_v12_17_ten_pair_research_contract.py
+      - name: Ruff Freqtrade strategies
         shell: powershell
         # Freqtrade strategies intentionally expose configuration as class attributes.
-        # RUF012 is therefore scoped out only for this strategy source; all other Ruff rules stay active.
-        run: .\.venv\Scripts\ruff.exe check --ignore RUF012 runtime\user_data\strategies\CompressionBreakout250.py
+        # RUF012 is therefore scoped out only for strategy sources; all other Ruff rules stay active.
+        run: >-
+          .\.venv\Scripts\ruff.exe check --ignore RUF012
+          runtime\user_data\strategies\CompressionBreakout250.py
+          runtime\user_data\strategies\CompressionBreakout250TenPair.py
