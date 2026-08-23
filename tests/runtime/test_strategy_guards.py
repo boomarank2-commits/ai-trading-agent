@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 import tempfile
 import unittest
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -127,7 +127,9 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             0.0,
         )
 
-    def test_initial_entry_guard_enforces_global_240_exposure_and_three_trades(self) -> None:
+    def test_initial_entry_guard_enforces_global_240_exposure_and_three_trades(
+        self,
+    ) -> None:
         with (
             patch.object(self.strategy, "_closed_profit_since", return_value=0.0),
             patch.object(MODULE.Trade, "total_open_trades_stakes", return_value=160.0),
@@ -149,7 +151,14 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
         ):
             self.assertFalse(self.confirm("LINK/USDT"))
 
-    def _adjust_trade(self, *, entries: int, last_filled: datetime, open_stake: float, signal: int):
+    def _adjust_trade(
+        self,
+        *,
+        entries: int,
+        last_filled: datetime,
+        open_stake: float,
+        signal: int,
+    ):
         signal_time = datetime(2026, 8, 23, 9, 15, tzinfo=UTC)
         self.strategy.dp = _DataProvider(
             pd.DataFrame([{"date": signal_time, "enter_long": signal}])
@@ -160,7 +169,11 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             nr_of_successful_entries=entries,
             date_last_filled_utc=last_filled,
         )
-        with patch.object(MODULE.Trade, "total_open_trades_stakes", return_value=open_stake):
+        with patch.object(
+            MODULE.Trade,
+            "total_open_trades_stakes",
+            return_value=open_stake,
+        ):
             return self.strategy.adjust_trade_position(
                 trade=trade,
                 current_time=signal_time,
@@ -200,10 +213,16 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             )
         )
 
-    def test_same_pair_adjustment_stops_after_three_chunks_or_240_global_exposure(self) -> None:
+    def test_same_pair_adjustment_stops_after_three_chunks_or_240_global_exposure(
+        self,
+    ) -> None:
         last = datetime(2026, 8, 23, 8, 45, tzinfo=UTC)
-        self.assertIsNone(self._adjust_trade(entries=3, last_filled=last, open_stake=160.0, signal=1))
-        self.assertIsNone(self._adjust_trade(entries=1, last_filled=last, open_stake=160.01, signal=1))
+        self.assertIsNone(
+            self._adjust_trade(entries=3, last_filled=last, open_stake=160.0, signal=1)
+        )
+        self.assertIsNone(
+            self._adjust_trade(entries=1, last_filled=last, open_stake=160.01, signal=1)
+        )
 
     def test_entry_guard_rejects_weakened_adjustment_and_market_contract(self) -> None:
         for key, unsafe in (
