@@ -28,9 +28,9 @@ def _source() -> str:
     return STRATEGY.read_text(encoding="utf-8")
 
 
-def test_v12_17_keeps_pair_local_champion_donchian_paths_for_ten_pairs() -> None:
+def test_v12_18_keeps_pair_local_champion_donchian_paths_for_ten_pairs() -> None:
     text = _source()
-    assert 'STRATEGY_VERSION = "V12.17"' in text
+    assert 'STRATEGY_VERSION = "V12.18"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text
@@ -150,7 +150,7 @@ def test_v12_17_does_not_reintroduce_rejected_high_frequency_families() -> None:
         assert rejected not in text
 
 
-def test_v12_17_execution_contract_is_three_signal_gated_chunks_not_loss_dca() -> None:
+def test_v12_18_execution_contract_is_profit_pyramiding_not_loss_dca() -> None:
     text = _source()
     assert "entry_breakout_level" in text
     assert "entry_atr_4h" in text
@@ -169,6 +169,8 @@ def test_v12_17_execution_contract_is_three_signal_gated_chunks_not_loss_dca() -
     assert 'candle.get("enter_long", 0)' in adjustment
     assert "date_last_filled_utc" in adjustment
     assert "Trade.total_open_trades_stakes()" in adjustment
-    assert "new_signal_chunk" in adjustment
+    assert "profit_pyramid_chunk" in adjustment
+    assert "current_profit <= 0.0" in adjustment
+    assert "select_filled_orders" in adjustment
     assert "stoploss = -0.055" in text
     assert "can_short = False" in text

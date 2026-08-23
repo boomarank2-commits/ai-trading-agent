@@ -1,4 +1,4 @@
-"""V12.17 ten-pair paper strategy with a global three-chunk capital budget.
+"""V12.18 ten-pair paper strategy with a global three-chunk capital budget.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
@@ -12,8 +12,9 @@ Capital model:
 - at most 240 USDT may be deployed at once
 - up to three chunks may therefore be active
 - a still-open pair may receive another 80 USDT only on a genuinely new entry
-  signal candle, up to three entries total in that pair
-- Spot, long-only, 1x, no martingale sizing
+  signal candle while the position is profitable and price is above every
+  earlier filled entry, up to three entries total in that pair
+- Spot, long-only, 1x, no loss averaging and no martingale sizing
 
 Backtests use this exact strategy as well.  A single-pair backtest therefore
 starts with its own 250 USDT wallet and simulates the same 80-USDT chunk logic.
@@ -40,10 +41,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.17: V12.15 core expanded to ten pairs with three 80-USDT chunks."""
+    """V12.18: ten-pair V12.17 core with profit-only pyramiding."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.17"
+    STRATEGY_VERSION = "V12.18"
 
     can_short = False
     timeframe = "15m"
@@ -619,21 +620,20 @@ class CompressionBreakout250(IStrategy):
         current_entry_profit: float,
         current_exit_profit: float,
         **kwargs: Any,
-    ) -> float | None | tuple[float | None, str | None]:
+    ) -> tuple[float | None, str | None] | float | None:
         """Use another 80-USDT chunk only when the same pair emits a new signal.
 
-        This is not loss-based DCA. A second/third entry is allowed only on a
-        later candle that independently satisfies the normal entry strategy.
-        Global deployed stake remains capped at 240 USDT.
+        This is profit-only pyramiding, never loss averaging. A second/third
+        entry is allowed only on a later candle that independently satisfies
+        the normal entry strategy, while the existing position is profitable
+        and the new rate is above every earlier filled entry. Global deployed
+        stake remains capped at 240 USDT.
         """
 
         del (
             current_time,
             current_rate,
-            current_profit,
-            current_entry_rate,
             current_exit_rate,
-            current_entry_profit,
             current_exit_profit,
             kwargs,
         )
@@ -649,9 +649,24 @@ class CompressionBreakout250(IStrategy):
                 return None
             if max_stake < self.MAX_STAKE_USDT:
                 return None
-            if min_stake is not None and self.MAX_STAKE_USDT < float(min_stake):
+            if min_stake is not None and float(min_stake) > self.MAX_STAKE_USDT:
                 return None
             if self._kill_switch_path().is_file():
+                return None
+            if current_profit <= 0.0 or current_entry_profit <= 0.0:
+                return None
+
+            filled_entries = trade.select_filled_orders(trade.entry_side)
+            filled_rates = [
+                float(order.safe_price)
+                for order in filled_entries
+                if getattr(order, "safe_price", None) is not None
+                and math.isfinite(float(order.safe_price))
+                and float(order.safe_price) > 0.0
+            ]
+            if not filled_rates or not math.isfinite(float(current_entry_rate)):
+                return None
+            if float(current_entry_rate) <= max(filled_rates):
                 return None
 
             dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
@@ -685,7 +700,7 @@ class CompressionBreakout250(IStrategy):
                 return None
 
             asset = trade.pair.split("/")[0].lower()
-            return self.MAX_STAKE_USDT, f"v12_17_{asset}_new_signal_chunk"
+            return self.MAX_STAKE_USDT, f"v12_18_{asset}_profit_pyramid_chunk"
         except Exception:
             return None
 

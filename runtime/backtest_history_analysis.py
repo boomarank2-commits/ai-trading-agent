@@ -141,7 +141,13 @@ def capital_utilization_metrics(
     *,
     available_capital: float = 250.0,
 ) -> dict[str, float | int]:
-    """Measure actual position time and deployed capital across one portfolio run."""
+    """Measure position time and the time of each actually filled entry chunk.
+
+    Older implementations applied a trade's final aggregated ``stake_amount``
+    from its original open time.  That overstates capital use when a second or
+    third entry was filled days later.  Freqtrade exports every filled entry
+    order, so position-adjusted runs can be measured at their real fill times.
+    """
 
     start = _parse_utc(backtest_start)
     end = _parse_utc(backtest_end)
@@ -152,18 +158,63 @@ def capital_utilization_metrics(
             "no_position_time_pct": 100.0,
             "average_open_positions": 0.0,
             "max_simultaneous_positions": 0,
+            "total_entry_chunks": 0,
+            "additional_entry_chunks": 0,
+            "trades_with_multiple_entries": 0,
+            "max_entries_per_trade": 0,
+            "max_active_entry_chunks": 0,
+            "max_deployed_capital_usdt": 0.0,
         }
 
-    events: list[tuple[datetime, int, float]] = []
+    events: list[tuple[datetime, int, float, int]] = []
+    total_entry_chunks = 0
+    trades_with_multiple_entries = 0
+    max_entries_per_trade = 0
+    measured_trades = 0
     for trade in trades:
         try:
             opened = _parse_utc(trade.get("open_date"))
             closed = _parse_utc(trade.get("close_date"))
         except (TypeError, ValueError):
             continue
-        stake = max(0.0, _number(trade.get("stake_amount")))
-        events.append((opened, 1, stake))
-        events.append((closed, -1, -stake))
+
+        entry_fills: list[tuple[datetime, float]] = []
+        orders = trade.get("orders")
+        entry_fee = max(0.0, _number(trade.get("fee_open")))
+        if isinstance(orders, list):
+            for order in orders:
+                if not isinstance(order, dict) or order.get("ft_is_entry") is not True:
+                    continue
+                timestamp = _number(order.get("order_filled_timestamp"), -1.0)
+                gross_cost = max(0.0, _number(order.get("cost")))
+                stake_cost = gross_cost / (1.0 + entry_fee)
+                if timestamp <= 0.0 or stake_cost <= 0.0:
+                    continue
+                # Freqtrade exports milliseconds; accepting seconds keeps the
+                # history reader compatible with older preserved fixtures.
+                seconds = timestamp / 1000.0 if timestamp >= 100_000_000_000 else timestamp
+                try:
+                    filled_at = datetime.fromtimestamp(seconds, tz=UTC)
+                except (OSError, OverflowError, ValueError):
+                    continue
+                entry_fills.append((filled_at, stake_cost))
+
+        if not entry_fills:
+            fallback_stake = max(0.0, _number(trade.get("stake_amount")))
+            if fallback_stake > 0.0:
+                entry_fills = [(opened, fallback_stake)]
+
+        entry_count = len(entry_fills)
+        measured_trades += 1
+        total_entry_chunks += entry_count
+        trades_with_multiple_entries += int(entry_count > 1)
+        max_entries_per_trade = max(max_entries_per_trade, entry_count)
+        deployed_for_trade = sum(cost for _filled_at, cost in entry_fills)
+
+        events.append((opened, 1, 0.0, 0))
+        for filled_at, cost in entry_fills:
+            events.append((filled_at, 0, cost, 1))
+        events.append((closed, -1, -deployed_for_trade, -entry_count))
 
     last = start
     open_positions = 0
@@ -172,11 +223,17 @@ def capital_utilization_metrics(
     position_hours = 0.0
     no_position_hours = 0.0
     max_positions = 0
-    for event_time, position_delta, capital_delta in sorted(events):
+    active_entry_chunks = 0
+    max_active_entry_chunks = 0
+    max_deployed_capital = 0.0
+    for event_time, position_delta, capital_delta, chunk_delta in sorted(events):
         if event_time <= start:
             open_positions += position_delta
             deployed_capital += capital_delta
+            active_entry_chunks += chunk_delta
             max_positions = max(max_positions, open_positions)
+            max_active_entry_chunks = max(max_active_entry_chunks, active_entry_chunks)
+            max_deployed_capital = max(max_deployed_capital, deployed_capital)
             continue
         if event_time >= end:
             break
@@ -187,7 +244,10 @@ def capital_utilization_metrics(
             no_position_hours += elapsed_hours
         open_positions += position_delta
         deployed_capital += capital_delta
+        active_entry_chunks += chunk_delta
         max_positions = max(max_positions, open_positions)
+        max_active_entry_chunks = max(max_active_entry_chunks, active_entry_chunks)
+        max_deployed_capital = max(max_deployed_capital, deployed_capital)
         last = event_time
 
     elapsed_hours = (end - last).total_seconds() / 3600.0
@@ -203,6 +263,12 @@ def capital_utilization_metrics(
         "no_position_time_pct": round(100.0 * no_position_hours / total_hours, 2),
         "average_open_positions": round(position_hours / total_hours, 3),
         "max_simultaneous_positions": max_positions,
+        "total_entry_chunks": total_entry_chunks,
+        "additional_entry_chunks": max(0, total_entry_chunks - measured_trades),
+        "trades_with_multiple_entries": trades_with_multiple_entries,
+        "max_entries_per_trade": max_entries_per_trade,
+        "max_active_entry_chunks": max_active_entry_chunks,
+        "max_deployed_capital_usdt": round(max_deployed_capital, 4),
     }
 
 
@@ -389,6 +455,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     legacy_pairs = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
     v12_12_pairs = (*legacy_pairs, "XRP/USDT", "BNB/USDT", "DOGE/USDT")
     v12_16_pairs = (*v12_12_pairs, "ADA/USDT")
+    v12_17_pairs = (*v12_12_pairs, "LINK/USDT", "TRX/USDT", "LTC/USDT", "BCH/USDT")
     by_hash: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for run in completed:
         by_hash[(run["strategy_sha256"], run["strategy_version"])].append(run)
@@ -411,6 +478,8 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         if version == "V12.16":
             matrix_pairs = v12_16_pairs
+        elif version in {"V12.17", "V12.18"}:
+            matrix_pairs = v12_17_pairs
         elif version in {"V12.12", "V12.13", "V12.14", "V12.15"}:
             matrix_pairs = v12_12_pairs
         else:
@@ -433,6 +502,9 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ),
                 "current_twelve_cell_matrix": (
                     complete and matrix_pairs == v12_12_pairs and periods == [1, 3]
+                ),
+                "current_ten_pair_matrix": (
+                    complete and matrix_pairs == v12_17_pairs
                 ),
                 "positive_cells": sum(run["profit_usdt"] > 0 for run in selected),
                 "independent_profit_sum_usdt": round(

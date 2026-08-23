@@ -1,4 +1,4 @@
-# Start hier: V12.17-Zehn-Paare-Testbot und Research-System
+# Start hier: V12.18-Zehn-Paare-Testbot und Research-System
 
 Stand: 23.08.2026
 
@@ -8,10 +8,10 @@ Die eingefrorene historische Research-Baseline bleibt `CompressionBreakout250` /
 V8 unter `research/baselines/V8/`.
 
 Der aktuelle Paper-/Dry-run-Kandidat ist jedoch
-`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.17** auf dem
+`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.18** auf dem
 Arbeitsbranch `agent/v12-17-ten-pair-research-ui`.
 
-V12.17 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
+V12.18 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
 Spot-Paare:
 
 - BTC/USDT
@@ -31,14 +31,15 @@ Block ist maximal 80 USDT groß. Insgesamt dürfen höchstens 240 USDT bzw. drei
 
 Ein bereits offener Coin darf einen zweiten oder dritten 80-USDT-Block erhalten,
 aber nur wenn auf einer späteren Candle erneut ein vollständiges normales
-Entry-Signal entsteht. Das ist kein blindes Verlust-DCA oder Martingale.
+Entry-Signal entsteht, der Trade im Gewinn liegt und der neue Preis über allen
+früheren Entry-Fills liegt. Verlust-Nachkauf und Martingale sind gesperrt.
 
 Status:
 
-**V12.17 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
+**V12.18 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
 
 Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
-Position-Adjustment-Vertrag. Dadurch darf V12.17 nicht versehentlich als
+Position-Adjustment-Vertrag. Dadurch darf V12.18 nicht versehentlich als
 Echtgeldbot starten.
 
 ## Wichtige historische Referenzen
@@ -59,11 +60,15 @@ Die ausführliche Historie bleibt in:
 - `research/executed_test_fingerprints.csv`
 - den einzelnen V12.xx-Research-Dokumenten.
 
-Die aktuelle V12.17-Übergabe steht in:
+Die aktuelle V12.18-Reparaturübergabe steht in:
 
-`research/V12_17_CONTINUATION_HANDOFF_DE.md`
+`research/V12_18_REPAIR_HANDOFF_DE.md`
 
-Die aktuelle Zehn-Paare-Roadmap steht in:
+Die frühere V12.17-Roadmap bleibt als historische Fehler- und Herkunftsakte
+unter `research/V12_17_CONTINUATION_HANDOFF_DE.md` erhalten.
+
+Die ursprüngliche, inzwischen ausdrücklich als historisch markierte
+V12.17-Zehn-Paare-Roadmap steht in:
 
 `docs/ZEHN_PAARE_ROADMAP_DE.md`
 
@@ -89,8 +94,9 @@ LINK 80 + LINK später erneut 80 + XRP 80
 BTC 80 + BTC später 80 + BTC später 80
 ```
 
-Voraussetzung für einen weiteren Block im selben Coin ist ein neues gültiges
-Signal auf einer späteren Candle und freie globale Exposure.
+Voraussetzung für einen weiteren Block im selben Coin sind ein neues gültiges
+Signal auf einer späteren Candle, ein bereits profitabler Trade, ein Kurs über
+allen früheren Fills und freie globale Exposure.
 
 ### 2. Normaler Einzelpair-Backtest
 
@@ -105,20 +111,23 @@ Die UI bietet:
 
 `Backtest starten` testet genau den ausgewählten Coin.
 
-`Alle 10 nacheinander` nimmt den aktuell gewählten Zeitraum und startet zehn
-unabhängige Einzeltests. Jeder dieser zehn Läufe beginnt erneut mit 250 USDT.
+`Alle 10 zusammen` startet den echten Systemtest: alle zehn Coins konkurrieren
+chronologisch um ein gemeinsames 250-USDT-Wallet und maximal drei 80-USDT-Blöcke.
+
+`10 Einzeltests` nimmt den aktuell gewählten Zeitraum und startet zusätzlich
+zehn unabhängige Diagnoseläufe. Jeder dieser zehn Läufe beginnt erneut mit 250
+USDT.
 
 Damit sind bei zehn Einzeltests nominell 10 × 250 = 2.500 USDT Startwerte im
 Spiel, aber **nicht als gemeinsames Portfolio**. Die Ergebnisse dürfen nicht
 addiert und als gemeinsame Kapitalkurve interpretiert werden.
 
-Der spätere gemeinsame Zehn-Paare-Systembacktest ist ein dritter, separater
-Testtyp und simuliert dann wieder exakt das Paper-Kapitalmodell mit einem
-250-USDT-Wallet und maximal 3×80.
+Der gemeinsame Zehn-Paare-Systembacktest ist damit kein späterer versteckter
+Testtyp mehr, sondern ein eigener sichtbarer UI-Ablauf.
 
 ## Neue Paare und erste Strategiezuordnung
 
-LINK, TRX, LTC und BCH starten in V12.17 zunächst auf dem bereits vorhandenen
+LINK, TRX, LTC und BCH starten in V12.18 zunächst auf dem bereits vorhandenen
 Broad-Core-Donchian-Pfad, den auch SOL/XRP/BNB/DOGE verwenden.
 
 BTC und ETH behalten ihre spezialisierten Champion-/Reclaim-Pfade aus dem
@@ -131,7 +140,7 @@ klarer Begründung angepasst werden.
 
 ## Mehrere Entries im selben Pair
 
-V12.17 verwendet für den Paper-/Backtest-Kandidaten:
+V12.18 verwendet für den Paper-/Backtest-Kandidaten:
 
 ```text
 position_adjustment_enable = true
@@ -145,6 +154,8 @@ Zusätzliche Sicherheitslogik prüft:
 
 - neues `enter_long`-Signal vorhanden;
 - Signalcandle liegt nach dem letzten gefüllten Entry;
+- offener Trade ist bereits profitabel;
+- neuer Entry-Kurs liegt strikt über allen vorherigen Entry-Fills;
 - kein offener Entry-Orderkonflikt;
 - weniger als drei erfolgreiche Entries im Pair;
 - Kill-Switch nicht aktiv;
@@ -200,21 +211,23 @@ Für einen Einzeltest:
 
 1. Coin auswählen.
 2. 1, 2 oder 3 Jahre auswählen.
-3. `Backtest starten` drücken.
+3. `Gewählten Coin testen` drücken.
 4. Der Runner lädt/ergänzt die benötigten Binance-Daten.
 5. Der Lauf startet mit 250 USDT eigenem virtuellem Wallet.
 6. Strategy-/Config-/Candle-Dateien werden auditiert.
 7. Das Resultat zeigt unter anderem P/L, USDT/Tag, Profit Factor, Drawdown,
-   Trefferquote, Tradezahl sowie Entry-/Exit-Attribution.
+   Trefferquote, Tradezahl, tatsächliche Entry-Blöcke sowie Paar-/Entry-/Exit-
+   Attribution.
 
-Für alle Coins mit demselben Zeitraum:
+Für den echten gemeinsamen Systemtest:
 
-`Alle 10 nacheinander`
+`Alle 10 zusammen`
 
-Dieser Button ist kein Portfolio-Test.
+Dieser Button startet `PORTFOLIO`: zehn Coins, ein gemeinsames 250-USDT-Wallet,
+maximal drei 80-USDT-Blöcke.
 
-Der interne `PORTFOLIO`-Target im API-Unterbau bleibt für den späteren finalen
-Systemtest erhalten, wird aber in der normalen Backtest-UI nicht angeboten.
+`10 Einzeltests` startet dagegen die zehn unabhängigen Diagnosewallets
+nacheinander. Diese Ergebnisse bleiben getrennt vom Systemtest.
 
 Für lokale historische Werkzeuge existiert zusätzlich:
 
@@ -225,7 +238,7 @@ HISTORISCHER_BACKTEST.bat
 ## Historischer V8-Full-System-Replay
 
 Der bestehende V8-Replay bleibt eine eingefrorene historische Drei-Paare-
-Research-Evidenz und wird nicht auf V12.17 umetikettiert.
+Research-Evidenz und wird nicht auf V12.18 umetikettiert.
 
 Er handelt weiterhin nur:
 
@@ -298,16 +311,21 @@ Aktuell zwingend:
 
 ## Nächste Reihenfolge
 
-1. Alle CI-Checks des aktuellen V12.17-Heads vollständig grün bekommen.
-2. Sichtbare STARTBOT-Ausgabe auf V12.17 und zehn Paare aktualisieren.
-3. V12.17 im Paperbetrieb mit allen zehn Coins laufen lassen.
-4. Mehrfach-Entries im selben Coin in echter Dry-run-Telemetrie prüfen.
+1. Die aktuell grünen CI-/Runtime-/Safety-Checks bei jeder Änderung grün halten.
+2. BTC 1 Jahr nicht wiederholen; der formale Lauf war technisch korrekt, aber
+   mit 250 → 248,1414 USDT finanziell negativ.
+3. V12.18 im Paperbetrieb mit allen zehn Coins laufen lassen.
+4. Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
 5. LINK, TRX, LTC und BCH über 1/2/3 Jahre einzeln diagnostizieren.
-6. Pair-spezifische Änderungen nur einzeln und vorregistriert durchführen.
-7. Danach separaten gemeinsamen 250/3×80-Zehn-Paare-Systemtest ausführen.
+6. Den sichtbaren gemeinsamen 250/3×80-Zehn-Paare-Systemtest für 1/2/3 Jahre ausführen.
+7. Pair-spezifische Änderungen nur einzeln und vorregistriert durchführen.
 8. Fee-/Stress-/Walk-Forward-/PBO-/DSR-/Paritäts-Gates schließen.
 9. Erst danach über Live-Promotion oder spätere Erhöhung von Stake/Slotzahl
    entscheiden.
+
+`NO_TRADE` bleibt der sichere Standard bei unsicheren Daten, Regimen oder
+Signalen. ORB-Retest und Ichimoku bleiben getrennte spätere Research-Challenger
+und werden nicht in V12.18 eingebaut.
 
 ## Wichtig für spätere GPT-/Codex-Runden
 
@@ -328,10 +346,10 @@ EINZEL-BACKTEST:
 ALLE 10 NACHEINANDER:
 10 unabhängige Einzeltests → jeweils 250 USDT → gleicher ausgewählter Zeitraum.
 
-SPÄTERER SYSTEMTEST:
+SYSTEMTEST (`Alle 10 zusammen`):
 10 Coins gemeinsam → 1 Wallet 250 USDT → maximal 3×80 insgesamt.
 ```
 
 Aktuelle Übergabe:
 
-`research/V12_17_CONTINUATION_HANDOFF_DE.md`
+`research/V12_18_REPAIR_HANDOFF_DE.md`

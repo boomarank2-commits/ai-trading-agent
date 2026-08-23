@@ -30,7 +30,7 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_active_v12_17_python_files_are_syntax_valid() -> None:
+def test_active_v12_18_python_files_are_syntax_valid() -> None:
     for path in (STRATEGY, BACKTEST_API, LOCKED_RUNTIME):
         ast.parse(_text(path), filename=str(path))
 
@@ -51,7 +51,7 @@ def test_active_paper_config_is_exact_ten_pair_250_80_3_contract() -> None:
 
 def test_active_strategy_expands_broad_core_and_keeps_btc_eth_special_paths() -> None:
     text = _text(STRATEGY)
-    assert 'STRATEGY_VERSION = "V12.17"' in text
+    assert 'STRATEGY_VERSION = "V12.18"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert '"ADA/USDT"' not in text
@@ -88,41 +88,47 @@ def test_three_chunk_same_pair_logic_is_signal_gated_and_globally_capped() -> No
         "date_last_filled_utc",
         "Trade.total_open_trades_stakes()",
         "> self.MAX_TOTAL_EXPOSURE_USDT + 1e-6",
-        "new_signal_chunk",
+        "profit_pyramid_chunk",
+        "current_profit <= 0.0",
+        "current_entry_profit <= 0.0",
+        "select_filled_orders",
+        "current_entry_rate) <= max(filled_rates)",
         "stoploss = -0.055",
         "can_short = False",
     ):
         assert required in text
-    assert "current_profit < 0" not in text.split("def adjust_trade_position(", 1)[1].split(
+    adjustment = text.split("def adjust_trade_position(", 1)[1].split(
         "def custom_stoploss(", 1
     )[0]
+    assert "current_profit <= 0.0" in adjustment
 
 
-def test_backtest_ui_is_independent_250_wallet_per_pair_and_selected_period_batch() -> None:
+def test_backtest_ui_offers_single_pair_real_portfolio_and_diagnostic_matrix() -> None:
     ui = _text(BACKTEST_UI)
     for pair in TEN_PAIRS:
         assert pair in ui
-    assert "Alle 10 nacheinander" in ui
+    assert "Alle 10 zusammen" in ui
+    assert "10 Einzeltests" in ui
     assert "eigenen 250-USDT-Testwallet" in ui
-    assert "kein gemeinsames 2.500-USDT-Portfolio" in ui
+    assert "ein einziges 250-USDT-Wallet" in ui
     assert "const years = Number(yearsSelect.value);" in ui
     assert "PAIRS.map(([pair]) => ({ pair, years }))" in ui
+    assert 'startOneBacktest("PORTFOLIO", years)' in ui
     assert 'value="1"' in ui
     assert 'value="2"' in ui
     assert 'value="3"' in ui
-    assert 'value="PORTFOLIO"' not in ui
     assert "Alle 22 Backtests" not in ui
 
 
-def test_backtest_adapter_uses_active_strategy_config_and_keeps_portfolio_internal_only() -> None:
+def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio() -> None:
     api = _text(BACKTEST_API)
     assert "CompressionBreakout250TenPair" not in api
     assert "config-ten-pair-research.json" not in api
     assert "TEN_PAIR_UNIVERSE" in api
     assert "base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE" in api
     assert "base.PORTFOLIO_TARGET" in api
-    assert "shared 250-USDT 3x80 system backtest" in api
-    assert "ten sequential independent tests" in api
+    assert "real ten-pair" in api
+    assert 'base.STRATEGY_VERSION = "V12.18"' in api
 
 
 def test_locked_paper_runtime_serves_ten_pair_adapter_without_replacing_strategy_loader() -> None:

@@ -1,4 +1,15 @@
-# V12.17 – Zehn-Paare-Paperbot und getrennte Backtest-Logik
+# Historische V12.17-Roadmap – durch V12.18 ersetzt
+
+> **Nicht mehr als aktuelle Ausführungsanweisung verwenden.** Dieses Dokument
+> hält die ursprüngliche V12.17-Absicht und damit auch den später gefundenen
+> Fehler fest: „Alle 10“ waren zehn unabhängige 250-USDT-Läufe statt des vom
+> Paperbot gespiegelten gemeinsamen Portfolios; außerdem war das Aufstocken
+> nicht sicher auf Gewinner begrenzt. V12.18 korrigiert beides. Der aktuelle
+> technische Stand, Begründungen und nächste Prüfungen stehen in
+> [`../research/V12_18_REPAIR_HANDOFF_DE.md`](../research/V12_18_REPAIR_HANDOFF_DE.md)
+> und [`../START_HERE_DE.md`](../START_HERE_DE.md). Die folgenden Abschnitte
+> bleiben ausschließlich als historische, nicht 1:1 zu wiederholende Evidenz
+> erhalten.
 
 Stand: 23.08.2026
 

@@ -69,9 +69,9 @@ def test_active_paper_config_is_ten_pair_spot_and_three_80_chunks() -> None:
     assert config["pairlists"] == [{"method": "StaticPairList"}]
 
 
-def test_active_strategy_matches_v12_17_cap_and_adjustment_contract() -> None:
+def test_active_strategy_matches_v12_18_cap_and_adjustment_contract() -> None:
     source, cls = _strategy_class()
-    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.17"
+    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.18"
     assert _literal_assignment(cls, "can_short") is False
     assert _literal_assignment(cls, "position_adjustment_enable") is True
     assert _literal_assignment(cls, "max_entry_position_adjustment") == 2
@@ -84,7 +84,9 @@ def test_active_strategy_matches_v12_17_cap_and_adjustment_contract() -> None:
     assert "Trade.total_open_trades_stakes()" in source
     assert "Trade.get_open_trade_count()" in source
     assert "date_last_filled_utc" in source
-    assert "new_signal_chunk" in source
+    assert "profit_pyramid_chunk" in source
+    assert "current_profit <= 0.0" in source
+    assert "select_filled_orders" in source
     assert "enter_short" not in source
 
 
@@ -184,3 +186,20 @@ def test_native_scripts_keep_public_overlay_and_locked_runtime_path() -> None:
     assert "locked_freqtrade.py" in launcher
     assert "validate_dryrun_config.py" in launcher
     assert "tradesv8.dryrun.sqlite" in launcher
+
+    cleanup = (scripts / "cleanup-stale-testbot.ps1").read_text(encoding="utf-8")
+    assert "Close-StaleSessionManifests" in cleanup
+    assert '$manifest.status = "interrupted"' in cleanup
+    assert '"not_created_for_forced_shutdown"' in cleanup
+
+
+def test_long_financial_e2e_is_manual_and_not_duplicated_in_fast_ci() -> None:
+    workflows = REPO_ROOT / ".github" / "workflows"
+    fast_ci = (workflows / "windows-backtest-ui-ci.yml").read_text(encoding="utf-8")
+    manual_e2e = (workflows / "v12-17-link-3y-e2e.yml").read_text(encoding="utf-8")
+    trigger_block = manual_e2e.split("permissions:", maxsplit=1)[0]
+
+    assert "link-3y-e2e:" not in fast_ci
+    assert "workflow_dispatch:" in trigger_block
+    assert "\n  push:" not in trigger_block
+    assert "\n  pull_request:" not in trigger_block

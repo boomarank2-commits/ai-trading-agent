@@ -1,6 +1,8 @@
 name: Testbot Backtest UI
 
-# Exact-strategy loading and candle/history integrity gate for the active paper/backtest UI.
+# Fast exact-strategy, candle/history and UI contract gate. Long financial
+# backtests are deliberately excluded here so an identical 1y/2y/3y test is not
+# rerun automatically on every source or documentation push.
 on:
   push:
     branches:
@@ -10,33 +12,51 @@ on:
     paths:
       - "runtime/testbot_backtest_api.py"
       - "runtime/ten_pair_backtest_api.py"
+      - "runtime/backtest_history_analysis.py"
+      - "runtime/research_governance.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/scripts/cleanup-stale-testbot.ps1"
       - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
       - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
+      - "tests/runtime/test_backtest_history_analysis.py"
+      - "tests/runtime/test_runtime_contract.py"
+      - "tests/runtime/test_strategy_guards.py"
+      - "tests/research/test_research_governance.py"
+      - "research/trial_ledger.csv"
+      - "research/executed_test_fingerprints.csv"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   pull_request:
     paths:
       - "runtime/testbot_backtest_api.py"
       - "runtime/ten_pair_backtest_api.py"
+      - "runtime/backtest_history_analysis.py"
+      - "runtime/research_governance.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/scripts/cleanup-stale-testbot.ps1"
       - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
       - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
+      - "tests/runtime/test_backtest_history_analysis.py"
+      - "tests/runtime/test_runtime_contract.py"
+      - "tests/runtime/test_strategy_guards.py"
+      - "tests/research/test_research_governance.py"
+      - "research/trial_ledger.csv"
+      - "research/executed_test_fingerprints.csv"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   workflow_dispatch:
 
@@ -58,12 +78,18 @@ jobs:
           tests\test_backtest_history_coverage.py
           tests\test_backtest_candle_integrity.py
           tests\runtime\test_v12_17_ten_pair_research_contract.py
+          tests\runtime\test_backtest_history_analysis.py
+          tests\runtime\test_runtime_contract.py
+          tests\runtime\test_strategy_guards.py
+          tests\research\test_research_governance.py
       - name: Ruff runtime and tests
         shell: powershell
         run: >-
           .\.venv\Scripts\ruff.exe check
           runtime\testbot_backtest_api.py
           runtime\ten_pair_backtest_api.py
+          runtime\backtest_history_analysis.py
+          runtime\research_governance.py
           runtime\locked_backtest_freqtrade.py
           runtime\locked_freqtrade.py
           runtime\patch_frequi.py
@@ -71,6 +97,9 @@ jobs:
           tests\test_backtest_history_coverage.py
           tests\test_backtest_candle_integrity.py
           tests\runtime\test_v12_17_ten_pair_research_contract.py
+          tests\runtime\test_backtest_history_analysis.py
+          tests\runtime\test_runtime_contract.py
+          tests\runtime\test_strategy_guards.py
       - name: Ruff active Freqtrade strategy
         shell: powershell
         # RUF012 is intentional for Freqtrade class configuration. RUF036 and
@@ -79,153 +108,3 @@ jobs:
         run: >-
           .\.venv\Scripts\ruff.exe check --ignore RUF012,RUF036,SIM300
           runtime\user_data\strategies\CompressionBreakout250.py
-
-  link-3y-e2e:
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      PYTHONUTF8: "1"
-      PYTHONDONTWRITEBYTECODE: "1"
-      FREQTRADE__API_SERVER__USERNAME: testbot
-      FREQTRADE__API_SERVER__PASSWORD: E2E-Local-Password-Only-1234567890
-      FREQTRADE__API_SERVER__JWT_SECRET_KEY: E2E-JWT-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-      FREQTRADE__API_SERVER__WS_TOKEN: E2E-WS-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-      FREQTRADE__DRY_RUN: "true"
-      FREQTRADE__INITIAL_STATE: running
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v6
-      - name: Sync exact locked environment
-        shell: powershell
-        run: uv sync --frozen --all-extras --python 3.12
-      - name: Validate effective paperbot config
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $raw = @(
-            & .\.venv\Scripts\freqtrade.exe show-config `
-              --config runtime\user_data\config.json `
-              --config runtime\user_data\config-public.json `
-              --userdir runtime\user_data
-          ) | ForEach-Object { $_.ToString() }
-          if ($LASTEXITCODE -ne 0) { throw 'freqtrade show-config failed' }
-          $text = $raw -join [Environment]::NewLine
-          $start = $text.IndexOf('{')
-          if ($start -lt 0) { throw 'No effective JSON config returned' }
-          $cfg = $text.Substring($start) | ConvertFrom-Json
-          $expected = @('BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT','DOGE/USDT','LINK/USDT','TRX/USDT','LTC/USDT','BCH/USDT')
-          $actual = @($cfg.exchange.pair_whitelist)
-          if (($actual -join '|') -ne ($expected -join '|')) { throw "Wrong whitelist: $($actual -join ', ')" }
-          if (-not $cfg.dry_run) { throw 'dry_run is not true' }
-          if ([double]$cfg.dry_run_wallet -ne 250) { throw 'dry_run_wallet is not 250' }
-          if ([double]$cfg.stake_amount -ne 80) { throw 'stake_amount is not 80' }
-          if ([int]$cfg.max_open_trades -ne 3) { throw 'max_open_trades is not 3' }
-          if (-not $cfg.position_adjustment_enable) { throw 'position_adjustment_enable is not true' }
-          if ([int]$cfg.max_entry_position_adjustment -ne 2) { throw 'max_entry_position_adjustment is not 2' }
-          Write-Host 'Effective config OK: 10 pairs, 250 USDT, 3 x 80, position adjustment ON.'
-      - name: Start locked paperbot to live API and ten-pair whitelist
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $root = (Get-Location).Path
-          $runtime = Join-Path $root 'runtime'
-          $python = Join-Path $root '.venv\Scripts\python.exe'
-          $runner = Join-Path $runtime 'locked_freqtrade.py'
-          $strategy = Join-Path $runtime 'user_data\strategies\CompressionBreakout250.py'
-          $config = Join-Path $runtime 'user_data\config.json'
-          $public = Join-Path $runtime 'user_data\config-public.json'
-          $userdir = Join-Path $runtime 'user_data'
-          $botLog = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.log'
-          $stdout = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stdout.log'
-          $stderr = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stderr.log'
-          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $strategy).Hash.ToLowerInvariant()
-          function Q([string]$v) { return '"' + $v.Replace('"', '\"') + '"' }
-          $parts = @((Q $runner),'--strategy-source',(Q $strategy),'--strategy-sha256',$hash,'--strategy-class','CompressionBreakout250','--','trade','--config',(Q $config),'--config',(Q $public),'--userdir',(Q $userdir),'--strategy','CompressionBreakout250','--db-url','sqlite:///user_data/e2e-v12-17.dryrun.sqlite','--logfile',(Q $botLog))
-          $process = Start-Process -FilePath $python -ArgumentList ($parts -join ' ') -WorkingDirectory $runtime -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          try {
-            $apiReady = $false
-            for ($i = 0; $i -lt 120; $i++) {
-              $process.Refresh()
-              if ($process.HasExited) {
-                $outText = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { '' }
-                $errText = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
-                throw "Paperbot exited early with $($process.ExitCode).`nSTDOUT:`n$outText`nSTDERR:`n$errText"
-              }
-              try {
-                $ping = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/v1/ping' -TimeoutSec 2
-                if ($ping.status -eq 'pong') { $apiReady = $true; break }
-              } catch {}
-              Start-Sleep -Seconds 1
-            }
-            if (-not $apiReady) { throw 'Paperbot API did not become ready within 120 seconds' }
-            $contractReady = $false
-            for ($i = 0; $i -lt 60; $i++) {
-              $log = if (Test-Path $botLog) { Get-Content $botLog -Raw } else { '' }
-              $hasTen = $log -match 'Whitelist with 10 pairs'
-              $hasAdjustment = ($log -match 'Strategy using position_adjustment_enable:\s*True' -or $log -match 'Position adjustment:\s*On')
-              if ($hasTen -and $hasAdjustment) { $contractReady = $true; break }
-              Start-Sleep -Seconds 1
-            }
-            if (-not $contractReady) { throw "Live paperbot contract not observed.`n$(Get-Content $botLog -Raw)" }
-            Write-Host 'Locked paperbot RUNNING: API pong, whitelist=10, position adjustment ON.'
-          }
-          finally {
-            if (-not $process.HasExited) { cmd.exe /c "taskkill /PID $($process.Id) /T /F" | Out-Null }
-          }
-      - name: LINK USDT three-year backtest end to end
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          @'
-          import json
-          import time
-          from pathlib import Path
-          from runtime import ten_pair_backtest_api as api
-
-          state = api.start_backtest(api.base.BacktestRequest(pair="LINK/USDT", years=3))
-          print("START", json.dumps({k: state.get(k) for k in ("status","stage","progress","run_id","pair","years")}, ensure_ascii=False), flush=True)
-          last = None
-          deadline = time.time() + 3300
-          while True:
-              state = api.get_state()
-              marker = (state.get("status"), state.get("stage"), state.get("progress"))
-              if marker != last:
-                  print("STATE", json.dumps({k: state.get(k) for k in ("status","stage","progress")}, ensure_ascii=False), flush=True)
-                  last = marker
-              if state.get("status") in {"completed", "failed"}:
-                  break
-              if time.time() > deadline:
-                  raise TimeoutError("LINK/USDT 3y e2e exceeded 55 minutes")
-              time.sleep(5)
-          if state.get("status") != "completed":
-              raise RuntimeError("Backtest failed: " + str(state.get("error")))
-          result = state["result"]
-          checks = {
-              "pair": result.get("pair") == "LINK/USDT",
-              "years": result.get("years") == 3,
-              "starting_balance": abs(float(result.get("starting_balance_usdt", 0)) - 250.0) < 1e-9,
-              "coverage": result.get("coverage_validated") is True,
-              "data_integrity": result.get("data_integrity_validated") is True,
-              "days": int(result.get("backtest_days") or 0) >= 1093,
-              "result_file": Path(str(result.get("result_file", ""))).is_file(),
-          }
-          failed = [name for name, ok in checks.items() if not ok]
-          if failed:
-              raise RuntimeError("E2E result checks failed: " + ", ".join(failed))
-          compact = {key: result.get(key) for key in ("pair","years","starting_balance_usdt","final_balance_usdt","profit_usdt","profit_pct","trades","wins","winrate_pct","profit_factor","max_drawdown_pct","backtest_start","backtest_end","backtest_days","coverage_validated","data_integrity_validated","result_file")}
-          print("FINAL_RESULT", json.dumps(compact, ensure_ascii=False, indent=2), flush=True)
-          Path("v12-17-link-3y-e2e-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
-          '@ | & .\.venv\Scripts\python.exe -
-          if ($LASTEXITCODE -ne 0) { throw "LINK 3y E2E exited with $LASTEXITCODE" }
-      - name: Upload E2E evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: v12-17-link-3y-e2e
-          if-no-files-found: warn
-          path: |
-            v12-17-link-3y-e2e-result.json
-            runtime/user_data/backtest_results/ui/**
-            ${{ runner.temp }}/v12-17-paperbot*.log

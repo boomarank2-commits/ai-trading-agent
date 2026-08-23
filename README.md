@@ -1,38 +1,46 @@
-# AI Trading Agent – lokaler V12.15-Testbot
+# AI Trading Agent – lokaler V12.18-Zehn-Paare-Testbot
 
 Deutscher Einstieg und aktueller Projektstatus: [`START_HERE_DE.md`](START_HERE_DE.md).
 
 Dieses Repository enthält den lokalen Freqtrade-/Binance-Testbot, seine
 Sicherheitsverträge sowie die Werkzeuge für Backtest, Replay, Audit und
 reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
-`CompressionBreakout250` / V12.15 ausschließlich im Paper-/Dry-run-Modus.
+`CompressionBreakout250` / V12.18 ausschließlich im Paper-/Dry-run-Modus.
 
 ## Aktueller Betriebsrahmen
 
-- Branch: `agent/v12-adaptive-league`
-- Binance Spot: BTC, ETH, SOL, XRP, BNB und DOGE gegen USDT
+- Branch: `agent/v12-17-ten-pair-research-ui`
+- Binance Spot: BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC und BCH gegen
+  USDT
 - long-only, 1x, ausschließlich virtuelles Kapital
 - 250 USDT Startkapital, maximal 80 USDT je Position
 - maximal drei Positionen beziehungsweise 240 USDT Gesamtengagement
 - kein Futures, Margin, Short, Hebel, DCA, Martingale oder automatische
   Echtgeld-Freigabe
 
-V12.15 übernimmt das vollständige V12.12-Sechs-Pair-Portfolio einschließlich
-der BTC- und ETH-Reclaims sowie der ursprünglichen Verlustsperre nach zwei
-unprofitablen Trades. Als einzige Entscheidungsänderung sichert ein später
-Gewinn-Ratchet bei Champion-Trades nach mindestens +30 % Bewegung einen
-+5-%-Boden. Alle langsamen Kerne,
-Schwellen, Exits, Stopps, Positionsgrößen und pair-lokalen Verlustcluster-
-Sperren bleiben unverändert.
+V12.18 repariert den begonnenen Zehn-Paare-Ausbau von V12.17. Alle zehn Märkte
+konkurrieren im Paperbot und im maßgeblichen Portfoliobacktest um dasselbe
+250-USDT-Wallet. Je Trade beginnt der Bot mit 80 USDT und darf höchstens zwei
+weitere 80-USDT-Stufen ergänzen. Eine Ergänzung ist nur erlaubt, wenn der Trade
+bereits im Gewinn liegt, der aktuelle Einstieg ebenfalls profitabel ist und
+der neue Preis über allen bisherigen Einstiegen liegt. Das ist
+Gewinner-Pyramiding und ausdrücklich kein DCA oder Verlust-Nachkaufen.
+
+Die pair-spezifischen V12.15-Kerne, BTC-/ETH-Reclaims, Stopps und
+Verlustcluster-Sperren bleiben erhalten. LINK, TRX, LTC und BCH werden zunächst
+mit klar gekennzeichneten, noch nicht als Champion akzeptierten Profilen
+gemessen. Ein gutes Ergebnis eines einzelnen Coins ersetzt nicht den gemeinsamen
+Zehn-Paare-Portfoliotest.
 
 Der V12.12-Drei-Jahres-Lauf bleibt als starke, aber formal am
 ersten nativen Candle-Dateiaudit gescheiterte Diagnose dokumentiert. Er wird
 nicht verschwiegen, nicht als vollständig bestanden bezeichnet und durch seinen
 versionierten Fingerabdruck nicht identisch wiederholt.
-V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 wurde vorab
-registriert, bestand alle Gates und ist der aktive Paper-/Dry-run-Kandidat.
-V12.16 (ADA-Erweiterung) ist als verworfener, nicht zu wiederholender Versuch
-in der Research-Akte erhalten.
+V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 bleibt die
+akzeptierte Sechs-Paare-Referenz. V12.16 (ADA) und die fehlerhafte erste
+V12.17-Umsetzung bleiben als nicht 1:1 zu wiederholende Evidenz erhalten.
+V12.18 ist der aktive, vorab registrierte Paper-/Dry-run-Kandidat; seine
+finanzielle Bewertung ist noch offen.
 
 ## Start und Auswertung
 
@@ -50,10 +58,11 @@ Zeiträume nicht zu einer künstlichen Kapitalkurve. Neue identische UI-Läufe
 werden über einen inhaltlichen Fingerabdruck vor dem Start blockiert;
 Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
-Der UI-Backtest bietet zusätzlich eine echte Gesamtportfolio-Sicht: alle sechs
-Märkte teilen sich ein 250-USDT-Wallet. Sie ist für Kapitalnutzung und
-Portfolioergebnis maßgeblich; die zwölf Einzelpaar-/Zeitraum-Zellen bleiben als
-Attribution erhalten. Jeder Lauf protokolliert außerdem die tatsächlich
+Der UI-Backtest unterscheidet drei Aktionen: einen ausgewählten Coin mit 250
+USDT testen, alle zehn Coins gemeinsam mit einem einzigen 250-USDT-Wallet
+testen oder zehn getrennte 250-USDT-Diagnosen nacheinander ausführen. Nur
+`Alle 10 zusammen` ist der maßgebliche System-/Kapitalnutzungstest. Jeder Lauf
+protokolliert außerdem die tatsächlich
 geöffnete Strategie und Konfigurationskette sowie die nativen Candle-Ladevorgänge
 mit Datei-Hash und bricht bei einer
 unerwarteten Repo-Datei oder einem Kindprozess ab.
@@ -73,6 +82,7 @@ Maßgebliche Dokumente:
 - [`docs/LOCAL_VALIDATION.md`](docs/LOCAL_VALIDATION.md)
 - [`runtime/README.md`](runtime/README.md)
 - [`research/trial_ledger.csv`](research/trial_ledger.csv)
+- [`research/V12_18_REPAIR_HANDOFF_DE.md`](research/V12_18_REPAIR_HANDOFF_DE.md)
 
 Herkunft und Lizenzgrenzen der verbliebenen MIT-lizenzierten Research-Rollen
 sind in [`docs/UPSTREAM.md`](docs/UPSTREAM.md), [`LICENSE`](LICENSE) und

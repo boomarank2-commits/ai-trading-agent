@@ -44,6 +44,7 @@ def test_backtest_contract_is_bound_to_active_ten_pairs_and_all_three_periods() 
     assert api.STRATEGY_NAME == "CompressionBreakout250"
     assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
     assert api.BACKTEST_WARMUP_DAYS >= 70
+    assert api.STRATEGY_VERSION == "V12.18"
 
 
 def test_pair_backtests_remain_pair_local_without_cross_pair_market_context() -> None:
@@ -66,28 +67,62 @@ def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
     ]
 
 
-def test_backtest_ui_runs_ten_independent_250_wallet_tests_for_selected_period() -> None:
+def test_pair_breakdown_includes_entry_chunk_attribution() -> None:
+    trades = [
+        {
+            "pair": "BTC/USDT",
+            "profit_abs": 5.0,
+            "orders": [
+                {"ft_is_entry": True},
+                {"ft_is_entry": True},
+                {"ft_is_entry": False},
+            ],
+        },
+        {"pair": "ETH/USDT", "profit_abs": -1.0, "orders": []},
+    ]
+    assert api._pair_breakdown(trades) == [
+        {
+            "pair": "BTC/USDT",
+            "trades": 1,
+            "wins": 1,
+            "profit_usdt": 5.0,
+            "entry_chunks": 2,
+            "max_entries_per_trade": 2,
+        },
+        {
+            "pair": "ETH/USDT",
+            "trades": 1,
+            "wins": 0,
+            "profit_usdt": -1.0,
+            "entry_chunks": 1,
+            "max_entries_per_trade": 1,
+        },
+    ]
+
+
+def test_backtest_ui_offers_real_portfolio_and_ten_independent_diagnostics() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
     for pair in TEN_PAIRS:
         assert pair in source
-    assert "Alle 10 nacheinander" in source
+    assert "Alle 10 zusammen" in source
+    assert "10 Einzeltests" in source
     assert "eigenen 250-USDT-Testwallet" in source
-    assert "kein gemeinsames 2.500-USDT-Portfolio" in source
+    assert "ein einziges 250-USDT-Wallet" in source
     assert "const years = Number(yearsSelect.value);" in source
     assert "PAIRS.map(([pair]) => ({ pair, years }))" in source
+    assert 'startOneBacktest("PORTFOLIO", years)' in source
     assert 'value="1"' in source
     assert 'value="2"' in source
     assert 'value="3"' in source
-    assert 'value="PORTFOLIO"' not in source
     assert "Doppeltest übersprungen" in source
     assert "error.isDuplicate" in source
 
 
-def test_internal_portfolio_target_is_not_exposed_in_normal_ui() -> None:
+def test_portfolio_target_is_exposed_as_one_shared_wallet_run() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
-    assert "PORTFOLIO" not in source
+    assert "PORTFOLIO" in source
     assert "PORTFOLIO" in api.ALLOWED_TARGETS
-    assert "shared 250-USDT 3x80 system backtest" in Path(
+    assert "real ten-pair" in Path(
         adapter.__file__
     ).read_text(encoding="utf-8")
 

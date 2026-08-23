@@ -158,6 +158,10 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
         last_filled: datetime,
         open_stake: float,
         signal: int,
+        current_profit: float = 0.05,
+        current_entry_profit: float | None = None,
+        current_rate: float = 10.0,
+        filled_rates: tuple[float, ...] = (9.0,),
     ):
         signal_time = datetime(2026, 8, 23, 9, 15, tzinfo=UTC)
         self.strategy.dp = _DataProvider(
@@ -168,6 +172,10 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             has_open_orders=False,
             nr_of_successful_entries=entries,
             date_last_filled_utc=last_filled,
+            entry_side="buy",
+            select_filled_orders=lambda _side: [
+                SimpleNamespace(safe_price=rate) for rate in filled_rates
+            ],
         )
         with patch.object(
             MODULE.Trade,
@@ -177,14 +185,18 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             return self.strategy.adjust_trade_position(
                 trade=trade,
                 current_time=signal_time,
-                current_rate=10.0,
-                current_profit=0.0,
+                current_rate=current_rate,
+                current_profit=current_profit,
                 min_stake=10.0,
                 max_stake=90.0,
-                current_entry_rate=10.0,
-                current_exit_rate=10.0,
-                current_entry_profit=0.0,
-                current_exit_profit=0.0,
+                current_entry_rate=current_rate,
+                current_exit_rate=current_rate,
+                current_entry_profit=(
+                    current_profit
+                    if current_entry_profit is None
+                    else current_entry_profit
+                ),
+                current_exit_profit=current_profit,
             )
 
     def test_same_pair_second_chunk_requires_a_new_signal_candle(self) -> None:
@@ -194,7 +206,7 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             open_stake=80.0,
             signal=1,
         )
-        self.assertEqual(result, (80.0, "v12_17_link_new_signal_chunk"))
+        self.assertEqual(result, (80.0, "v12_18_link_profit_pyramid_chunk"))
 
         self.assertIsNone(
             self._adjust_trade(
@@ -222,6 +234,43 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
         )
         self.assertIsNone(
             self._adjust_trade(entries=1, last_filled=last, open_stake=160.01, signal=1)
+        )
+
+    def test_same_pair_adjustment_never_averages_down_or_adds_to_a_loss(self) -> None:
+        last = datetime(2026, 8, 23, 8, 45, tzinfo=UTC)
+        self.assertIsNone(
+            self._adjust_trade(
+                entries=1,
+                last_filled=last,
+                open_stake=80.0,
+                signal=1,
+                current_profit=-0.001,
+                current_rate=10.0,
+                filled_rates=(9.0,),
+            )
+        )
+        self.assertIsNone(
+            self._adjust_trade(
+                entries=2,
+                last_filled=last,
+                open_stake=160.0,
+                signal=1,
+                current_profit=0.05,
+                current_rate=10.0,
+                filled_rates=(9.0, 10.5),
+            )
+        )
+        self.assertIsNone(
+            self._adjust_trade(
+                entries=1,
+                last_filled=last,
+                open_stake=80.0,
+                signal=1,
+                current_profit=0.05,
+                current_entry_profit=-0.001,
+                current_rate=10.0,
+                filled_rates=(9.0,),
+            )
         )
 
     def test_entry_guard_rejects_weakened_adjustment_and_market_contract(self) -> None:

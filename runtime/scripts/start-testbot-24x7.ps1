@@ -339,7 +339,8 @@ public static class DaviddTechTestBotPower {
     Write-Host " Virtuelle Wallet  : 250 USDT"
     Write-Host " Position          : maximal 80 USDT"
     Write-Host " Gleichzeitig      : maximal 3 Positionen"
-    Write-Host " Paare             : BTC, ETH, SOL, XRP, BNB, DOGE / USDT"
+    Write-Host " Paare             : BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC, BCH / USDT"
+    Write-Host " Mehrfacheinstieg  : nur Gewinn-Pyramiding, niemals Verlust-Nachkauf"
     Write-Host " Datenbank         : $databasePath"
     Write-Host " Sitzung           : $sessionPath"
     if ($manifest.database.continued_existing_database) {

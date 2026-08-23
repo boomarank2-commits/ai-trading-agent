@@ -171,7 +171,55 @@ def test_capital_utilization_measures_overlap_and_idle_time() -> None:
         "no_position_time_pct": 20.0,
         "average_open_positions": 1.0,
         "max_simultaneous_positions": 2,
+        "total_entry_chunks": 2,
+        "additional_entry_chunks": 0,
+        "trades_with_multiple_entries": 0,
+        "max_entries_per_trade": 1,
+        "max_active_entry_chunks": 2,
+        "max_deployed_capital_usdt": 160.0,
     }
+
+
+def test_capital_utilization_uses_actual_position_adjustment_fill_times() -> None:
+    trades = [
+        {
+            "open_date": "2026-01-01 00:00:00+00:00",
+            "close_date": "2026-01-11 00:00:00+00:00",
+            "stake_amount": 240,
+            "orders": [
+                {
+                    "ft_is_entry": True,
+                    "order_filled_timestamp": 1767225600000,
+                    "cost": 80,
+                },
+                {
+                    "ft_is_entry": True,
+                    "order_filled_timestamp": 1767657600000,
+                    "cost": 80,
+                },
+                {
+                    "ft_is_entry": True,
+                    "order_filled_timestamp": 1767916800000,
+                    "cost": 80,
+                },
+            ],
+        }
+    ]
+
+    metrics = capital_utilization_metrics(
+        trades,
+        "2026-01-01 00:00:00+00:00",
+        "2026-01-11 00:00:00+00:00",
+    )
+
+    # 80 for five days, 160 for three days and 240 for two days.
+    assert metrics["capital_time_utilization_pct"] == 54.4
+    assert metrics["total_entry_chunks"] == 3
+    assert metrics["additional_entry_chunks"] == 2
+    assert metrics["trades_with_multiple_entries"] == 1
+    assert metrics["max_entries_per_trade"] == 3
+    assert metrics["max_active_entry_chunks"] == 3
+    assert metrics["max_deployed_capital_usdt"] == 240.0
 
 
 def test_portfolio_archive_is_separate_from_single_pair_matrix(tmp_path: Path) -> None:
@@ -189,3 +237,38 @@ def test_portfolio_archive_is_separate_from_single_pair_matrix(tmp_path: Path) -
     assert matrix["portfolio_runs"] == 1
     assert matrix["latest_cells"] == 0
     assert matrix["current_six_run_matrix"] is False
+
+
+def test_v12_18_matrix_requires_all_ten_pairs_for_each_available_period(
+    tmp_path: Path,
+) -> None:
+    pairs = (
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT",
+        "XRP/USDT",
+        "BNB/USDT",
+        "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
+    )
+    source = '\"\"\"Test strategy V12.18.\"\"\"\n'
+    for index, pair in enumerate(pairs):
+        _write_result(
+            tmp_path,
+            f"v12-18-{index}",
+            pair=pair,
+            profit=1.0,
+            source=source,
+        )
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+    matrix = report["strategy_matrices"][0]
+
+    assert matrix["matrix_pairs"] == list(pairs)
+    assert matrix["latest_cells"] == 10
+    assert matrix["expected_cells"] == 10
+    assert matrix["matrix_complete"] is True
+    assert matrix["current_ten_pair_matrix"] is True

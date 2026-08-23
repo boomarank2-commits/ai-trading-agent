@@ -1,12 +1,6 @@
-name: V12.17 LINK 3y end-to-end
+name: V12.18 manual LINK 3y end-to-end
 
 on:
-  push:
-    branches:
-      - agent/v12-17-ten-pair-research-ui
-  pull_request:
-    branches:
-      - agent/v12-adaptive-league
   workflow_dispatch:
 
 permissions:
@@ -27,7 +21,7 @@ jobs:
       FREQTRADE__INITIAL_STATE: running
 
     steps:
-      - name: Checkout V12.17 branch
+      - name: Checkout selected V12.18 commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -38,7 +32,7 @@ jobs:
       - name: Configure external uv environment
         shell: pwsh
         run: |
-          $venv = Join-Path $env:RUNNER_TEMP 'v12-17-e2e-venv'
+          $venv = Join-Path $env:RUNNER_TEMP 'v12-18-e2e-venv'
           "UV_PROJECT_ENVIRONMENT=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "E2E Python environment: $venv"
 
@@ -131,9 +125,9 @@ jobs:
           $config = Join-Path $runtime 'user_data\config.json'
           $public = Join-Path $runtime 'user_data\config-public-ci-marketdata.json'
           $userdir = Join-Path $runtime 'user_data'
-          $botLog = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.log'
-          $stdout = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stdout.log'
-          $stderr = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stderr.log'
+          $botLog = Join-Path $env:RUNNER_TEMP 'v12-18-paperbot.log'
+          $stdout = Join-Path $env:RUNNER_TEMP 'v12-18-paperbot.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'v12-18-paperbot.stderr.log'
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $strategy).Hash.ToLowerInvariant()
 
           function Quote-Arg([string]$value) { return '"' + $value.Replace('"', '\"') + '"' }
@@ -142,7 +136,7 @@ jobs:
             '--strategy-class','CompressionBreakout250','--','trade',
             '--config',(Quote-Arg $config),'--config',(Quote-Arg $public),
             '--userdir',(Quote-Arg $userdir),'--strategy','CompressionBreakout250',
-            '--db-url','sqlite:///user_data/e2e-v12-17.dryrun.sqlite','--logfile',(Quote-Arg $botLog)
+            '--db-url','sqlite:///user_data/e2e-v12-18.dryrun.sqlite','--logfile',(Quote-Arg $botLog)
           )
           $process = Start-Process -FilePath $python -ArgumentList ($parts -join ' ') `
             -WorkingDirectory $runtime -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -224,7 +218,7 @@ jobs:
               raise RuntimeError("E2E result checks failed: " + ", ".join(failed) + "\n" + json.dumps(result, ensure_ascii=False, indent=2, default=str))
           compact = {key: result.get(key) for key in ("pair","years","starting_balance_usdt","final_balance_usdt","profit_usdt","profit_pct","trades","wins","winrate_pct","profit_factor","max_drawdown_pct","backtest_start","backtest_end","backtest_days","coverage_validated","data_integrity_validated","result_file")}
           print("FINAL_RESULT:", json.dumps(compact, ensure_ascii=False, indent=2), flush=True)
-          Path("v12-17-link-3y-e2e-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+          Path("v12-18-link-3y-e2e-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
           '@ | & $python -
           if ($LASTEXITCODE -ne 0) { throw "LINK 3y E2E Python exited with $LASTEXITCODE" }
 
@@ -232,9 +226,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v12-17-link-3y-e2e
+          name: v12-18-link-3y-e2e
           if-no-files-found: warn
           path: |
-            v12-17-link-3y-e2e-result.json
+            v12-18-link-3y-e2e-result.json
             runtime/user_data/backtest_results/ui/**
-            ${{ runner.temp }}/v12-17-paperbot*.log
+            ${{ runner.temp }}/v12-18-paperbot*.log

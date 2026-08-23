@@ -21,8 +21,48 @@ function Get-ProcessInfo {
     return Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
 }
 
+function Close-StaleSessionManifests {
+    $runtimeRoot = Split-Path -Parent $PSScriptRoot
+    $sessionsRoot = Join-Path $runtimeRoot "user_data\logs\sessions"
+    if (-not (Test-Path -LiteralPath $sessionsRoot -PathType Container)) {
+        return
+    }
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    foreach ($manifestPath in Get-ChildItem -LiteralPath $sessionsRoot -Filter "session-manifest.json" -File -Recurse) {
+        try {
+            $manifest = Get-Content -LiteralPath $manifestPath.FullName -Raw | ConvertFrom-Json
+            if (([string]$manifest.status) -notin @("starting", "running")) {
+                continue
+            }
+
+            $sessionId = [string]$manifest.session_id
+            $match = [regex]::Match($sessionId, "-pid-(\d+)$")
+            if ($match.Success) {
+                $supervisorPid = [int]$match.Groups[1].Value
+                if ($null -ne (Get-Process -Id $supervisorPid -ErrorAction SilentlyContinue)) {
+                    continue
+                }
+            }
+
+            $manifest.status = "interrupted"
+            $manifest.ended_at_utc = [DateTimeOffset]::UtcNow.ToString("o")
+            if ([string]$manifest.report_status -eq "pending") {
+                $manifest.report_status = "not_created_for_forced_shutdown"
+            }
+            $content = ($manifest | ConvertTo-Json -Depth 20) + [Environment]::NewLine
+            [System.IO.File]::WriteAllText($manifestPath.FullName, $content, $utf8NoBom)
+            Write-Host "STATUS: Unterbrochene alte Sitzung markiert: $sessionId" -ForegroundColor Yellow
+        }
+        catch {
+            throw "Altes Sitzungsmanifest konnte nicht sicher bereinigt werden: $($manifestPath.FullName): $($_.Exception.Message)"
+        }
+    }
+}
+
 $owners = @(Get-PortOwners)
 if ($owners.Count -eq 0) {
+    Close-StaleSessionManifests
     exit 0
 }
 
@@ -78,5 +118,6 @@ if ($remaining.Count -gt 0) {
     throw "Port 8080 ist nach dem Sicherheits-Cleanup weiterhin belegt. Testbot startet nicht."
 }
 
+Close-StaleSessionManifests
 Write-Host "SICHERHEIT: Alte Testbot-Runtime wurde vollstaendig entfernt; Port 8080 ist frei." -ForegroundColor Green
 exit 0

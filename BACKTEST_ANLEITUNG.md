@@ -8,34 +8,41 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
-Auf dem Branch `agent/v12-adaptive-league` ist diese aktive Strategy-Quelle der
-**V12.15-Dry-run-Kandidat**. Die eingefrorene V8-Baseline unter
+Auf dem Branch `agent/v12-17-ten-pair-research-ui` ist diese aktive
+Strategy-Quelle der **V12.18-Paper-/Dry-run-Kandidat** des Bots. Die eingefrorene
+V8-Baseline unter
 `research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
 ## Auswahl
 
-Im UI können einzeln getestet werden:
+Im UI können getestet werden:
 
-- Gesamtportfolio BTC + ETH + SOL + XRP + BNB + DOGE mit einem gemeinsamen 250-USDT-Konto
+- gemeinsames Portfolio aller zehn Paare mit einem einzigen 250-USDT-Konto
 - BTC/USDT
 - ETH/USDT
 - SOL/USDT
 - XRP/USDT
 - BNB/USDT
 - DOGE/USDT
+- LINK/USDT
+- TRX/USDT
+- LTC/USDT
+- BCH/USDT
 - 1, 2 oder 3 Jahre
 
 Der Gesamtportfolio-Modus ist die maßgebliche Sicht auf die Nutzung der echten
-250 USDT: alle sechs Märkte konkurrieren gemeinsam um höchstens drei Positionen
-zu je 80 USDT. Die Einzelpaar-Läufe sind nur für Attribution und Diagnose; ihre
-Gewinne dürfen nicht als sechs getrennte 250-USDT-Konten addiert werden.
+250 USDT: alle zehn Märkte konkurrieren gemeinsam um höchstens drei Entry-Blöcke
+zu je 80 USDT. Der UI-Knopf heißt `Alle 10 zusammen`. Die Einzelpaar-Läufe und
+der Knopf `10 Einzeltests` sind nur für Attribution und Diagnose; ihre Gewinne
+dürfen nicht als gemeinsames Konto addiert werden.
 
-Alle Signale bleiben **pair-lokal**. V12.15 injiziert kein BTC-Regime in andere
-Pairs. Die separat markierten Trend-Reclaims sind wie in V12.12 für BTC und ETH
-aktiv; SOL, XRP, BNB und DOGE handeln ausschließlich ihre unveränderten
-Donchian-Kerne. Die ursprüngliche 72-Stunden-Pairpause nach zwei unprofitablen
-Trades bleibt bestehen. Die einzige neue Entscheidung ist ein +5-%-Stopboden
-für Champion-Trades, nachdem sie mindestens +30 % erreicht haben.
+Alle Signale bleiben **pair-lokal**. V12.18 injiziert kein BTC-Regime in andere
+Pairs. BTC und ETH behalten ihre markierten Trend-Reclaims; die übrigen acht
+Paare handeln den Broad-Core-Donchian-Pfad. Die 72-Stunden-Pairpause nach zwei
+unprofitablen Trades und der +5-%-Stopboden nach mindestens +30 % bei
+Champion-Trades bleiben erhalten. Ein zweiter oder dritter Block im selben
+Trade ist nur bei einem neuen Signal, positivem Trade und einem Kurs über allen
+früheren Entry-Fills erlaubt. Verlust-Nachkauf bleibt gesperrt.
 
 ## Benötigte Daten
 
@@ -75,7 +82,7 @@ Ergebnisordners blockiert. Das gilt auch, wenn eine abgeschlossene Simulation
 erst an einem technischen Audit-Gate scheiterte. Die Fingerabdrücke werden
 zusätzlich in `research/executed_test_fingerprints.csv` versioniert, damit die
 Sperre nach einem Git-Pull erhalten bleibt. Änderungen nur an Versionsnummer, Kommentar oder
-Beschreibung umgehen die Sperre nicht. In „Alle 14 Backtests“ werden bestehende
+Beschreibung umgehen die Sperre nicht. In der Zehner-Einzelmatrix werden bestehende
 Zellen als „Doppeltest übersprungen“ angezeigt.
 
 Eine neue Strategy muss zuerst genau einmal in `research/trial_ledger.csv`
@@ -120,6 +127,9 @@ Angezeigt werden unter anderem:
 - Anteil der verfügbaren Kapitalzeit, in der Kapital eingesetzt war
 - Anteil des Testfensters ganz ohne offene Position
 - durchschnittliche und maximale Zahl gleichzeitig offener Positionen
+- gesamte und zusätzliche Entry-Blöcke
+- maximale gleichzeitig aktive Entry-Blöcke und maximal gebundenes Kapital
+- Paarbeitrag im gemeinsamen Portfolio
 - tatsächlicher Backtestzeitraum
 - Candle-Integritätsstatus
 

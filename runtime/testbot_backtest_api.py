@@ -1,7 +1,7 @@
 """Local-only backtest API used by the Testbot FreqUI extension.
 
-Every run hashes and loads the exact strategy file used by STARTBOT. V12.15 can
-test one selected pair or the real six-pair 250 USDT portfolio. All pairs remain
+Every run hashes and loads the exact strategy file used by STARTBOT. The active
+strategy can test one selected pair or the real shared-wallet 250 USDT portfolio. All pairs remain
 independent pair-local engines; portfolio mode changes only the execution/account
 simulation and injects no cross-pair market-regime signal.
 
@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -70,11 +71,16 @@ ALLOWED_PAIRS = (
     "XRP/USDT",
     "BNB/USDT",
     "DOGE/USDT",
+    "LINK/USDT",
+    "TRX/USDT",
+    "LTC/USDT",
+    "BCH/USDT",
 )
 PORTFOLIO_TARGET = "PORTFOLIO"
 ALLOWED_TARGETS = (*ALLOWED_PAIRS, PORTFOLIO_TARGET)
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
+STRATEGY_VERSION = "V12.18"
 REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
 BACKTEST_WARMUP_DAYS = 75
 
@@ -103,6 +109,10 @@ _state: dict[str, Any] = {
     "finished_at": None,
     "result": None,
     "error": None,
+    "stage_started_at": None,
+    "last_activity_at": None,
+    "subprocess_alive": False,
+    "subprocess_pid": None,
 }
 
 
@@ -113,6 +123,8 @@ class BacktestRequest(BaseModel):
 
 def _set_state(**values: Any) -> None:
     with _state_lock:
+        if "stage" in values and values["stage"] != _state.get("stage"):
+            values.setdefault("stage_started_at", datetime.now(UTC).isoformat())
         _state.update(values)
 
 
@@ -151,7 +163,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
 
 
 def _btc_context_pair(pair: str) -> None:
-    """Compatibility hook: pair-local V12.15 never requests another pair as context."""
+    """Compatibility hook: pair-local V12.18 never requests another pair as context."""
 
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
@@ -295,18 +307,42 @@ def _run_checked(args: list[str], log_path: Path) -> None:
     with log_path.open("a", encoding="utf-8", errors="replace") as log:
         log.write("\n$ " + subprocess.list2cmdline(args) + "\n")
         log.flush()
-        process = subprocess.run(
+        process = subprocess.Popen(
             args,
             cwd=str(_RUNTIME_ROOT),
             env=_clean_subprocess_environment(),
             stdout=log,
             stderr=subprocess.STDOUT,
             text=True,
-            check=False,
         )
-    if process.returncode != 0:
+        last_size = log_path.stat().st_size
+        _set_state(
+            subprocess_alive=True,
+            subprocess_pid=process.pid,
+            last_activity_at=datetime.now(UTC).isoformat(),
+        )
+        try:
+            while process.poll() is None:
+                time.sleep(1.0)
+                current_size = log_path.stat().st_size
+                update: dict[str, Any] = {
+                    "subprocess_alive": True,
+                    "subprocess_pid": process.pid,
+                }
+                if current_size != last_size:
+                    last_size = current_size
+                    update["last_activity_at"] = datetime.now(UTC).isoformat()
+                _set_state(**update)
+            returncode = int(process.returncode or 0)
+        finally:
+            _set_state(
+                subprocess_alive=False,
+                subprocess_pid=None,
+                last_activity_at=datetime.now(UTC).isoformat(),
+            )
+    if returncode != 0:
         raise RuntimeError(
-            f"Befehl fehlgeschlagen (Code {process.returncode}). Details: {log_path}"
+            f"Befehl fehlgeschlagen (Code {returncode}). Details: {log_path}"
         )
 
 
@@ -361,6 +397,44 @@ def _trade_breakdown(trades: list[dict[str, Any]], key: str, fallback: str) -> l
     return sorted(rows, key=lambda row: (-row["trades"], row["label"]))
 
 
+def _pair_breakdown(trades: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for trade in trades:
+        pair = str(trade.get("pair") or "unbekannt")
+        orders = trade.get("orders")
+        entry_chunks = (
+            sum(
+                1
+                for order in orders
+                if isinstance(order, dict) and order.get("ft_is_entry") is True
+            )
+            if isinstance(orders, list)
+            else 0
+        ) or 1
+        item = grouped.setdefault(
+            pair,
+            {
+                "pair": pair,
+                "trades": 0,
+                "wins": 0,
+                "profit_usdt": 0.0,
+                "entry_chunks": 0,
+                "max_entries_per_trade": 0,
+            },
+        )
+        profit = _number(trade.get("profit_abs"))
+        item["trades"] += 1
+        item["wins"] += int(profit > 0.0)
+        item["profit_usdt"] += profit
+        item["entry_chunks"] += entry_chunks
+        item["max_entries_per_trade"] = max(item["max_entries_per_trade"], entry_chunks)
+
+    rows = []
+    for item in grouped.values():
+        rows.append({**item, "profit_usdt": round(float(item["profit_usdt"]), 4)})
+    return sorted(rows, key=lambda row: (-row["profit_usdt"], row["pair"]))
+
+
 def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str) -> dict[str, Any]:
     from freqtrade.data.btanalysis import load_backtest_stats
 
@@ -407,6 +481,13 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         strategy.get("backtest_end"),
         available_capital=starting_balance,
     )
+    if int(utilization["max_active_entry_chunks"]) > 3:
+        raise RuntimeError(
+            "Backtest verletzte das Limit von drei gleichzeitig aktiven Entry-Bloecken."
+        )
+    if _number(utilization["max_deployed_capital_usdt"]) > 240.05:
+        raise RuntimeError("Backtest verletzte das globale Einsatzlimit von 240 USDT.")
+    tested_pairs = [str(value) for value in (strategy.get("pairlist") or [])]
 
     return {
         "pair": pair,
@@ -429,9 +510,12 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         "backtest_days": int(strategy.get("backtest_days") or 0),
         "coverage_validated": True,
         "result_file": str(result_file),
+        "portfolio_mode": pair == PORTFOLIO_TARGET,
+        "tested_pairs": tested_pairs,
         "adaptive_router": False,
         "cross_pair_context": False,
         **utilization,
+        "pair_breakdown": _pair_breakdown(trades),
         "entry_tag_breakdown": _trade_breakdown(trades, key="enter_tag", fallback="ohne_entry_tag"),
         "exit_reason_breakdown": _trade_breakdown(
             trades, key="exit_reason", fallback="ohne_exit_reason"
@@ -756,7 +840,10 @@ def _execute_backtest(
             for current_pair in pairs
         }
 
-        _set_state(stage="Historische Daten geladen - V12.15 Backtest startet", progress=45)
+        _set_state(
+            stage=f"Historische Daten geladen - {STRATEGY_VERSION} Backtest startet",
+            progress=45,
+        )
         backtest_args = [
             sys.executable,
             str(_BACKTEST_RUNNER),
@@ -798,7 +885,7 @@ def _execute_backtest(
             "--breakdown",
             "month",
         ]
-        _set_state(stage="V12.15 wird historisch simuliert", progress=60)
+        _set_state(stage=f"{STRATEGY_VERSION} wird historisch simuliert", progress=60)
         _run_checked(backtest_args, log_path)
 
         _set_state(stage="Ergebnis und Strategie-Familien werden ausgewertet", progress=92)
@@ -834,6 +921,12 @@ def _execute_backtest(
                     "no_position_time_pct",
                     "average_open_positions",
                     "max_simultaneous_positions",
+                    "total_entry_chunks",
+                    "additional_entry_chunks",
+                    "trades_with_multiple_entries",
+                    "max_entries_per_trade",
+                    "max_active_entry_chunks",
+                    "max_deployed_capital_usdt",
                     "backtest_start",
                     "backtest_end",
                     "backtest_days",
@@ -868,6 +961,8 @@ def _execute_backtest(
             finished_at=datetime.now(UTC).isoformat(),
             result=result,
             error=None,
+            subprocess_alive=False,
+            subprocess_pid=None,
         )
     except Exception as exc:
         if run_dir.is_dir():
@@ -885,6 +980,8 @@ def _execute_backtest(
             finished_at=datetime.now(UTC).isoformat(),
             error=str(exc),
             result=None,
+            subprocess_alive=False,
+            subprocess_pid=None,
         )
 
 
@@ -911,6 +1008,10 @@ def start_backtest(request: BacktestRequest) -> dict[str, Any]:
         finished_at=None,
         result=None,
         error=None,
+        stage_started_at=datetime.now(UTC).isoformat(),
+        last_activity_at=datetime.now(UTC).isoformat(),
+        subprocess_alive=False,
+        subprocess_pid=None,
     )
     thread = threading.Thread(
         target=_execute_backtest,

@@ -5,11 +5,11 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.17: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   TESTBOT V12.18: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.17 erweitert den aktiven Paperbot auf zehn Binance-Spot-Pairs.
+echo V12.18 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
 echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
 echo SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH handeln zunaechst den Broad-Core-Donchian-Pfad.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
@@ -17,6 +17,8 @@ echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitt
 echo Nur Champion-Trades sichern nach mindestens +30%% einen +5%%-Gewinnboden.
 echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
 echo Insgesamt bleiben maximal drei 80-USDT-Bloecke bzw. 240 USDT gleichzeitig gebunden.
+echo Weitere Bloecke im selben Coin sind nur im Gewinn und oberhalb aller frueheren
+echo Einstiegskurse erlaubt. Verlust-Nachkaeufe und Martingale bleiben gesperrt.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -57,7 +59,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.17
+echo Bot Name : Testbot V12.18
 echo Benutzer : testbot
 echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
 if "%FIRST_LOGIN_HELP%"=="1" (
