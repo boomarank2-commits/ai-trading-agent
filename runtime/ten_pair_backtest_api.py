@@ -9,6 +9,7 @@ whole-system test, but it is intentionally not part of the normal UI batch.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,7 @@ base.ALLOWED_TARGETS = (*TEN_PAIR_UNIVERSE, base.PORTFOLIO_TARGET)
 base._UI_SCRIPT = base._RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 
 _registered_experiment = base.registered_experiment
+_original_validate_candle_data = base._validate_candle_data
 
 
 def _active_registered_experiment(
@@ -81,7 +83,70 @@ def _active_registered_experiment(
     return experiment, [*lineage, experiment]
 
 
+def _validate_or_repair_candle_data(
+    pair: str,
+    download_start: Any,
+    required_end: Any,
+) -> list[dict[str, Any]]:
+    """Repair stale/interrupted local candle caches once before failing a run.
+
+    Freqtrade's normal download path appends/prepends existing files.  That does
+    not necessarily repair an old hole in the middle of a Feather file.  For a
+    failed integrity check we therefore rebuild only this pair's four historical
+    files from Binance and validate the fresh files again.  Strategy logic and
+    backtest parameters remain unchanged.
+    """
+
+    try:
+        return _original_validate_candle_data(pair, download_start, required_end)
+    except RuntimeError as first_error:
+        base._set_state(
+            stage=f"Lokale {pair}-Marktdaten werden wegen einer Datenluecke neu aufgebaut",
+            progress=35,
+        )
+        for timeframe in base.REQUIRED_TIMEFRAMES:
+            base._candle_path(pair, timeframe).unlink(missing_ok=True)
+
+        repair_log = base._RESULTS_ROOT / "data-repair.log"
+        repair_args = [
+            sys.executable,
+            "-m",
+            "freqtrade",
+            "download-data",
+            "--config",
+            str(base._CONFIG),
+            "--config",
+            str(base._PUBLIC_CONFIG),
+            "--userdir",
+            str(base._USERDIR),
+            "--timeframes",
+            *base.REQUIRED_TIMEFRAMES,
+            "--pairs",
+            pair,
+            "--trading-mode",
+            "spot",
+            "--timerange",
+            base._closed_timerange(download_start, required_end),
+        ]
+        try:
+            base._run_checked(repair_args, repair_log)
+            repaired = _original_validate_candle_data(pair, download_start, required_end)
+        except Exception as repair_error:
+            raise RuntimeError(
+                f"Marktdatenpruefung fuer {pair} fehlgeschlagen. "
+                f"Erster Fehler: {first_error}. Vollstaendiger Neuaufbau ebenfalls "
+                f"fehlgeschlagen: {repair_error}"
+            ) from repair_error
+
+        base._set_state(
+            stage=f"{pair}-Marktdaten frisch aufgebaut und erfolgreich geprueft",
+            progress=38,
+        )
+        return repaired
+
+
 base.registered_experiment = _active_registered_experiment
+base._validate_candle_data = _validate_or_repair_candle_data
 
 
 def get_state() -> dict[str, Any]:
