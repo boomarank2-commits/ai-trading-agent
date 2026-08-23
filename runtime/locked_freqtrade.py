@@ -120,7 +120,9 @@ def _install_testbot_api_routes() -> None:
     # This file is executed directly as ``python runtime/locked_freqtrade.py``.
     # In that mode Python places ``runtime`` itself on sys.path, not its parent,
     # so sibling modules must be imported without the ``runtime.`` package prefix.
-    from testbot_backtest_api import build_router
+    # The research facade leaves the running V12.15 strategy/config untouched and
+    # only redirects historical UI requests to the isolated V12.17 ten-pair files.
+    from ten_pair_backtest_api import build_router
 
     marker = "__daviddtech_testbot_backtest_installed__"
     current = ApiServer.configure_app
