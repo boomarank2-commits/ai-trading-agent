@@ -1,22 +1,22 @@
-"""V12.15 V12.12 core with a late champion-profit ratchet.
+"""V12.17 ten-pair paper strategy with a global three-chunk capital budget.
 
-V12.9 keeps every V12.8 champion entry path intact, removes the SOL +5% -> +1%
-profit ratchet after the exact 1m-detail backtest showed that it clipped the
-economics of the broader SOL core, and adds one deliberately simple challenger:
-a causal 15m EMA20 reclaim inside an already-established 1h/4h uptrend.
+This is the active paper/dry-run strategy.  It keeps the accepted V12.15
+Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
+pairs.  The four newly added pairs (LINK/TRX/LTC/BCH) initially reuse the same
+broad Donchian route as SOL/XRP/BNB/DOGE so their suitability can be measured
+before pair-specific tuning.
 
-The V12.12 pair universe, signal thresholds, BTC/ETH reclaim paths, exits and
-loss protections remain unchanged. The only decision change is a deliberately
-late profit ratchet for champion-Donchian trades: after at least +30% open
-profit, the stop may rise to +5% from entry. Reclaims do not use the ratchet.
-Before +30%, the original hard stop remains unchanged.
+Capital model:
+- one 250 USDT paper wallet
+- one entry chunk is at most 80 USDT
+- at most 240 USDT may be deployed at once
+- up to three chunks may therefore be active
+- a still-open pair may receive another 80 USDT only on a genuinely new entry
+  signal candle, up to three entries total in that pair
+- Spot, long-only, 1x, no martingale sizing
 
-Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
-stretch objective, not an optimization constraint. No threshold is allowed to
-be changed merely to force that number on already-seen history.
-
-Safety: Binance Spot, long-only, 1x, max 80 USDT per position, max three
-positions / 240 USDT total exposure, hard stop -5.5%, no DCA.
+Backtests use this exact strategy as well.  A single-pair backtest therefore
+starts with its own 250 USDT wallet and simulates the same 80-USDT chunk logic.
 """
 
 from __future__ import annotations
@@ -40,23 +40,24 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.15: V12.12 signals with a +30% to +5% champion ratchet."""
+    """V12.17: V12.15 core expanded to ten pairs with three 80-USDT chunks."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.15"
+    STRATEGY_VERSION = "V12.17"
 
     can_short = False
     timeframe = "15m"
     process_only_new_candles = True
     startup_candle_count = 400
 
-    position_adjustment_enable = False
-    max_entry_position_adjustment = 0
+    position_adjustment_enable = True
+    max_entry_position_adjustment = 2
 
     MAX_STAKE_USDT = 80.0
     MAX_TOTAL_CAPITAL_USDT = 250.0
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
+    MAX_ENTRIES_PER_PAIR = 3
     MAX_DAILY_LOSS_USDT = 10.0
     MAX_DAILY_LOSS_USDT_PER_PAIR = MAX_DAILY_LOSS_USDT
 
@@ -67,12 +68,20 @@ class CompressionBreakout250(IStrategy):
         "XRP/USDT",
         "BNB/USDT",
         "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
     }
     BROAD_CORE_PAIRS: ClassVar[set[str]] = {
         "SOL/USDT",
         "XRP/USDT",
         "BNB/USDT",
         "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
     }
 
     buy_momentum_30d = DecimalParameter(
@@ -94,6 +103,9 @@ class CompressionBreakout250(IStrategy):
         0.20, 1.00, default=0.50, decimals=2, space="buy", optimize=True, load=True
     )
 
+    # Kept from the accepted V12.15 source. BTC and ETH use special champion
+    # quality paths; the broader universe deliberately starts on one common
+    # route so each added pair can be diagnosed before pair-local tuning.
     PAIR_PROFILES: ClassVar[dict[str, dict[str, float | int]]] = {
         "BTC/USDT": {
             "adx_min": 16,
@@ -220,18 +232,20 @@ class CompressionBreakout250(IStrategy):
 
         invariants_hold = (
             self.can_short is False
-            and self.position_adjustment_enable is False
-            and self.max_entry_position_adjustment == 0
+            and self.position_adjustment_enable is True
+            and self.max_entry_position_adjustment == 2
             and self.timeframe == "15m"
             and self.config.get("strategy") == type(self).__name__
             and self.config.get("timeframe") == "15m"
             and str(self.config.get("trading_mode", "")).lower() == "spot"
             and not str(self.config.get("margin_mode", ""))
             and str(self.config.get("stake_currency", "")).upper() == "USDT"
+            and self.config.get("position_adjustment_enable") is True
+            and int(self.config.get("max_entry_position_adjustment", -1)) == 2
             and 0.0 < stake_amount <= self.MAX_STAKE_USDT
             and 0.0 < available_capital <= self.MAX_TOTAL_CAPITAL_USDT
             and 1 <= max_open_trades <= self.MAX_OPEN_POSITIONS
-            and stake_amount * max_open_trades <= self.MAX_TOTAL_EXPOSURE_USDT
+            and stake_amount * self.MAX_OPEN_POSITIONS <= self.MAX_TOTAL_EXPOSURE_USDT
             and math.isclose(float(self.stoploss), -0.055, abs_tol=1e-12)
             and order_types.get("entry") == "limit"
             and order_types.get("exit") == "limit"
@@ -255,7 +269,19 @@ class CompressionBreakout250(IStrategy):
                 "unit": "minutes",
             }
             and exchange.get("name") == "binance"
-            and bool(pairs)
+            and list(pairs)
+            == [
+                "BTC/USDT",
+                "ETH/USDT",
+                "SOL/USDT",
+                "XRP/USDT",
+                "BNB/USDT",
+                "DOGE/USDT",
+                "LINK/USDT",
+                "TRX/USDT",
+                "LTC/USDT",
+                "BCH/USDT",
+            ]
             and set(pairs).issubset(self.ALLOWED_PAIRS)
             and len(pairs) == len(set(pairs))
             and self.config.get("force_entry_enable") is False
@@ -406,7 +432,6 @@ class CompressionBreakout250(IStrategy):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        """Run unchanged champions plus one separately tagged reclaim challenger."""
         pair = str(metadata.get("pair", ""))
         dataframe["regime_state"] = self.REGIME_NO_TRADE
         dataframe["route_family"] = self.FAMILY_NO_TRADE
@@ -417,7 +442,6 @@ class CompressionBreakout250(IStrategy):
             return dataframe
 
         asset = pair.split("/")[0].lower()
-
         fresh_slow = (
             (dataframe["fresh_breakout_4h"] > 0)
             & (dataframe["fresh_breakout_4h"].shift(1).fillna(0) <= 0)
@@ -470,7 +494,7 @@ class CompressionBreakout250(IStrategy):
             )
         elif pair in self.BROAD_CORE_PAIRS:
             champion_quality = dataframe["volume"] > 0
-        else:  # Defensive: ALLOWED_PAIRS and routing must never drift apart.
+        else:
             dataframe["no_trade_reason"] = "missing_pair_route"
             return dataframe
 
@@ -483,7 +507,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[champion_signal, "no_trade_reason"] = ""
         dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_15_{asset}_champion_donchian",
+            f"v12_17_{asset}_champion_donchian",
         )
 
         if pair in self.RECLAIM_PROFILES:
@@ -529,7 +553,7 @@ class CompressionBreakout250(IStrategy):
             dataframe.loc[reclaim_signal, "no_trade_reason"] = ""
             dataframe.loc[reclaim_signal, ["enter_long", "enter_tag"]] = (
                 1,
-                f"v12_15_{asset}_trend_reclaim",
+                f"v12_17_{asset}_trend_reclaim",
             )
 
         return dataframe
@@ -544,7 +568,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_15_slow_trend_exit")
+        ] = (1, "v12_17_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -582,6 +606,89 @@ class CompressionBreakout250(IStrategy):
         except Exception:
             return
 
+    def adjust_trade_position(
+        self,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        min_stake: float | None,
+        max_stake: float,
+        current_entry_rate: float,
+        current_exit_rate: float,
+        current_entry_profit: float,
+        current_exit_profit: float,
+        **kwargs: Any,
+    ) -> float | None | tuple[float | None, str | None]:
+        """Use another 80-USDT chunk only when the same pair emits a new signal.
+
+        This is not loss-based DCA. A second/third entry is allowed only on a
+        later candle that independently satisfies the normal entry strategy.
+        Global deployed stake remains capped at 240 USDT.
+        """
+
+        del (
+            current_time,
+            current_rate,
+            current_profit,
+            current_entry_rate,
+            current_exit_rate,
+            current_entry_profit,
+            current_exit_profit,
+            kwargs,
+        )
+        try:
+            if trade.pair not in self.ALLOWED_PAIRS or self.dp is None:
+                return None
+            if bool(getattr(trade, "has_open_orders", False)):
+                return None
+            if (
+                int(getattr(trade, "nr_of_successful_entries", 0))
+                >= self.MAX_ENTRIES_PER_PAIR
+            ):
+                return None
+            if max_stake < self.MAX_STAKE_USDT:
+                return None
+            if min_stake is not None and self.MAX_STAKE_USDT < float(min_stake):
+                return None
+            if self._kill_switch_path().is_file():
+                return None
+
+            dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
+            if dataframe.empty:
+                return None
+            candle = dataframe.iloc[-1].squeeze()
+            if int(float(candle.get("enter_long", 0) or 0)) != 1:
+                return None
+
+            signal_time = candle.get("date")
+            if hasattr(signal_time, "to_pydatetime"):
+                signal_time = signal_time.to_pydatetime()
+            if not isinstance(signal_time, datetime):
+                return None
+            if signal_time.tzinfo is None:
+                signal_time = signal_time.replace(tzinfo=UTC)
+            signal_time = signal_time.astimezone(UTC)
+
+            last_filled = getattr(trade, "date_last_filled_utc", None)
+            if isinstance(last_filled, datetime):
+                if last_filled.tzinfo is None:
+                    last_filled = last_filled.replace(tzinfo=UTC)
+                if signal_time <= last_filled.astimezone(UTC):
+                    return None
+
+            open_stake = float(Trade.total_open_trades_stakes())
+            if (
+                open_stake + self.MAX_STAKE_USDT
+                > self.MAX_TOTAL_EXPOSURE_USDT + 1e-6
+            ):
+                return None
+
+            asset = trade.pair.split("/")[0].lower()
+            return self.MAX_STAKE_USDT, f"v12_17_{asset}_new_signal_chunk"
+        except Exception:
+            return None
+
     def custom_stoploss(
         self,
         pair: str,
@@ -592,8 +699,6 @@ class CompressionBreakout250(IStrategy):
         after_fill: bool,
         **kwargs: Any,
     ) -> float | None:
-        """Lock one initial risk unit only after an exceptional champion move."""
-
         del pair, current_time, current_rate, after_fill, kwargs
         enter_tag = str(getattr(trade, "enter_tag", "") or "")
         if "_champion_donchian" not in enter_tag or current_profit < 0.30:
@@ -614,7 +719,6 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Use distinct failure logic for champion and reclaim entries."""
         del kwargs
         try:
             age_hours = (
@@ -636,9 +740,9 @@ class CompressionBreakout250(IStrategy):
                     and float(current_rate)
                     < float(ema_fast) - 0.50 * float(atr_15m)
                 ):
-                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_failed"
+                    return f"v12_17_{pair.split('/')[0].lower()}_reclaim_failed"
                 if age_hours >= 48.0:
-                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_time_stop"
+                    return f"v12_17_{pair.split('/')[0].lower()}_reclaim_time_stop"
                 return None
 
             if current_profit >= 0:
@@ -658,7 +762,7 @@ class CompressionBreakout250(IStrategy):
                 return None
             failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_15_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_17_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None
@@ -719,7 +823,9 @@ class CompressionBreakout250(IStrategy):
                 return False
             if order_type != "limit" or time_in_force != "GTC":
                 return False
-            if bool(self.config.get("position_adjustment_enable", False)):
+            if self.config.get("position_adjustment_enable") is not True:
+                return False
+            if int(self.config.get("max_entry_position_adjustment", -1)) != 2:
                 return False
             max_open = int(self.config.get("max_open_trades", -1))
             if not 1 <= max_open <= self.MAX_OPEN_POSITIONS:
