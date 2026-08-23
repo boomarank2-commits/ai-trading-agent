@@ -42,6 +42,26 @@ base._UI_SCRIPT = base._RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 
 _registered_experiment = base.registered_experiment
 _original_validate_candle_data = base._validate_candle_data
+_original_is_within = base._is_within
+_python_dependency_prefix = Path(sys.prefix).resolve()
+
+
+def _audit_boundary_is_within(path: Path, root: Path) -> bool:
+    """Treat the exact active Python environment as dependency space, not repo source.
+
+    STARTBOT intentionally keeps ``.venv`` below the repository on Windows.
+    Freqtrade, pandas, pyarrow and other locked dependencies are therefore
+    physically below the repo root even though they are not repository-owned
+    strategy/config inputs.  Excluding only the exact ``sys.prefix`` subtree from
+    the repo-read check keeps the audit strict for every other repository file.
+    """
+
+    resolved_root = root.resolve()
+    if resolved_root == base._REPO_ROOT.resolve() and _original_is_within(
+        path, _python_dependency_prefix
+    ):
+        return False
+    return _original_is_within(path, root)
 
 
 def _active_registered_experiment(
@@ -200,6 +220,7 @@ def _existing_completed_result(request: Any) -> dict[str, Any] | None:
 
 base.registered_experiment = _active_registered_experiment
 base._validate_candle_data = _validate_or_repair_candle_data
+base._is_within = _audit_boundary_is_within
 
 
 def get_state() -> dict[str, Any]:
