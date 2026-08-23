@@ -1,47 +1,44 @@
-"""Install the repository-owned Testbot UI hooks into the installed FreqUI index.
+"""Install repository-owned Testbot hooks into the installed FreqUI.
 
-FreqUI itself is downloaded by Freqtrade into .venv and is therefore not kept
-in Git. This patch is intentionally small and idempotent:
-
-* keep the repository-served Backtest navigation hook;
-* when STARTBOT provides the localhost FreqUI credentials through environment
-  variables, add a local-only bootstrap which repairs stale/missing FreqUI
-  tokens automatically.
-
-The bootstrap never enables real trading. It only authenticates the browser to
-Freqtrade's already-running localhost API so Dashboard/Chart/Logs can see the
-paper bot again after a local password change.
+FreqUI lives inside the local Python environment and is not tracked in Git.
+This patch keeps the Backtest hook and installs a local-only external JavaScript
+bootstrap for FreqUI authentication.  Using an external script avoids browser
+security policies which may ignore inline JavaScript.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 import freqtrade
 
-SCRIPT_TAG = '<script src="/testbot-backtest.js" defer></script>'
-AUTOLOGIN_START = '<!-- TESTBOT_AUTOLOGIN_START -->'
-AUTOLOGIN_END = '<!-- TESTBOT_AUTOLOGIN_END -->'
+BACKTEST_TAG = '<script src="/testbot-backtest.js" defer></script>'
+AUTOLOGIN_FILENAME = "testbot-autologin.js"
+OLD_AUTOLOGIN_START = '<!-- TESTBOT_AUTOLOGIN_START -->'
+OLD_AUTOLOGIN_END = '<!-- TESTBOT_AUTOLOGIN_END -->'
+AUTOLOGIN_TAG_RE = re.compile(
+    r'<script\s+src="/testbot-autologin\.js(?:\?[^\"]*)?"\s+defer></script>'
+)
 
 
-def _remove_autologin(text: str) -> str:
-    start = text.find(AUTOLOGIN_START)
+def _remove_old_inline_block(text: str) -> str:
+    start = text.find(OLD_AUTOLOGIN_START)
     if start < 0:
         return text
-    end = text.find(AUTOLOGIN_END, start)
+    end = text.find(OLD_AUTOLOGIN_END, start)
     if end < 0:
-        raise RuntimeError("FreqUI index contains an incomplete Testbot autologin block")
-    return text[:start] + text[end + len(AUTOLOGIN_END) :]
+        raise RuntimeError("FreqUI index contains an incomplete old Testbot autologin block")
+    return text[:start] + text[end + len(OLD_AUTOLOGIN_END) :]
 
 
-def _autologin_block(username: str, password: str) -> str:
+def _autologin_script(username: str, password: str) -> str:
     user_js = json.dumps(username)
     password_js = json.dumps(password)
-    return f"""{AUTOLOGIN_START}
-<script>
-(() => {{
+    return f"""(() => {{
   const TESTBOT_USERNAME = {user_js};
   const TESTBOT_PASSWORD = {password_js};
   const STORAGE_KEY = 'ftAuthLoginInfo';
@@ -96,7 +93,7 @@ def _autologin_block(username: str, password: str) -> str:
       existing.username === TESTBOT_USERNAME &&
       await tokenWorks(existing.accessToken)
     ) {{
-      if (localStorage.getItem(SELECTED_KEY) !== botId) localStorage.setItem(SELECTED_KEY, botId);
+      localStorage.setItem(SELECTED_KEY, botId);
       return;
     }}
 
@@ -136,48 +133,54 @@ def _autologin_block(username: str, password: str) -> str:
 
   login().catch((error) => console.error('Testbot FreqUI auto-login error:', error));
 }})();
-</script>
-{AUTOLOGIN_END}"""
+"""
 
 
 def main() -> int:
-    index = (
+    ui_dir = (
         Path(freqtrade.__file__).resolve().parent
         / "rpc"
         / "api_server"
         / "ui"
         / "installed"
-        / "index.html"
     )
+    index = ui_dir / "index.html"
+    autologin_path = ui_dir / AUTOLOGIN_FILENAME
     if not index.is_file():
         raise RuntimeError(f"FreqUI index not found: {index}")
 
     text = index.read_text(encoding="utf-8")
-    text = _remove_autologin(text)
+    text = _remove_old_inline_block(text)
+    text = AUTOLOGIN_TAG_RE.sub("", text)
 
     marker = "</body>"
     if marker not in text:
         raise RuntimeError("FreqUI index has no </body> marker; refusing unsafe patch")
-
-    if SCRIPT_TAG not in text:
-        text = text.replace(marker, f"{SCRIPT_TAG}{marker}", 1)
+    if BACKTEST_TAG not in text:
+        text = text.replace(marker, f"{BACKTEST_TAG}{marker}", 1)
 
     username = os.environ.get("FREQTRADE__API_SERVER__USERNAME", "").strip()
     password = os.environ.get("FREQTRADE__API_SERVER__PASSWORD", "")
     if username and password:
-        text = text.replace(marker, f"{_autologin_block(username, password)}{marker}", 1)
+        script = _autologin_script(username, password)
+        autologin_path.write_text(script, encoding="utf-8", newline="")
+        version = hashlib.sha256(f"{username}\0{password}".encode()).hexdigest()[:12]
+        tag = f'<script src="/{AUTOLOGIN_FILENAME}?v={version}" defer></script>'
+        text = text.replace(marker, f"{tag}{marker}", 1)
+    else:
+        autologin_path.unlink(missing_ok=True)
 
     index.write_text(text, encoding="utf-8", newline="")
     verify = index.read_text(encoding="utf-8")
-    if verify.count(SCRIPT_TAG) != 1:
+    if verify.count(BACKTEST_TAG) != 1:
         raise RuntimeError("Testbot Backtest UI hook verification failed")
     if username and password:
-        if verify.count(AUTOLOGIN_START) != 1 or verify.count(AUTOLOGIN_END) != 1:
-            raise RuntimeError("Testbot FreqUI auto-login hook verification failed")
-        print(f"Testbot FreqUI auto-login installed for {username}: {index}")
+        if not autologin_path.is_file() or verify.count(AUTOLOGIN_FILENAME) != 1:
+            raise RuntimeError("External Testbot FreqUI auto-login hook verification failed")
+        print(f"External Testbot FreqUI auto-login installed for {username}: {autologin_path}")
     else:
-        if AUTOLOGIN_START in verify or AUTOLOGIN_END in verify:
-            raise RuntimeError("Stale Testbot FreqUI auto-login hook remains without credentials")
+        if AUTOLOGIN_FILENAME in verify or autologin_path.exists():
+            raise RuntimeError("Stale Testbot FreqUI auto-login remains without credentials")
         print(f"Testbot Backtest UI hook installed without auto-login credentials: {index}")
     return 0
 
