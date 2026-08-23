@@ -9,7 +9,6 @@ existing fingerprints remain blocked.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +53,9 @@ history.STRATEGY_NAME = RESEARCH_STRATEGY_NAME
 _original_matrix_summaries = history._matrix_summaries
 
 
-def _ten_pair_matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _ten_pair_matrix_summaries(
+    completed: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     rows = _original_matrix_summaries(completed)
     for row in rows:
         if row.get("strategy_version") != "V12.17":
@@ -63,13 +64,17 @@ def _ten_pair_matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str
         relevant = [
             run
             for run in completed
-            if run.get("strategy_sha256") == digest and run.get("pair") != "PORTFOLIO"
+            if run.get("strategy_sha256") == digest
+            and run.get("pair") != "PORTFOLIO"
         ]
         latest_by_cell: dict[tuple[str, int | None], dict[str, Any]] = {}
         for run in relevant:
             cell = (str(run.get("pair")), run.get("period_years"))
             previous = latest_by_cell.get(cell)
-            if previous is None or (str(run.get("backtest_end")), str(run.get("run_id"))) > (
+            if previous is None or (
+                str(run.get("backtest_end")),
+                str(run.get("run_id")),
+            ) > (
                 str(previous.get("backtest_end")),
                 str(previous.get("run_id")),
             ):
@@ -82,7 +87,9 @@ def _ten_pair_matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str
                 if run.get("period_years") is not None
             }
         )
-        expected = {(pair, years) for pair in TEN_PAIR_UNIVERSE for years in periods}
+        expected = {
+            (pair, years) for pair in TEN_PAIR_UNIVERSE for years in periods
+        }
         row["matrix_pairs"] = list(TEN_PAIR_UNIVERSE)
         row["period_years"] = periods
         row["latest_cells"] = len(selected)
@@ -93,7 +100,9 @@ def _ten_pair_matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str
         row["current_twenty_cell_matrix"] = (
             row["matrix_complete"] and periods == [1, 3]
         )
-        row["positive_cells"] = sum(float(run.get("profit_usdt") or 0.0) > 0 for run in selected)
+        row["positive_cells"] = sum(
+            float(run.get("profit_usdt") or 0.0) > 0 for run in selected
+        )
         row["independent_profit_sum_usdt"] = round(
             sum(float(run.get("profit_usdt") or 0.0) for run in selected), 4
         )
@@ -103,11 +112,18 @@ def _ten_pair_matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str
             int(run.get("trades") or 0) for run in selected
         )
         row["worst_max_drawdown_pct"] = round(
-            max((float(run.get("max_drawdown_pct") or 0.0) for run in selected), default=0.0),
+            max(
+                (
+                    float(run.get("max_drawdown_pct") or 0.0)
+                    for run in selected
+                ),
+                default=0.0,
+            ),
             2,
         )
         row["latest_backtest_end"] = max(
-            (str(run.get("backtest_end") or "") for run in selected), default=""
+            (str(run.get("backtest_end") or "") for run in selected),
+            default="",
         )
     return rows
 
@@ -137,7 +153,8 @@ def _research_registered_experiment(
         ),
         "change_summary": (
             "Research-only universe expansion from six to ten pairs; no entry, "
-            "exit, stop, protection, fee, stake or slot rule is intentionally changed."
+            "exit, stop, protection, fee, stake or slot rule is intentionally "
+            "changed."
         ),
         "acceptance_criteria": (
             "Diagnose every pair over fixed 1y/3y windows; judge promotion only "
