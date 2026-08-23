@@ -55,3 +55,19 @@ def test_failed_candle_integrity_rebuilds_only_requested_pair(monkeypatch, tmp_p
     assert log_path.name == "data-repair.log"
     assert any("neu aufgebaut" in str(state.get("stage", "")) for state in states)
     assert any("erfolgreich geprueft" in str(state.get("stage", "")) for state in states)
+
+
+def test_repo_audit_excludes_only_exact_active_python_environment(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo = tmp_path / "repo"
+    dependency_prefix = repo / ".venv"
+    dependency_file = dependency_prefix / "Lib" / "site-packages" / "pandas" / "__init__.py"
+    runtime_file = repo / "runtime" / "locked_freqtrade.py"
+
+    monkeypatch.setattr(adapter.base, "_REPO_ROOT", repo)
+    monkeypatch.setattr(adapter, "_python_dependency_prefix", dependency_prefix.resolve())
+
+    assert adapter._audit_boundary_is_within(dependency_file, repo) is False
+    assert adapter._audit_boundary_is_within(runtime_file, repo) is True
+    assert adapter._audit_boundary_is_within(dependency_file, dependency_prefix) is True
