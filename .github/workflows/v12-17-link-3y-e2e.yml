@@ -19,7 +19,6 @@ jobs:
     env:
       PYTHONUTF8: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}\v12-17-e2e-venv
       FREQTRADE__API_SERVER__USERNAME: testbot
       FREQTRADE__API_SERVER__PASSWORD: E2E-Local-Password-Only-1234567890
       FREQTRADE__API_SERVER__JWT_SECRET_KEY: E2E-JWT-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ
@@ -35,6 +34,13 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+
+      - name: Configure external uv environment
+        shell: pwsh
+        run: |
+          $venv = Join-Path $env:RUNNER_TEMP 'v12-17-e2e-venv'
+          "UV_PROJECT_ENVIRONMENT=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "E2E Python environment: $venv"
 
       - name: Sync exact locked environment outside audited repository
         shell: powershell
