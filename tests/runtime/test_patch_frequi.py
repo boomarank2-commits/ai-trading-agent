@@ -13,7 +13,13 @@ NODE = shutil.which("node")
 pytestmark = pytest.mark.skipif(NODE is None, reason="Node.js is required for FreqUI hook tests")
 
 
-def _execute_hook(store: dict, selected: str | None, *, token_valid: bool) -> dict:
+def _execute_hook(
+    store: dict,
+    selected: str | None,
+    *,
+    token_valid: bool,
+    session: dict[str, str] | None = None,
+) -> dict:
     script = _autologin_script("testbot", "local-test-password")
     encoded = base64.b64encode(script.encode("utf-8")).decode("ascii")
     initial_values = {"ftAuthLoginInfo": json.dumps(store, separators=(",", ":"))}
@@ -22,9 +28,14 @@ def _execute_hook(store: dict, selected: str | None, *, token_valid: bool) -> di
 
     runner = f"""
 const values = new Map(Object.entries({json.dumps(initial_values)}));
+const sessionValues = new Map(Object.entries({json.dumps(session or {})}));
 global.localStorage = {{
   getItem: (key) => values.has(key) ? values.get(key) : null,
   setItem: (key, value) => values.set(key, String(value)),
+}};
+global.sessionStorage = {{
+  getItem: (key) => sessionValues.has(key) ? sessionValues.get(key) : null,
+  setItem: (key, value) => sessionValues.set(key, String(value)),
 }};
 let reloadCount = 0;
 global.window = {{
@@ -57,6 +68,7 @@ setTimeout(() => {{
   console.log(JSON.stringify({{
     store: JSON.parse(values.get('ftAuthLoginInfo')),
     selected: values.get('ftSelectedBot'),
+    session: Object.fromEntries(sessionValues),
     reloadCount,
     calls,
   }}));
@@ -97,10 +109,16 @@ def test_valid_stale_bot_record_is_normalized_selected_and_reloaded_once() -> No
         "sortId": 7,
     }
     assert repaired["selected"] == "ftbot.0"
+    assert repaired["session"] == {"testbotFrequiBootstrapV2": "ready"}
     assert repaired["reloadCount"] == 1
     assert repaired["calls"] == ["/api/v1/status"]
 
-    stable = _execute_hook(repaired["store"], repaired["selected"], token_valid=True)
+    stable = _execute_hook(
+        repaired["store"],
+        repaired["selected"],
+        token_valid=True,
+        session=repaired["session"],
+    )
     assert stable["reloadCount"] == 0
     assert stable["calls"] == ["/api/v1/status"]
 
@@ -122,5 +140,6 @@ def test_expired_token_is_replaced_and_reloads_ui() -> None:
     bot = result["store"]["ftbot.0"]
     assert bot["accessToken"] == "new-access-token"
     assert bot["refreshToken"] == "new-refresh-token"
+    assert result["session"] == {"testbotFrequiBootstrapV2": "ready"}
     assert result["reloadCount"] == 1
     assert result["calls"] == ["/api/v1/status", "/api/v1/token/login"]

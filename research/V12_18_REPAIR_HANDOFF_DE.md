@@ -281,3 +281,23 @@ lokalen Bot-Eintrag auf `Testbot`, wählt ihn aus und lädt die UI genau einmal
 neu, wenn Auswahl oder Metadaten veraltet waren. Die Cache-Version des Hooks
 wird nun aus seinem vollständigen Inhalt berechnet; damit kann der Browser nach
 einem Codeupdate nicht mehr dieselbe alte Hook-URL wiederverwenden.
+
+## Dritte FreqUI-Reparatur: Initialisierungsreihenfolge
+
+Der nächste Paper-Start bewies einen gesunden Backendbetrieb ohne
+WebSocketfehler: zehn Paare wurden geladen, die REST-API war online, der
+vorhandene BTC-Papertrade wurde fortgesetzt und Heartbeats liefen weiter. Die
+vom dauerhaft wiederverwendeten Edge-App-Profil gerenderte Trade-Seite blieb
+jedoch leer. Ein unabhängiger Test derselben laufenden URL in einem frischen
+Browserprofil zeigte dagegen sofort `Testbot - Online`, alle zehn Paare, den
+BTC-Trade, Kurse und Chartdaten. Damit war die verbleibende Ursache auf die
+Frontend-Initialisierung des alten Profils eingegrenzt.
+
+Bei einem noch gültigen gespeicherten Token konnte der Login-Hook bisher ohne
+Reload enden. Zu diesem Zeitpunkt hatte das vorher geladene FreqUI-Modul seinen
+leeren Zustand bereits initialisiert. Der Hook setzt nun pro Browser-Sitzung
+eine `sessionStorage`-Marke und erzwingt beim ersten Laden genau einen Reload,
+nachdem Bot-Eintrag und Auswahl geschrieben wurden. Beim zweiten Laden ist die
+Marke vorhanden; dadurch startet FreqUI mit der fertigen Verbindung, ohne eine
+Reload-Schleife zu erzeugen. Der bestehende Inhalts-Hash ändert zugleich die
+Hook-URL und verhindert die Wiederverwendung der vorherigen JavaScript-Datei.

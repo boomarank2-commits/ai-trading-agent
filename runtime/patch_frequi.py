@@ -43,6 +43,7 @@ def _autologin_script(username: str, password: str) -> str:
   const TESTBOT_PASSWORD = {password_js};
   const STORAGE_KEY = 'ftAuthLoginInfo';
   const SELECTED_KEY = 'ftSelectedBot';
+  const BOOTSTRAP_KEY = 'testbotFrequiBootstrapV2';
   const API_URL = window.location.origin;
 
   const parseStore = () => {{
@@ -104,6 +105,11 @@ def _autologin_script(username: str, password: str) -> str:
     return botChanged || selectionChanged;
   }};
 
+  const reloadAfterBootstrap = () => {{
+    sessionStorage.setItem(BOOTSTRAP_KEY, 'ready');
+    window.location.reload();
+  }};
+
   const login = async () => {{
     const store = parseStore();
     const botId = chooseBotId(store);
@@ -115,7 +121,10 @@ def _autologin_script(username: str, password: str) -> str:
       await tokenWorks(existing.accessToken)
     ) {{
       const bot = normalizedBot(existing, existing.accessToken, existing.refreshToken);
-      if (saveBotSelection(store, botId, bot)) window.location.reload();
+      const changed = saveBotSelection(store, botId, bot);
+      if (changed || sessionStorage.getItem(BOOTSTRAP_KEY) !== 'ready') {{
+        reloadAfterBootstrap();
+      }}
       return;
     }}
 
@@ -141,7 +150,7 @@ def _autologin_script(username: str, password: str) -> str:
 
     const bot = normalizedBot(existing, tokens.access_token, tokens.refresh_token);
     saveBotSelection(store, botId, bot);
-    window.location.reload();
+    reloadAfterBootstrap();
   }};
 
   login().catch((error) => console.error('Testbot FreqUI auto-login error:', error));

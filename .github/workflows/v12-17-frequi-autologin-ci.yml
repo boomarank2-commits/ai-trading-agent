@@ -63,6 +63,7 @@ jobs:
 
           const script = fs.readFileSync(process.env.TESTBOT_AUTOLOGIN_JS, 'utf8');
           const values = new Map();
+          const sessionValues = new Map();
           values.set('ftAuthLoginInfo', JSON.stringify({
             'ftbot.0': {
               botName: 'Testbot',
@@ -78,6 +79,10 @@ jobs:
           global.localStorage = {
             getItem: (key) => values.has(key) ? values.get(key) : null,
             setItem: (key, value) => values.set(key, String(value)),
+          };
+          global.sessionStorage = {
+            getItem: (key) => sessionValues.has(key) ? sessionValues.get(key) : null,
+            setItem: (key, value) => sessionValues.set(key, String(value)),
           };
           let reloaded = false;
           global.window = {
@@ -122,6 +127,7 @@ jobs:
             assert.strictEqual(store['ftbot.0'].refreshToken, 'new-refresh-token');
             assert.strictEqual(store['ftbot.0'].autoRefresh, true);
             assert.strictEqual(values.get('ftSelectedBot'), 'ftbot.0');
+            assert.strictEqual(sessionValues.get('testbotFrequiBootstrapV2'), 'ready');
             assert.strictEqual(reloaded, true);
             assert.strictEqual(calls.length, 2);
             console.log('FreqUI autologin hook executed successfully.');
