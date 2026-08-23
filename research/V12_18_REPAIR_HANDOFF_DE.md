@@ -314,3 +314,25 @@ folgende Starts bei. Das alte Profil wird bewusst nicht automatisch gelöscht;
 der Patch verändert weder den laufenden Bot noch Browserdaten außerhalb des
 eigenen Testbot-Appbereichs. Der Wechsel wird erst beim nächsten kontrollierten
 Start über `STARTBOT.bat` aktiv.
+
+## Erfolgreiche UI-Endprüfung mit Profil v2
+
+Am 23.08.2026 wurde das nicht mehr verwendete lokale Testbot-Verzeichnis
+`%LOCALAPPDATA%\DaviddTech\AiTradingAgent\browser-profile` nach Prüfung auf
+laufende Benutzer vollständig entfernt. Persönliche Edge-Profile, Paper-DB,
+Backtests und Auditlogs blieben unangetastet. Anschließend wurde ausschließlich
+die normale `STARTBOT.bat` gestartet. Die neue Sitzung
+`20260823T193131Z-pid-11492` erreichte `RUNNING`; alle zehn Whitelist-Paare
+wurden geladen und der vorhandene BTC-Papertrade wurde fortgesetzt.
+
+Die UI-Endprüfung bestätigte `Testbot - Online`, den korrekten Botnamen, die
+vollständige Trade-Seite, den offenen BTC-Trade, Dashboard, Logs und Backtest-
+Navigation. Der Chartselektor enthielt alle zehn Paare. BTC, ETH, SOL, XRP, BNB,
+DOGE, LINK, TRX, LTC und BCH wurden einzeln ausgewählt und jeweils im Chart
+gerendert. Alle laufenden Edge-Prozesse des Testbots verwendeten ausschließlich
+`browser-profile-v2`; das alte Profil wurde nicht neu angelegt.
+
+Beim Wechsel zwischen FreqUI-Seiten können Freqtrades interne API-WebSockets
+mit `WebSocketDisconnect` 1006 schließen und upstream einen Stacktrace loggen.
+Das ist vom zuvor behobenen Binance-OHLCV-WebSocketfehler 1008 zu unterscheiden:
+Marktdaten, REST-API, UI und Botbetrieb liefen während der Endprüfung weiter.
