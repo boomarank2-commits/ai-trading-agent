@@ -5,18 +5,18 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.15: Binance-Marktdaten, aber ausschliesslich Testgeld
-echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE ^| KEIN ECHTGELD
+echo   TESTBOT V12.17: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.15 behaelt alle V12.12-Signale und sechs Pairs unveraendert.
+echo V12.17 erweitert den aktiven Paperbot auf zehn Binance-Spot-Pairs.
 echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
-echo SOL/XRP/BNB/DOGE handeln ihre unveraenderten Donchian-Kerne.
+echo SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH handeln zunaechst den Broad-Core-Donchian-Pfad.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
 echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitten.
 echo Nur Champion-Trades sichern nach mindestens +30%% einen +5%%-Gewinnboden.
-echo Forschungsziel: >1 USDT/Tag ist ein Stretch-Ziel, keine Backtest-Zwangsvorgabe.
 echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
+echo Insgesamt bleiben maximal drei 80-USDT-Bloecke bzw. 240 USDT gleichzeitig gebunden.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -44,7 +44,7 @@ set "FREQTRADE__API_SERVER__USERNAME=testbot"
 set "FIRST_LOGIN_HELP=1"
 if not exist "%LOCAL_UI_PASSWORD_FILE%" (
     set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
-    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) ^| Out-Null; [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
     set "TESTBOT_PASSWORD_FILE="
     if errorlevel 1 (
         echo.
@@ -69,7 +69,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=%FREQTRADE__API_SERVER__PASSWORD%-ws"
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.15
+echo Bot Name : Testbot V12.17
 echo Benutzer : testbot
 if "%FIRST_LOGIN_HELP%"=="1" (
     echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
