@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,8 +9,15 @@ from pathlib import Path
 from freqtrade.configuration import Configuration
 from freqtrade.enums import RunMode
 from freqtrade.resolvers.strategy_resolver import StrategyResolver
+from starlette.websockets import WebSocketDisconnect
+from uvicorn.protocols.utils import ClientDisconnected
 
-from runtime.locked_freqtrade import _install_exact_loader, _load_exact_strategy
+from runtime.locked_freqtrade import (
+    _ExpectedFreqUiDisconnectFilter,
+    _install_exact_loader,
+    _install_expected_frequi_disconnect_filter,
+    _load_exact_strategy,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STRATEGY = (
@@ -19,6 +27,61 @@ CONFIG = REPO_ROOT / "runtime" / "user_data" / "config.json"
 PUBLIC_OVERLAY = REPO_ROOT / "runtime" / "user_data" / "config-public.json"
 LIVE_OVERLAY = REPO_ROOT / "runtime" / "user_data" / "config-live.example.json"
 USER_DATA = REPO_ROOT / "runtime" / "user_data"
+
+
+def _uvicorn_error_record(error: BaseException) -> logging.LogRecord:
+    return logging.LogRecord(
+        name="uvicorn.error",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="Exception in ASGI application",
+        args=(),
+        exc_info=(type(error), error, None),
+    )
+
+
+class ExpectedFreqUiDisconnectFilterTests(unittest.TestCase):
+    def test_suppresses_only_expected_page_navigation_disconnects(self) -> None:
+        expected_filter = _ExpectedFreqUiDisconnectFilter()
+
+        try:
+            raise ClientDisconnected()
+        except ClientDisconnected:
+            try:
+                raise WebSocketDisconnect(code=1006)
+            except WebSocketDisconnect as disconnect:
+                expected = disconnect
+
+        self.assertFalse(expected_filter.filter(_uvicorn_error_record(expected)))
+        self.assertTrue(
+            expected_filter.filter(_uvicorn_error_record(WebSocketDisconnect(code=1001)))
+        )
+        self.assertTrue(expected_filter.filter(_uvicorn_error_record(ValueError("real bug"))))
+
+        other_message = _uvicorn_error_record(expected)
+        other_message.msg = "Different Uvicorn failure"
+        self.assertTrue(expected_filter.filter(other_message))
+
+        other_logger = _uvicorn_error_record(expected)
+        other_logger.name = "freqtrade.worker"
+        self.assertTrue(expected_filter.filter(other_logger))
+
+    def test_install_is_idempotent(self) -> None:
+        logger = logging.getLogger("uvicorn.error")
+        original_filters = list(logger.filters)
+        try:
+            logger.filters = []
+            _install_expected_frequi_disconnect_filter()
+            _install_expected_frequi_disconnect_filter()
+            matching = [
+                item
+                for item in logger.filters
+                if isinstance(item, _ExpectedFreqUiDisconnectFilter)
+            ]
+            self.assertEqual(len(matching), 1)
+        finally:
+            logger.filters = original_filters
 
 
 class LockedStrategyLoaderTests(unittest.TestCase):

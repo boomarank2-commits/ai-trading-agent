@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import logging
 import os
 import sys
 import types
@@ -22,6 +23,68 @@ from freqtrade.resolvers.strategy_resolver import StrategyResolver
 from freqtrade.strategy.interface import IStrategy
 
 _PAPER_TELEMETRY_ALLOWED = False
+
+
+class _ExpectedFreqUiDisconnectFilter(logging.Filter):
+    """Hide only the harmless traceback produced by a closed FreqUI page.
+
+    Navigating between FreqUI routes closes the page's API websocket.  With
+    the currently pinned Starlette/Uvicorn versions that normal browser event
+    is logged as ``Exception in ASGI application`` even though the bot, REST
+    API and market-data loop continue normally.  Keep every other Uvicorn
+    error visible, including websocket errors without the expected exception
+    types and close code.
+    """
+
+    _marker = "__daviddtech_expected_frequi_disconnect_filter__"
+
+    @staticmethod
+    def _exception_chain(error: BaseException) -> list[BaseException]:
+        chain: list[BaseException] = []
+        seen: set[int] = set()
+        current: BaseException | None = error
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            chain.append(current)
+            current = current.__cause__ or current.__context__
+        return chain
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if (
+            record.name != "uvicorn.error"
+            or record.getMessage() != "Exception in ASGI application"
+            or not record.exc_info
+            or record.exc_info[1] is None
+        ):
+            return True
+
+        for error in self._exception_chain(record.exc_info[1]):
+            error_type = type(error)
+            if (
+                error_type.__module__ == "uvicorn.protocols.utils"
+                and error_type.__name__ == "ClientDisconnected"
+            ):
+                return False
+            if (
+                error_type.__module__ == "starlette.websockets"
+                and error_type.__name__ == "WebSocketDisconnect"
+                and getattr(error, "code", None) == 1006
+            ):
+                return False
+        return True
+
+
+def _install_expected_frequi_disconnect_filter() -> None:
+    """Install the narrow UI-disconnect filter once on Uvicorn's logger."""
+    logger = logging.getLogger("uvicorn.error")
+    if any(
+        bool(getattr(existing, _ExpectedFreqUiDisconnectFilter._marker, False))
+        for existing in logger.filters
+    ):
+        return
+    expected_filter = _ExpectedFreqUiDisconnectFilter()
+    setattr(expected_filter, _ExpectedFreqUiDisconnectFilter._marker, True)
+    logger.addFilter(expected_filter)
 
 
 def _stable_read(path: Path) -> bytes:
@@ -116,6 +179,8 @@ def _install_exact_loader(
 def _install_testbot_api_routes() -> None:
     """Expose repository-owned Backtest routes only in paper/dry-run mode."""
     from freqtrade.rpc.api_server.webserver import ApiServer
+
+    _install_expected_frequi_disconnect_filter()
 
     # This file is executed directly as ``python runtime/locked_freqtrade.py``.
     # In that mode Python places ``runtime`` itself on sys.path, not its parent,

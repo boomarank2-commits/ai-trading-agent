@@ -336,3 +336,21 @@ Beim Wechsel zwischen FreqUI-Seiten können Freqtrades interne API-WebSockets
 mit `WebSocketDisconnect` 1006 schließen und upstream einen Stacktrace loggen.
 Das ist vom zuvor behobenen Binance-OHLCV-WebSocketfehler 1008 zu unterscheiden:
 Marktdaten, REST-API, UI und Botbetrieb liefen während der Endprüfung weiter.
+
+## Fünfte FreqUI-Reparatur: erwartete Seitenwechsel ohne Fehler-Stacktrace
+
+Die abschließende Prüfung aller UI-Bereiche bestätigte weiterhin einen
+laufenden Bot, korrekte Dashboarddaten, alle zehn Whitelist-Paare und zehn
+einzeln gerenderte Charts. Trade, Dashboard, Logs und Chart öffnen jeweils eine
+eigene interne API-WebSocket-Verbindung. Beim Seitenwechsel schließt der Browser
+diese Verbindung planmäßig. Die gepinnten Starlette-/Uvicorn-Versionen melden
+diesen normalen Client-Abbruch dennoch als `ERROR` mit
+`WebSocketDisconnect(code=1006)`.
+
+Der gesperrte Dry-run-Start installiert nun einen eng begrenzten Logging-Filter.
+Er blendet ausschließlich Uvicorns Meldung `Exception in ASGI application` aus,
+wenn die Exception-Kette den erwarteten `ClientDisconnected` oder exakt den
+WebSocket-Code 1006 enthält. Andere Uvicorn-, Freqtrade-, Exchange- und
+WebSocketfehler bleiben unverändert sichtbar. Die Änderung beeinflusst weder
+Orders noch Marktdaten, Strategieentscheidungen oder Backtests und wird erst
+beim nächsten normalen `STARTBOT.bat`-Start aktiv.
