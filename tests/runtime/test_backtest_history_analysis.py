@@ -6,8 +6,10 @@ from pathlib import Path
 
 from runtime.backtest_history_analysis import (
     analyze_backtest_history,
+    build_pair_history_context,
     capital_utilization_metrics,
     render_markdown,
+    render_pair_history_markdown,
     write_history_reports,
 )
 
@@ -127,6 +129,59 @@ def test_history_writes_json_and_readable_markdown(tmp_path: Path) -> None:
     assert "ETH/USDT" in markdown
     assert "Überlappende Zeiträume" in markdown
     assert (results / "run-good" / "result.zip").is_file()
+
+
+def test_pair_history_records_previous_material_run_and_metric_deltas(
+    tmp_path: Path,
+) -> None:
+    _write_result(
+        tmp_path,
+        "run-v12-18",
+        pair="ETH/USDT",
+        profit=4.0,
+        source='"""Test strategy V12.18."""\nVALUE = 18\n',
+    )
+    _write_result(
+        tmp_path,
+        "run-v12-19",
+        pair="ETH/USDT",
+        profit=9.5,
+        source='"""Test strategy V12.19."""\nVALUE = 19\n',
+    )
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+    history = build_pair_history_context(
+        report,
+        pair="ETH/USDT",
+        years=1,
+        current_run_id="run-v12-19",
+    )
+
+    assert history["current"]["run_id"] == "run-v12-19"
+    assert history["previous"]["run_id"] == "run-v12-18"
+    assert history["delta_vs_previous"]["profit_usdt"] == 5.5
+    assert history["duplicate_execution_allowed"] is False
+    assert len(history["all_preserved_runs"]) == 2
+    assert "change_summary" in history["current"]
+    assert "hypothesis" in history["current"]
+    assert "lessons" in history["current"]
+    markdown = render_pair_history_markdown(history)
+    assert "ETH/USDT" in markdown
+    assert "+5.50 USDT" in markdown
+
+
+def test_history_report_writes_separate_pair_learning_files(tmp_path: Path) -> None:
+    _write_result(tmp_path, "run-good", pair="BTC/USDT", profit=5.0)
+
+    write_history_reports(tmp_path, trial_ledger_path=None)
+
+    pair_root = tmp_path / "_PAIR_HISTORIEN"
+    assert (pair_root / "BTC_USDT-1J.json").is_file()
+    assert (pair_root / "BTC_USDT-1J.md").is_file()
+    # Generated learning directories are not mistaken for failed simulations.
+    assert analyze_backtest_history(tmp_path, trial_ledger_path=None)["summary"][
+        "incomplete"
+    ] == 0
 
 
 def test_history_marks_identical_material_runs_without_deleting_evidence(

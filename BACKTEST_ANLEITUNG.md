@@ -9,7 +9,7 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
 Auf dem Branch `agent/v12-17-ten-pair-research-ui` ist diese aktive
-Strategy-Quelle der **V12.18-Paper-/Dry-run-Kandidat** des Bots. Die eingefrorene
+Strategy-Quelle der **V12.19-Paper-/Dry-run-Kandidat** des Bots. Die eingefrorene
 V8-Baseline unter
 `research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
@@ -39,7 +39,14 @@ Die zehn Ergebnisse bleiben getrennt und dürfen nicht als gemeinsames Konto
 addiert werden. Der gemeinsame Portfolio-Lauf mit einem einzigen 250-USDT-Wallet
 bleibt als interner Replay-/Audit-Pfad erhalten, ist aber kein normaler UI-Knopf.
 
-Alle Signale bleiben **pair-lokal**. V12.18 injiziert kein BTC-Regime in andere
+`Alle 10 einzeln testen` ist ein dauerhaft gespeicherter Server-Batch. Nach
+jedem Coin werden Batchplan und Zwischenresultat unter
+`runtime/user_data/backtest_results/ui/_BATCHES/` aktualisiert. Ein Schließen
+oder Neuladen der Backtest-Seite stoppt den Batch nicht. Nach einem Bot-Neustart
+kann ein unvollständiger Batch fortgesetzt werden; bereits fertige identische
+Zellen werden aus der erhaltenen Evidenz geladen und nicht neu berechnet.
+
+Alle Signale bleiben **pair-lokal**. V12.19 injiziert kein BTC-Regime in andere
 Pairs. BTC und ETH behalten ihre markierten Trend-Reclaims; die übrigen acht
 Paare handeln den Broad-Core-Donchian-Pfad. Die 72-Stunden-Pairpause nach zwei
 unprofitablen Trades und der +5-%-Stopboden nach mindestens +30 % bei
@@ -67,6 +74,13 @@ lädt nur fehlende ältere beziehungsweise neue Kerzen nach. Schlägt die
 Integritätsprüfung wegen einer unterbrochenen, lückenhaften oder beschädigten
 Datei fehl, wird ausschließlich der betroffene Coin-Datensatz neu aufgebaut.
 Backtests, Paper-Datenbank und Strategy-Quelle werden dabei nicht gelöscht.
+
+V12.19 verarbeitet Stop-Loss und Exit weiterhin auf jeder 1-Minuten-Detailkerze.
+Nur die Prüfung eines zusätzlichen Entry-Blocks wird im Backtest auf die neue
+15-Minuten-Strategiekerze begrenzt, weil sich das dafür verwendete
+`enter_long`-Signal dazwischen nicht ändern kann. Zusätzlich entfallen defensive
+Trade-Kopien ausschließlich für drei getestete, schreibgeschützte Callbacks.
+Der Paper-/Dry-run-Ablauf bleibt davon unberührt.
 
 Der Lauf bricht fail-closed ab, wenn Daten fehlen, Zeitstempel nicht monoton sind, Duplikate/Lücken vorhanden sind oder das benötigte Fenster nicht vollständig abgedeckt ist.
 
@@ -124,8 +138,8 @@ Ergebnisordners blockiert. Das gilt auch, wenn eine abgeschlossene Simulation
 erst an einem technischen Audit-Gate scheiterte. Die Fingerabdrücke werden
 zusätzlich in `research/executed_test_fingerprints.csv` versioniert, damit die
 Sperre nach einem Git-Pull erhalten bleibt. Änderungen nur an Versionsnummer, Kommentar oder
-Beschreibung umgehen die Sperre nicht. In der Zehner-Einzelmatrix werden bestehende
-Zellen als „Doppeltest übersprungen“ angezeigt.
+Beschreibung umgehen die Sperre nicht. Im Zehner-Batch werden bestehende Zellen
+als „Vorhanden“ angezeigt und ohne erneute Simulation in die Matrix übernommen.
 
 Eine neue Strategy muss zuerst genau einmal in `research/trial_ledger.csv`
 registriert sein. Für jeden gestarteten neuen Lauf werden automatisch diese
@@ -156,6 +170,13 @@ Versuche sowie historische 1:1-Doppelläufe getrennt auf und löscht keine
 Rohdaten. `TESTBOT_AUSWERTUNG.bat`
 erzeugt dieselbe Auswertung jederzeit erneut. Überlappende Ein- und
 Dreijahreszeiträume werden nicht zu einer künstlichen Kapitalkurve addiert.
+
+Zusätzlich entstehen unter `_PAIR_HISTORIEN/` je Coin und Zeitraum eine JSON-
+und Markdown-Akte. Sie enthält alle erhaltenen Läufe, den letzten materiell
+anderen Vorgänger, die Änderungen bei Gewinn, Tradezahl, Profit Factor,
+Drawdown und Kapitalnutzung sowie die verbindliche Regel gegen 1:1-Doppelläufe.
+Jeder einzelne Ergebnisordner erhält dieselbe Historie und getrennte Zeitmessung
+für Datenpflege, Simulation und Auswertung.
 
 Angezeigt werden unter anderem:
 

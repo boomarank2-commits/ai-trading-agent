@@ -1,4 +1,4 @@
-# Start hier: V12.18-Zehn-Paare-Testbot und Research-System
+# Start hier: V12.19-Zehn-Paare-Testbot und Research-System
 
 Stand: 23.08.2026
 
@@ -8,10 +8,10 @@ Die eingefrorene historische Research-Baseline bleibt `CompressionBreakout250` /
 V8 unter `research/baselines/V8/`.
 
 Der aktuelle Paper-/Dry-run-Kandidat ist jedoch
-`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.18** auf dem
+`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.19** auf dem
 Arbeitsbranch `agent/v12-17-ten-pair-research-ui`.
 
-V12.18 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
+V12.19 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
 Spot-Paare:
 
 - BTC/USDT
@@ -36,10 +36,10 @@ früheren Entry-Fills liegt. Verlust-Nachkauf und Martingale sind gesperrt.
 
 Status:
 
-**V12.18 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
+**V12.19 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
 
 Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
-Position-Adjustment-Vertrag. Dadurch darf V12.18 nicht versehentlich als
+Position-Adjustment-Vertrag. Dadurch darf V12.19 nicht versehentlich als
 Echtgeldbot starten.
 
 ## Wichtige historische Referenzen
@@ -63,6 +63,10 @@ Die ausführliche Historie bleibt in:
 Die aktuelle V12.18-Reparaturübergabe steht in:
 
 `research/V12_18_REPAIR_HANDOFF_DE.md`
+
+Die darauf aufbauende V12.19-Laufzeit-/Lernübergabe steht in:
+
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
 
 Die frühere V12.17-Roadmap bleibt als historische Fehler- und Herkunftsakte
 unter `research/V12_17_CONTINUATION_HANDOFF_DE.md` erhalten.
@@ -115,6 +119,13 @@ Die UI bietet:
 automatisch zehn unabhängige Läufe nacheinander. Jeder Coin beginnt erneut mit
 250 USDT. Du musst den Startknopf daher nicht zehnmal drücken.
 
+V12.19 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
+zum lokalen Bot-Server und nicht zur gerade sichtbaren Browserseite: Du kannst
+zwischen Trade, Dashboard, Chart, Logs und Backtest wechseln, ohne den Batch zu
+stoppen. Nach einem Bot-Neustart wird ein unvollständiger Batch als fortsetzbar
+erkannt; bereits vollständig erhaltene identische Tests werden nicht erneut
+simuliert.
+
 Damit sind bei zehn Einzeltests nominell 10 × 250 = 2.500 USDT Startwerte im
 Spiel, aber **nicht als gemeinsames Portfolio**. Die Ergebnisse dürfen nicht
 addiert und als gemeinsame Kapitalkurve interpretiert werden.
@@ -124,7 +135,7 @@ erhalten. Er ist bewusst kein dritter Knopf im normalen Backtest-Bildschirm.
 
 ## Neue Paare und erste Strategiezuordnung
 
-LINK, TRX, LTC und BCH starten in V12.18 zunächst auf dem bereits vorhandenen
+LINK, TRX, LTC und BCH starten in V12.19 weiterhin auf dem bereits vorhandenen
 Broad-Core-Donchian-Pfad, den auch SOL/XRP/BNB/DOGE verwenden.
 
 BTC und ETH behalten ihre spezialisierten Champion-/Reclaim-Pfade aus dem
@@ -137,7 +148,7 @@ klarer Begründung angepasst werden.
 
 ## Mehrere Entries im selben Pair
 
-V12.18 verwendet für den Paper-/Backtest-Kandidaten:
+V12.19 verwendet für den Paper-/Backtest-Kandidaten:
 
 ```text
 position_adjustment_enable = true
@@ -215,6 +226,8 @@ Für einen Einzeltest:
 7. Das Resultat zeigt unter anderem P/L, USDT/Tag, Profit Factor, Drawdown,
    Trefferquote, Tradezahl, tatsächliche Entry-Blöcke sowie Paar-/Entry-/Exit-
    Attribution.
+8. Plan, Zeitanteile und Vergleich zum vorherigen materiell anderen Lauf
+   werden im Ergebnis und in der pair-spezifischen Lernakte gespeichert.
 
 Für alle zehn getrennten Coin-Tests:
 
@@ -234,7 +247,7 @@ HISTORISCHER_BACKTEST.bat
 ## Historischer V8-Full-System-Replay
 
 Der bestehende V8-Replay bleibt eine eingefrorene historische Drei-Paare-
-Research-Evidenz und wird nicht auf V12.18 umetikettiert.
+Research-Evidenz und wird nicht auf V12.19 umetikettiert.
 
 Er handelt weiterhin nur:
 
@@ -310,7 +323,7 @@ Aktuell zwingend:
 1. Die aktuell grünen CI-/Runtime-/Safety-Checks bei jeder Änderung grün halten.
 2. BTC 1 Jahr nicht wiederholen; der formale Lauf war technisch korrekt, aber
    mit 250 → 248,1414 USDT finanziell negativ.
-3. V12.18 im Paperbetrieb mit allen zehn Coins laufen lassen.
+3. V12.19 im Paperbetrieb mit allen zehn Coins laufen lassen.
 4. Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
 5. LINK, TRX, LTC und BCH über 1/2/3 Jahre einzeln diagnostizieren.
 6. Den sichtbaren gemeinsamen 250/3×80-Zehn-Paare-Systemtest für 1/2/3 Jahre ausführen.
@@ -321,7 +334,7 @@ Aktuell zwingend:
 
 `NO_TRADE` bleibt der sichere Standard bei unsicheren Daten, Regimen oder
 Signalen. ORB-Retest und Ichimoku bleiben getrennte spätere Research-Challenger
-und werden nicht in V12.18 eingebaut.
+und werden nicht ohne eigenes Experiment in V12.19 eingebaut.
 
 ## Wichtig für spätere GPT-/Codex-Runden
 
@@ -348,4 +361,4 @@ INTERNER REPLAY-/AUDIT-SYSTEMTEST (kein UI-Knopf):
 
 Aktuelle Übergabe:
 
-`research/V12_18_REPAIR_HANDOFF_DE.md`
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`

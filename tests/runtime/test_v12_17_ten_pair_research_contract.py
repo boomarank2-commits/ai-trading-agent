@@ -30,7 +30,7 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_active_v12_18_python_files_are_syntax_valid() -> None:
+def test_active_v12_19_python_files_are_syntax_valid() -> None:
     for path in (STRATEGY, BACKTEST_API, LOCKED_RUNTIME):
         ast.parse(_text(path), filename=str(path))
 
@@ -51,7 +51,7 @@ def test_active_paper_config_is_exact_ten_pair_250_80_3_contract() -> None:
 
 def test_active_strategy_expands_broad_core_and_keeps_btc_eth_special_paths() -> None:
     text = _text(STRATEGY)
-    assert 'STRATEGY_VERSION = "V12.18"' in text
+    assert 'STRATEGY_VERSION = "V12.19"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert '"ADA/USDT"' not in text
@@ -113,7 +113,9 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert "eigenen 250-USDT-Testwallet" in ui
     assert "Jeder Coin beginnt mit eigenen 250 USDT" in ui
     assert "const years = Number(yearsSelect.value);" in ui
-    assert "PAIRS.map(([pair]) => ({ pair, years }))" in ui
+    assert 'fetch("/api/v1/testbot/backtest/batch/start"' in ui
+    assert 'fetch("/api/v1/testbot/backtest/batch/status"' in ui
+    assert "PAIRS.map(([pair]) => ({ pair, years }))" not in ui
     assert 'startOneBacktest("PORTFOLIO", years)' not in ui
     assert 'value="1"' in ui
     assert 'value="2"' in ui
@@ -129,7 +131,9 @@ def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio
     assert "base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE" in api
     assert "base.PORTFOLIO_TARGET" in api
     assert "real ten-pair" in api
-    assert 'base.STRATEGY_VERSION = "V12.18"' in api
+    assert 'base.STRATEGY_VERSION = "V12.19"' in api
+    assert '"batch-plan.json"' in api
+    assert '"batch-result.json"' in api
 
 
 def test_locked_paper_runtime_serves_ten_pair_adapter_without_replacing_strategy_loader() -> None:

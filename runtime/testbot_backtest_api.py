@@ -43,6 +43,7 @@ try:
     )
     from runtime.backtest_history_analysis import (
         analyze_backtest_history,
+        build_pair_history_context,
         capital_utilization_metrics,
         write_history_reports,
     )
@@ -60,6 +61,7 @@ except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime
     )
     from backtest_history_analysis import (
         analyze_backtest_history,
+        build_pair_history_context,
         capital_utilization_metrics,
         write_history_reports,
     )
@@ -80,7 +82,7 @@ PORTFOLIO_TARGET = "PORTFOLIO"
 ALLOWED_TARGETS = (*ALLOWED_PAIRS, PORTFOLIO_TARGET)
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
-STRATEGY_VERSION = "V12.18"
+STRATEGY_VERSION = "V12.19"
 REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
 BACKTEST_WARMUP_DAYS = 75
 
@@ -98,6 +100,7 @@ _TRIAL_LEDGER = _REPO_ROOT / "research" / "trial_ledger.csv"
 _EXECUTED_TEST_LEDGER = _REPO_ROOT / "research" / "executed_test_fingerprints.csv"
 
 _state_lock = threading.Lock()
+_START_GUARD: Any = None
 _state: dict[str, Any] = {
     "status": "idle",
     "stage": "Bereit",
@@ -163,7 +166,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
 
 
 def _btc_context_pair(pair: str) -> None:
-    """Compatibility hook: pair-local V12.18 never requests another pair as context."""
+    """Compatibility hook: pair-local V12.19 never requests another pair as context."""
 
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
@@ -782,6 +785,10 @@ def _execute_backtest(
     run_dir = _RESULTS_ROOT / run_id
     log_path = run_dir / "backtest.log"
     file_audit_path = run_dir / "file-access-audit.json"
+    run_started = time.monotonic()
+    market_data_started = run_started
+    market_data_seconds = 0.0
+    simulation_seconds = 0.0
     try:
         run_dir.mkdir(parents=True, exist_ok=False)
         _write_json(run_dir / "experiment-plan.json", run_plan)
@@ -839,6 +846,7 @@ def _execute_backtest(
             current_pair: _validate_candle_data(current_pair, download_start, now)
             for current_pair in pairs
         }
+        market_data_seconds = time.monotonic() - market_data_started
 
         _set_state(
             stage=f"Historische Daten geladen - {STRATEGY_VERSION} Backtest startet",
@@ -886,9 +894,12 @@ def _execute_backtest(
             "month",
         ]
         _set_state(stage=f"{STRATEGY_VERSION} wird historisch simuliert", progress=60)
+        simulation_started = time.monotonic()
         _run_checked(backtest_args, log_path)
+        simulation_seconds = time.monotonic() - simulation_started
 
         _set_state(stage="Ergebnis und Strategie-Familien werden ausgewertet", progress=92)
+        analysis_started = time.monotonic()
         execution_file_audit = _validate_file_access_audit(
             file_audit_path,
             run_dir,
@@ -904,10 +915,22 @@ def _execute_backtest(
         result["experiment"] = run_plan["experiment"]
         result["experiment_lineage"] = run_plan["lineage"]
         result["test_identity"] = run_plan["test_identity"]
+        history_before_record = analyze_backtest_history(
+            _RESULTS_ROOT,
+            current_strategy_path=_STRATEGY,
+            trial_ledger_path=_TRIAL_LEDGER,
+        )
+        historical_context = build_pair_history_context(
+            history_before_record,
+            pair=pair,
+            years=years,
+            current_run_id=run_id,
+        )
         experiment_result = {
             **run_plan,
             "finished_at_utc": datetime.now(UTC).isoformat(),
             "outcome": "completed",
+            "historical_context": historical_context,
             "outcome_metrics": {
                 field: result[field]
                 for field in (
@@ -936,8 +959,6 @@ def _execute_backtest(
         experiment_result["outcome_metrics"]["file_access_audit_passed"] = (
             execution_file_audit["passed"]
         )
-        _write_json(run_dir / "experiment-result.json", experiment_result)
-        _attach_audit_files(result_file, run_dir)
         try:
             history = write_history_reports(
                 _RESULTS_ROOT,
@@ -954,6 +975,18 @@ def _execute_backtest(
             # A successful raw backtest remains valid evidence even if the
             # secondary historical summary cannot be refreshed.
             result["history_analysis_error"] = str(exc)
+        timing = {
+            "market_data_seconds": round(market_data_seconds, 3),
+            "simulation_seconds": round(simulation_seconds, 3),
+            "analysis_seconds": round(time.monotonic() - analysis_started, 3),
+            "total_seconds": round(time.monotonic() - run_started, 3),
+        }
+        result["historical_context"] = historical_context
+        result["timing"] = timing
+        experiment_result["finished_at_utc"] = datetime.now(UTC).isoformat()
+        experiment_result["timing"] = timing
+        _write_json(run_dir / "experiment-result.json", experiment_result)
+        _attach_audit_files(result_file, run_dir)
         _set_state(
             status="completed",
             stage="Fertig",
@@ -990,6 +1023,8 @@ def start_backtest(request: BacktestRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Dieses Backtest-Ziel ist nicht freigegeben.")
     if request.years not in ALLOWED_YEARS:
         raise HTTPException(status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein.")
+    if callable(_START_GUARD):
+        _START_GUARD()
 
     current = get_state()
     if current["status"] == "running":

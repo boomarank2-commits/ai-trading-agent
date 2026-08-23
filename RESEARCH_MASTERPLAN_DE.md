@@ -23,7 +23,15 @@ Diese Abweichung wird **nicht stillschweigend aufgelöst**. ORB-Retest und Ichim
 
 Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backtest entsteht. Neue Hypothesen werden als getrennte Challenger oder als reine Diagnose-/Telemetrie-/Infrastrukturänderungen umgesetzt. Ein negativer Versuch bleibt im Trial Ledger erhalten.
 
-Aktueller Sicherheitsvertrag:
+Klarstellung zum aktuellen Repository-Stand vom 24.08.2026: „Champion“ bezeichnet
+hier die unveränderte Forschungsreferenz unter `research/baselines/V8/`, nicht
+die gerade von `STARTBOT.bat` geladene Datei. Der aktive, separat registrierte
+Paper-/Dry-run-Kandidat ist V12.19. Sein genauer technischer Stand, seine
+Vorgängerkette und die noch offenen finanziellen Prüfungen stehen in
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`. V12.19 ist nicht als neuer
+Champion und nicht für Echtgeld promoviert.
+
+Sicherheitsvertrag der eingefrorenen V8-Referenz:
 
 - Strategie: `CompressionBreakout250` / V8
 - Binance Spot / USDT

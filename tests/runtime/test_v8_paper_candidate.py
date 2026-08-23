@@ -29,11 +29,11 @@ def _lf_sha256(path: Path) -> str:
     return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_baseline_is_preserved_and_v12_18_is_active_paper_candidate() -> None:
+def test_v8_baseline_is_preserved_and_v12_19_is_active_paper_candidate() -> None:
     assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
 
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.18"' in text
+    assert 'STRATEGY_VERSION = "V12.19"' in text
     assert "PAIR_PROFILES" in text
     assert "RECLAIM_PROFILES" in text
     assert 'REGIME_TREND = "TREND/BREAKOUT"' in text

@@ -43,7 +43,7 @@ def test_backtest_contract_is_bound_to_active_ten_pairs_and_all_three_periods() 
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
     assert api.BACKTEST_WARMUP_DAYS >= 70
-    assert api.STRATEGY_VERSION == "V12.18"
+    assert api.STRATEGY_VERSION == "V12.19"
 
 
 def test_market_data_is_updated_and_kept_in_the_repo_local_runtime_cache() -> None:
@@ -120,7 +120,12 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert "eigenen 250-USDT-Testwallet" in source
     assert "Jeder Coin beginnt mit eigenen 250 USDT" in source
     assert "const years = Number(yearsSelect.value);" in source
-    assert "PAIRS.map(([pair]) => ({ pair, years }))" in source
+    assert 'fetch("/api/v1/testbot/backtest/batch/start"' in source
+    assert 'fetch("/api/v1/testbot/backtest/batch/status"' in source
+    assert "Plan, Fortschritt, Vorher/Nachher-Vergleich" in source
+    assert "timing.market_data_seconds" in source
+    assert "timing.simulation_seconds" in source
+    assert "PAIRS.map(([pair]) => ({ pair, years }))" not in source
     assert 'startOneBacktest("PORTFOLIO", years)' not in source
     assert "runtime/user_data/data/binance" in source
     assert "ändert keine Parameter automatisch" in source
@@ -136,6 +141,147 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert 'value="3"' in source
     assert "Doppeltest übersprungen" in source
     assert "error.isDuplicate" in source
+
+
+def test_batch_state_is_persisted_below_an_ignored_history_directory() -> None:
+    assert adapter._BATCH_ROOT.name == "_BATCHES"
+    source = Path(adapter.__file__).read_text(encoding="utf-8")
+    assert '"batch-plan.json"' in source
+    assert '"batch-result.json"' in source
+    assert '"history_before"' in source
+    assert "build_pair_history_context" in source
+
+
+def test_server_batch_persists_each_completed_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    batch_root = tmp_path / "_BATCHES"
+    monkeypatch.setattr(adapter, "_BATCH_ROOT", batch_root)
+    monkeypatch.setattr(adapter, "_BATCH_POINTER", batch_root / "latest.json")
+    cases = [
+        {
+            "pair": pair,
+            "years": 3,
+            "test_fingerprint": pair.replace("/", "-"),
+            "status": "pending",
+            "result": None,
+            "error": None,
+        }
+        for pair in TEN_PAIRS[:2]
+    ]
+    state = {
+        "schema_version": 1,
+        "batch_id": "test-batch",
+        "batch_fingerprint": "f" * 64,
+        "status": "running",
+        "stage": "test",
+        "progress": 0,
+        "years": 3,
+        "started_at_utc": "2026-08-23T00:00:00+00:00",
+        "updated_at_utc": "2026-08-23T00:00:00+00:00",
+        "finished_at_utc": None,
+        "current_pair": None,
+        "completed_cases": 0,
+        "failed_cases": 0,
+        "cases": cases,
+        "plan": {
+            "schema_version": 1,
+            "strategy_sha256": api._sha256(api._STRATEGY),
+            "cases": cases,
+        },
+    }
+    monkeypatch.setattr(adapter, "_batch_state", state)
+
+    def completed(request):
+        return {
+            "status": "completed",
+            "result": {
+                "run_id": request.pair.replace("/", "-"),
+                "pair": request.pair,
+                "years": request.years,
+                "profit_usdt": 1.0,
+                "trades": 1,
+                "historical_context": {"assessment_de": "erfasst"},
+                "test_identity": {
+                    "test_fingerprint": request.pair.replace("/", "-")
+                },
+            },
+        }
+
+    monkeypatch.setattr(adapter, "start_backtest", completed)
+
+    adapter._run_batch()
+
+    saved = json.loads(
+        (batch_root / "test-batch" / "batch-result.json").read_text(encoding="utf-8")
+    )
+    assert saved["status"] == "completed"
+    assert saved["completed_cases"] == 2
+    assert [case["result"]["historical_context"]["assessment_de"] for case in saved["cases"]] == [
+        "erfasst",
+        "erfasst",
+    ]
+    assert (batch_root / "test-batch" / "batch-plan.json").is_file()
+    assert (batch_root / "latest.json").is_file()
+
+
+def test_manual_single_run_is_rejected_while_server_batch_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        adapter,
+        "_batch_state",
+        {"status": "running", "stage": "ETH/USDT", "cases": []},
+    )
+    adapter._batch_worker_context.active = False
+
+    with pytest.raises(HTTPException, match="kein paralleler Einzeltest") as exc:
+        api.start_backtest(api.BacktestRequest(pair="BTC/USDT", years=3))
+
+    assert exc.value.status_code == 409
+
+
+def test_reused_result_keeps_saved_history_and_timing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = {
+        "runs": [
+            {
+                "run_id": "saved-run",
+                "test_fingerprint": "expected",
+                "experiment_result": {
+                    "historical_context": {"assessment_de": "Vorgänger erfasst"},
+                    "timing": {"simulation_seconds": 12.5},
+                },
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        adapter.base,
+        "build_test_identity",
+        lambda **_kwargs: {
+            "test_fingerprint": "expected",
+            "strategy_sha256": "6f0a" + "0" * 60,
+        },
+    )
+    monkeypatch.setattr(
+        adapter.base,
+        "analyze_backtest_history",
+        lambda *_args, **_kwargs: existing,
+    )
+    monkeypatch.setattr(
+        adapter.base,
+        "registered_experiment",
+        lambda *_args: ({"experiment_id": "V12.19"}, []),
+    )
+
+    result = adapter._existing_completed_result(
+        api.BacktestRequest(pair="BTC/USDT", years=3)
+    )
+
+    assert result is not None
+    assert result["historical_context"]["assessment_de"] == "Vorgänger erfasst"
+    assert result["timing"]["simulation_seconds"] == 12.5
 
 
 def test_portfolio_target_is_exposed_as_one_shared_wallet_run() -> None:

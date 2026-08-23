@@ -5,11 +5,11 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.18: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   TESTBOT V12.19: Binance-Marktdaten, aber ausschliesslich Testgeld
 echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.18 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
+echo V12.19 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
 echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
 echo SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH handeln zunaechst den Broad-Core-Donchian-Pfad.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
@@ -69,7 +69,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.18
+echo Bot Name : Testbot V12.19
 echo Benutzer : testbot
 echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)

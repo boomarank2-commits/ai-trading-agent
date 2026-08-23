@@ -8,7 +8,7 @@ Aktueller Entwicklungszweig: `agent/v12-17-ten-pair-research-ui`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.18"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.19"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
@@ -25,12 +25,12 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.18 macht
+## Was V12.19 macht
 
 Alle zehn Pairs werden mit ihren eigenen 15m/1h/4h-Daten bewertet. Im laufenden
 Paperbot teilen sie sich ein einziges 250-USDT-Wallet und höchstens drei
-gleichzeitige 80-USDT-Kapitalblöcke. V12.18 behält den bewährten
-V12.15-Kern und repariert den Zehn-Paare-/Backtest-Ausbau von V12.17.
+gleichzeitige 80-USDT-Kapitalblöcke. V12.19 behält den bewährten
+V12.15-Kern und die V12.18-Sicherheitsreparatur des Zehn-Paare-Ausbaus.
 
 - BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
 - SOL, XRP, BNB, DOGE, LINK, TRX, LTC und BCH verwenden keinen
@@ -47,7 +47,7 @@ V12.15-Kern und repariert den Zehn-Paare-/Backtest-Ausbau von V12.17.
   deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.18 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+V12.19 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
 Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI
@@ -86,6 +86,9 @@ Der integrierte Backtest verwendet die tatsächlich aktive Strategy-Quelle. Deta
 `Alle 10 einzeln testen` führt automatisch zehn voneinander unabhängige Läufe
 nacheinander aus, wobei jeder Coin erneut mit 250 USDT beginnt; diese 2.500 USDT
 dürfen nicht als gemeinsames Portfolioergebnis interpretiert werden. Der
+Batch wird nach jedem Coin lokal gespeichert und läuft beim Verlassen der
+Backtest-Seite weiter. Ein unterbrochener Batch kann nach einem Neustart
+fortgesetzt werden, ohne fertige identische Coin-Tests erneut zu rechnen. Der
 gemeinsame Portfolio-Lauf bleibt intern für Replay/Audit verfügbar und wird
 nicht als dritter UI-Knopf gezeigt. Die Oberfläche zeigt zusätzlich Kapitalzeit,
 Zeit ohne Position sowie durchschnittlich und maximal gleichzeitig offene

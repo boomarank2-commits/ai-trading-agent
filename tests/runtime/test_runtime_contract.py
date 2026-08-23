@@ -69,9 +69,10 @@ def test_active_paper_config_is_ten_pair_spot_and_three_80_chunks() -> None:
     assert config["pairlists"] == [{"method": "StaticPairList"}]
 
 
-def test_active_strategy_matches_v12_18_cap_and_adjustment_contract() -> None:
+def test_active_strategy_matches_v12_19_cap_and_adjustment_contract() -> None:
     source, cls = _strategy_class()
-    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.18"
+    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.19"
+    assert _literal_assignment(cls, "position_adjustment_on_new_strategy_candle_only") is True
     assert _literal_assignment(cls, "can_short") is False
     assert _literal_assignment(cls, "position_adjustment_enable") is True
     assert _literal_assignment(cls, "max_entry_position_adjustment") == 2

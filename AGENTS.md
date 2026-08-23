@@ -19,6 +19,13 @@ The current rule is deliberately conservative:
 - The long-term strategy state model is `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION`, or `NO_TRADE`.
 - `NO_TRADE` is the default when data quality, regime, signal or risk approval is uncertain.
 
+Runtime clarification (2026-08-24): V8 is the frozen research champion stored
+under `research/baselines/V8/`; it is not the file currently loaded by
+`STARTBOT.bat`. The active, separately registered paper/dry-run candidate is
+`CompressionBreakout250` V12.19. Read
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md` before modifying it. V12.19 is
+not a real-money promotion and its full ten-pair financial matrix is pending.
+
 ## Preserve provenance and used upstream roles
 
 Treat these paths as read-only source/provenance material unless the human

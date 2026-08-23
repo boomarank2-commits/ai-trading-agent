@@ -34,7 +34,7 @@ Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 
 ## Aktive Dry-run-Strategie
 
-Der Testbot lädt `CompressionBreakout250` / V12.18. Die Strategie verwendet
+Der Testbot lädt `CompressionBreakout250` / V12.19. Die Strategie verwendet
 pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
 ihre separat markierten EMA20-Trend-Reclaims innerhalb eines bestätigten
 1h/4h-Aufwärtstrends. Die übrigen acht Paare verwenden ihre markierten
@@ -54,7 +54,7 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-V12.18 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+V12.19 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
 eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
 Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
 Erwartung.
@@ -103,6 +103,10 @@ Portfolio interpretiert werden. Ein gemeinsamer Zehn-Paare-Lauf mit einem
 als normaler UI-Knopf angeboten. Ergebnis und Gesamtauswertung weisen zusätzlich
 Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
 gleichzeitig offene Positionen, Entry-Blöcke und maximal gebundenes Kapital aus.
+Der Einzelbatch wird serverseitig unter `backtest_results/ui/_BATCHES/`
+fortlaufend gesichert. Pair-spezifische Vorher-/Nachher-Akten liegen unter
+`backtest_results/ui/_PAIR_HISTORIEN/`; beide Verzeichnisse bleiben lokale,
+Git-ignorierte Runtime-Evidenz.
 
 Alle automatisch erzeugten Runtime-Dateien liegen unter `user_data/`: Daten in
 `data/`, UI-Backtests in `backtest_results/`, Sitzungsberichte in
@@ -135,7 +139,7 @@ Dateizugriffsaudit bestehen.
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
 Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
-V12.18-Kandidaten ist keine Freigabe für Echtgeld.
+V12.19-Kandidaten ist keine Freigabe für Echtgeld.
 
 ## Kill-Switch
 

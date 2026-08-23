@@ -1,11 +1,11 @@
-# AI Trading Agent – lokaler V12.18-Zehn-Paare-Testbot
+# AI Trading Agent – lokaler V12.19-Zehn-Paare-Testbot
 
 Deutscher Einstieg und aktueller Projektstatus: [`START_HERE_DE.md`](START_HERE_DE.md).
 
 Dieses Repository enthält den lokalen Freqtrade-/Binance-Testbot, seine
 Sicherheitsverträge sowie die Werkzeuge für Backtest, Replay, Audit und
 reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
-`CompressionBreakout250` / V12.18 ausschließlich im Paper-/Dry-run-Modus.
+`CompressionBreakout250` / V12.19 ausschließlich im Paper-/Dry-run-Modus.
 
 ## Aktueller Betriebsrahmen
 
@@ -18,7 +18,9 @@ reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
 - kein Futures, Margin, Short, Hebel, DCA, Martingale oder automatische
   Echtgeld-Freigabe
 
-V12.18 repariert den begonnenen Zehn-Paare-Ausbau von V12.17. Alle zehn Märkte
+V12.18 reparierte den begonnenen Zehn-Paare-Ausbau von V12.17. V12.19 behält
+diese Handelsentscheidungen bei, beschleunigt aber den detailgenauen Backtest
+und speichert den Zehner-Einzelbatch fortsetzbar. Alle zehn Märkte
 konkurrieren im Paperbot und im maßgeblichen Portfoliobacktest um dasselbe
 250-USDT-Wallet. Je Trade beginnt der Bot mit 80 USDT und darf höchstens zwei
 weitere 80-USDT-Stufen ergänzen. Eine Ergänzung ist nur erlaubt, wenn der Trade
@@ -39,7 +41,7 @@ versionierten Fingerabdruck nicht identisch wiederholt.
 V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 bleibt die
 akzeptierte Sechs-Paare-Referenz. V12.16 (ADA) und die fehlerhafte erste
 V12.17-Umsetzung bleiben als nicht 1:1 zu wiederholende Evidenz erhalten.
-V12.18 ist der aktive, vorab registrierte Paper-/Dry-run-Kandidat; seine
+V12.19 ist der aktive, vorab registrierte Paper-/Dry-run-Kandidat; seine
 finanzielle Bewertung ist noch offen.
 
 ## Start und Auswertung
@@ -60,7 +62,10 @@ Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
 Der UI-Backtest bietet zwei klare Aktionen: einen ausgewählten Coin mit eigenem
 250-USDT-Testwallet testen oder mit `Alle 10 einzeln testen` automatisch zehn
-getrennte 250-USDT-Läufe nacheinander ausführen. Der gemeinsame Portfolio-Lauf
+getrennte 250-USDT-Läufe nacheinander ausführen. Der Zehner-Batch läuft auf dem
+lokalen Server weiter, wenn die Backtest-Seite geschlossen oder neu geladen
+wird, und schreibt nach jedem Coin Plan, Ergebnis, Laufzeit und den Vergleich
+zum vorherigen materiell anderen Lauf. Der gemeinsame Portfolio-Lauf
 bleibt als interner Replay-/Audit-Pfad erhalten und ist kein normaler UI-Knopf.
 Jeder Lauf protokolliert außerdem die tatsächlich
 geöffnete Strategie und Konfigurationskette sowie die nativen Candle-Ladevorgänge
@@ -83,6 +88,7 @@ Maßgebliche Dokumente:
 - [`runtime/README.md`](runtime/README.md)
 - [`research/trial_ledger.csv`](research/trial_ledger.csv)
 - [`research/V12_18_REPAIR_HANDOFF_DE.md`](research/V12_18_REPAIR_HANDOFF_DE.md)
+- [`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`](research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md)
 
 Herkunft und Lizenzgrenzen der verbliebenen MIT-lizenzierten Research-Rollen
 sind in [`docs/UPSTREAM.md`](docs/UPSTREAM.md), [`LICENSE`](LICENSE) und

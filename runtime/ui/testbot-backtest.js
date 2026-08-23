@@ -18,8 +18,17 @@
   ];
 
   let pollTimer = null;
+  let singleRunning = false;
   let batchRunning = false;
   let batchResults = [];
+
+  function syncControls() {
+    const disabled = singleRunning || batchRunning;
+    ["tb-start", "tb-start-matrix", "tb-pair", "tb-years"].forEach((id) => {
+      const control = document.getElementById(id);
+      if (control) control.disabled = disabled;
+    });
+  }
 
   function replaceText(node, from, to) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -75,6 +84,13 @@
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes} min ${seconds % 60} s`;
     return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+  }
+
+  function durationText(secondsValue) {
+    const seconds = Number(secondsValue);
+    if (!Number.isFinite(seconds) || seconds < 0) return "?";
+    if (seconds < 60) return `${seconds.toFixed(1)} s`;
+    return `${(seconds / 60).toFixed(2)} min`;
   }
 
   function escapeHtml(value) {
@@ -165,7 +181,7 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest · 10 Kryptowährungen</h1>
-        <p class="tb-sub">Teste einen ausgewählten Coin oder starte alle zehn Coins automatisch nacheinander. Jeder Einzeltest verwendet ein eigenes 250-USDT-Testwallet und dieselben aktuellen Bot-Regeln.</p>
+        <p class="tb-sub">Teste einen ausgewählten Coin oder starte alle zehn Coins dauerhaft und wiederaufnehmbar nacheinander. Jeder Einzeltest verwendet ein eigenes 250-USDT-Testwallet und dieselben aktuellen Bot-Regeln.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
@@ -186,9 +202,9 @@
             </div>
           </div>
           <div class="tb-info">
-            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.18-Strategie.<br><br>
+            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.19-Strategie.<br><br>
             <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
-            <strong>Alle 10 einzeln testen:</strong> Startet automatisch zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT; du musst den Backtest nicht zehnmal von Hand starten. Die Ergebnisse werden je Coin getrennt ausgewertet.<br><br>
+            <strong>Alle 10 einzeln testen:</strong> Startet serverseitig zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT. Plan, Fortschritt, Vorher/Nachher-Vergleich und Ergebnis werden dauerhaft gespeichert; ein Neuladen der UI unterbricht die Warteschlange nicht.<br><br>
             <strong>Kapitalregel je Einzeltest:</strong> Ein zweiter oder dritter 80-USDT-Block im selben Coin ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
             <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
@@ -208,7 +224,7 @@
           <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 einzeln</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
-              <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
+              <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>Δ Vorgänger</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
               <tbody id="tb-batch-body"></tbody>
             </table>
           </div>
@@ -229,9 +245,8 @@
     const matrixButton = document.getElementById("tb-start-matrix");
     if (!status || !results || !button || !matrixButton) return;
 
-    const active = state.status === "running" || batchRunning;
-    button.disabled = active;
-    matrixButton.disabled = active;
+    singleRunning = state.status === "running";
+    syncControls();
     status.style.display = state.status === "idle" ? "none" : "block";
     const stageText = String(state.stage || "Bereit");
     document.getElementById("tb-stage").textContent = stageText;
@@ -294,7 +309,15 @@
       const pairs = Array.isArray(r.pair_breakdown) && r.pair_breakdown.length
         ? r.pair_breakdown.map((item) => `${item.pair}: ${item.trades} Trades · ${item.entry_chunks} Blöcke · ${money(item.profit_usdt)}`).join(" | ")
         : "Keine Paar-Attribution verfügbar";
-      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.18 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      const historical = r.historical_context || {};
+      const timing = r.timing || {};
+      const previous = historical.previous || null;
+      const delta = historical.delta_vs_previous || null;
+      const comparison = previous && delta
+        ? `Vorgänger ${previous.strategy_version || "?"} / ${previous.run_id || "?"}: ${money(previous.profit_usdt)}. Änderung: ${money(delta.profit_usdt)} · Trades ${Number(delta.trades || 0) >= 0 ? "+" : ""}${Number(delta.trades || 0)} · Drawdown ${Number(delta.max_drawdown_pct || 0) >= 0 ? "+" : ""}${Number(delta.max_drawdown_pct || 0).toFixed(2)} Punkte. ${historical.assessment_de || ""}`
+        : (historical.assessment_de || "Kein älterer gleicher Pair-/Zeitraumvergleich vorhanden.");
+      const timingText = `Daten ${durationText(timing.market_data_seconds)} · Simulation ${durationText(timing.simulation_seconds)} · Auswertung ${durationText(timing.analysis_seconds)} · Gesamt ${durationText(timing.total_seconds)}`;
+      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.19 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
@@ -318,16 +341,21 @@
       if (item.error) {
         const errorText = escapeHtml(item.error);
         if (item.skipped) {
-          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral tb-batch-error"><strong>Doppeltest übersprungen</strong>${errorText}</td></tr>`;
+          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral tb-batch-error"><strong>Doppeltest übersprungen</strong>${errorText}</td></tr>`;
         }
-        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail tb-batch-error"><strong>Fehler</strong>${errorText}</td></tr>`;
+        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail tb-batch-error"><strong>Fehler</strong>${errorText}</td></tr>`;
       }
       const r = item.result;
       const profit = Number(r.profit_usdt || 0);
       const days = Math.max(1, Number(r.backtest_days || 0));
       const profitPerDay = profit / days;
+      const delta = r.historical_context && r.historical_context.delta_vs_previous;
+      const deltaProfit = delta ? Number(delta.profit_usdt || 0) : null;
       const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
-      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.winrate_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
+      const deltaClass = deltaProfit === null ? "" : deltaProfit > 0 ? "tb-batch-ok" : deltaProfit < 0 ? "tb-batch-fail" : "";
+      const totalTime = r.timing && r.timing.total_seconds;
+      const statusText = `${item.status === "reused" ? "Vorhanden" : "Fertig"} · ${durationText(totalTime)}`;
+      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${deltaClass}">${deltaProfit === null ? "erster Vergleich" : money(deltaProfit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.winrate_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">${statusText}</td></tr>`;
     }).join("");
   }
 
@@ -337,35 +365,47 @@
     return response.json();
   }
 
+  async function fetchBatchStatus() {
+    const response = await fetch("/api/v1/testbot/backtest/batch/status", { cache: "no-store" });
+    if (!response.ok) throw new Error("Batch-Status konnte nicht geladen werden.");
+    return response.json();
+  }
+
+  function renderServerBatch(state) {
+    if (!state || state.status === "idle") return;
+    batchRunning = state.status === "running";
+    batchResults = (Array.isArray(state.cases) ? state.cases : [])
+      .filter((item) => ["completed", "reused", "failed"].includes(item.status))
+      .map((item) => ({
+        pair: item.pair,
+        years: item.years,
+        status: item.status,
+        result: item.result,
+        error: item.error,
+        skipped: false
+      }));
+    const years = Number(state.years || document.getElementById("tb-years").value || 3);
+    renderBatchResults(
+      Number(state.completed_cases || 0) + Number(state.failed_cases || 0),
+      PAIRS.length,
+      years,
+      state.current_pair ? pairLabel(state.current_pair) : ""
+    );
+    if (state.status === "failed" && state.batch_error) {
+      const error = document.getElementById("tb-error");
+      error.textContent = state.batch_error;
+      error.style.display = "block";
+    }
+    syncControls();
+  }
+
   async function loadStatus() {
     try {
       renderState(await fetchStatus());
     } catch (_error) {}
-  }
-
-  async function startOneBacktest(pair, years) {
-    const response = await fetch("/api/v1/testbot/backtest/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pair, years })
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      const error = new Error(payload.detail || "Backtest konnte nicht gestartet werden.");
-      error.isDuplicate = response.status === 409 && String(payload.detail || "").startsWith("Doppeltest blockiert:");
-      throw error;
-    }
-    renderState(payload);
-
-    while (true) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const state = await fetchStatus();
-      renderState(state);
-      if (state.status === "completed") return state.result;
-      if (state.status === "failed") {
-        throw new Error(state.error || "Backtest ist fehlgeschlagen.");
-      }
-    }
+    try {
+      renderServerBatch(await fetchBatchStatus());
+    } catch (_error) {}
   }
 
   async function startBacktest() {
@@ -404,8 +444,6 @@
     const pairSelect = document.getElementById("tb-pair");
     const yearsSelect = document.getElementById("tb-years");
     const years = Number(yearsSelect.value);
-    const cases = PAIRS.map(([pair]) => ({ pair, years }));
-
     try {
       const current = await fetchStatus();
       if (current.status === "running") {
@@ -427,30 +465,35 @@
     matrixButton.disabled = true;
     pairSelect.disabled = true;
     yearsSelect.disabled = true;
-    renderBatchResults(0, cases.length, years, "wird vorbereitet");
+    renderBatchResults(0, PAIRS.length, years, "wird vorbereitet");
 
-    for (let index = 0; index < cases.length; index += 1) {
-      const test = cases[index];
-      const label = pairLabel(test.pair);
-      pairSelect.value = test.pair;
-      renderBatchResults(batchResults.length, cases.length, years, label);
-
-      try {
-        const result = await startOneBacktest(test.pair, test.years);
-        batchResults.push({ ...test, result });
-      } catch (error) {
-        batchResults.push({ ...test, error: String(error.message || error), skipped: Boolean(error.isDuplicate) });
+    try {
+      const response = await fetch("/api/v1/testbot/backtest/batch/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ years })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.detail || "Zehner-Batch konnte nicht gestartet werden.");
       }
-      renderBatchResults(batchResults.length, cases.length, years, "");
+      renderServerBatch(payload);
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const state = await fetchBatchStatus();
+        renderServerBatch(state);
+        if (state.status !== "running") break;
+      }
+    } catch (error) {
+      renderState({ status: "failed", stage: "Batch-Fehler", progress: 100, error: String(error.message || error) });
+    } finally {
+      batchRunning = false;
+      singleButton.disabled = false;
+      matrixButton.disabled = false;
+      pairSelect.disabled = false;
+      yearsSelect.disabled = false;
+      if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
     }
-
-    batchRunning = false;
-    singleButton.disabled = false;
-    matrixButton.disabled = false;
-    pairSelect.disabled = false;
-    yearsSelect.disabled = false;
-    renderBatchResults(batchResults.length, cases.length, years, "");
-    if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
   }
 
   function showBacktest(event) {

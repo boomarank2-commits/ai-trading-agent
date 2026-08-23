@@ -1,4 +1,4 @@
-"""V12.18 ten-pair paper strategy with a global three-chunk capital budget.
+"""V12.19 ten-pair paper strategy with a global three-chunk capital budget.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
@@ -41,10 +41,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.18: ten-pair V12.17 core with profit-only pyramiding."""
+    """V12.19: V12.18 decisions with candle-cadenced pyramid evaluation."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.18"
+    STRATEGY_VERSION = "V12.19"
 
     can_short = False
     timeframe = "15m"
@@ -53,6 +53,12 @@ class CompressionBreakout250(IStrategy):
 
     position_adjustment_enable = True
     max_entry_position_adjustment = 2
+    position_adjustment_on_new_strategy_candle_only = True
+    backtest_readonly_trade_callbacks: ClassVar[tuple[str, ...]] = (
+        "adjust_trade_position",
+        "custom_stoploss",
+        "custom_exit",
+    )
 
     MAX_STAKE_USDT = 80.0
     MAX_TOTAL_CAPITAL_USDT = 250.0
@@ -61,6 +67,7 @@ class CompressionBreakout250(IStrategy):
     MAX_ENTRIES_PER_PAIR = 3
     MAX_DAILY_LOSS_USDT = 10.0
     MAX_DAILY_LOSS_USDT_PER_PAIR = MAX_DAILY_LOSS_USDT
+    POSITION_ADJUSTMENT_SIGNAL_MINUTES = 15
 
     ALLOWED_PAIRS: ClassVar[set[str]] = {
         "BTC/USDT",
@@ -631,7 +638,6 @@ class CompressionBreakout250(IStrategy):
         """
 
         del (
-            current_time,
             current_rate,
             current_exit_rate,
             current_exit_profit,
@@ -639,6 +645,18 @@ class CompressionBreakout250(IStrategy):
         )
         try:
             if trade.pair not in self.ALLOWED_PAIRS or self.dp is None:
+                return None
+            # With 1m execution detail Freqtrade calls this callback once per
+            # minute while a trade is open.  The input signal dataframe changes
+            # only on the 15m strategy boundary, so the other fourteen calls
+            # cannot possibly create a new pyramid entry.  Skipping them keeps
+            # the exact signal/fill chronology while avoiding millions of
+            # redundant order/DP lookups in multi-year backtests.  Live/dry-run
+            # remains untouched and continues to evaluate on every bot loop.
+            if (
+                self._runmode_value(self.config) in {"backtest", "hyperopt"}
+                and current_time.minute % self.POSITION_ADJUSTMENT_SIGNAL_MINUTES != 0
+            ):
                 return None
             if bool(getattr(trade, "has_open_orders", False)):
                 return None

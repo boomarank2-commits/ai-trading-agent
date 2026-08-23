@@ -28,9 +28,9 @@ def _source() -> str:
     return STRATEGY.read_text(encoding="utf-8")
 
 
-def test_v12_18_keeps_pair_local_champion_donchian_paths_for_ten_pairs() -> None:
+def test_v12_19_keeps_pair_local_champion_donchian_paths_for_ten_pairs() -> None:
     text = _source()
-    assert 'STRATEGY_VERSION = "V12.18"' in text
+    assert 'STRATEGY_VERSION = "V12.19"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text

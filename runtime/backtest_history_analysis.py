@@ -40,6 +40,16 @@ _DEFAULT_RESULTS_ROOT = _RUNTIME_ROOT / "user_data" / "backtest_results" / "ui"
 _DEFAULT_STRATEGY = _RUNTIME_ROOT / "user_data" / "strategies" / f"{STRATEGY_NAME}.py"
 _DEFAULT_LEDGER = _RUNTIME_ROOT.parent / "research" / "trial_ledger.csv"
 _VERSION_PATTERN = re.compile(r"\bV(?:ersion\s*)?(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_COMPARISON_METRICS = (
+    "profit_usdt",
+    "profit_pct",
+    "trades",
+    "winrate_pct",
+    "profit_factor",
+    "max_drawdown_pct",
+    "capital_time_utilization_pct",
+    "no_position_time_pct",
+)
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -478,7 +488,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         if version == "V12.16":
             matrix_pairs = v12_16_pairs
-        elif version in {"V12.17", "V12.18"}:
+        elif version in {"V12.17", "V12.18", "V12.19"}:
             matrix_pairs = v12_17_pairs
         elif version in {"V12.12", "V12.13", "V12.14", "V12.15"}:
             matrix_pairs = v12_12_pairs
@@ -543,9 +553,17 @@ def _annotate_experiments(
     for run in completed:
         experiment = by_hash.get(run["strategy_sha256"], {})
         run["experiment_id"] = experiment.get("experiment_id", "historisch-nicht-registriert")
-        run["parent_experiment_id"] = experiment.get("parent_experiment_id", "")
-        run["change_summary"] = experiment.get("change_summary", "")
-        run["decision"] = experiment.get("decision", "")
+        for field in (
+            "parent_experiment_id",
+            "hypothesis",
+            "change_summary",
+            "acceptance_criteria",
+            "result_summary",
+            "decision",
+            "lessons",
+            "next_experiment",
+        ):
+            run[field] = experiment.get(field, "")
 
 
 def _duplicate_groups(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -574,6 +592,137 @@ def _duplicate_groups(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(duplicates, key=lambda row: row["canonical_run_id"])
 
 
+def _history_run_summary(run: dict[str, Any]) -> dict[str, Any]:
+    fields = (
+        "run_id",
+        "experiment_id",
+        "parent_experiment_id",
+        "strategy_version",
+        "strategy_sha256",
+        "strategy_logic_sha256",
+        "test_fingerprint",
+        "pair",
+        "period_years",
+        "backtest_start",
+        "backtest_end",
+        "profit_usdt",
+        "profit_pct",
+        "trades",
+        "wins",
+        "losses",
+        "winrate_pct",
+        "profit_factor",
+        "max_drawdown_pct",
+        "capital_time_utilization_pct",
+        "no_position_time_pct",
+        "total_entry_chunks",
+        "additional_entry_chunks",
+        "max_active_entry_chunks",
+        "max_deployed_capital_usdt",
+        "hypothesis",
+        "change_summary",
+        "acceptance_criteria",
+        "result_summary",
+        "decision",
+        "lessons",
+        "next_experiment",
+    )
+    return {field: run.get(field) for field in fields}
+
+
+def build_pair_history_context(
+    report: dict[str, Any],
+    *,
+    pair: str,
+    years: int,
+    current_run_id: str | None = None,
+) -> dict[str, Any]:
+    """Return the immutable same-pair/same-period learning history for one run."""
+
+    candidates = [
+        run
+        for run in report.get("runs", [])
+        if run.get("pair") == pair and run.get("period_years") == years
+    ]
+    candidates.sort(key=lambda row: (row.get("backtest_end", ""), row.get("run_id", "")))
+    current = next(
+        (run for run in candidates if run.get("run_id") == current_run_id),
+        candidates[-1] if candidates else None,
+    )
+    previous = None
+    if current is not None:
+        for candidate in reversed(candidates):
+            if candidate.get("run_id") == current.get("run_id"):
+                continue
+            if candidate.get("test_fingerprint") == current.get("test_fingerprint"):
+                continue
+            previous = candidate
+            break
+
+    deltas = None
+    if current is not None and previous is not None:
+        deltas = {
+            metric: round(_number(current.get(metric)) - _number(previous.get(metric)), 4)
+            for metric in _COMPARISON_METRICS
+        }
+
+    if current is None:
+        assessment = "Für diese Paar-/Zeitraumzelle liegt noch kein vollständiger Lauf vor."
+    elif previous is None:
+        assessment = "Erster erhaltener Vergleichslauf für diese Paar-/Zeitraumzelle."
+    else:
+        profit_delta = _number(deltas.get("profit_usdt") if deltas else 0.0)
+        drawdown_delta = _number(deltas.get("max_drawdown_pct") if deltas else 0.0)
+        profit_assessment = (
+            "verbessert"
+            if profit_delta > 0
+            else "verschlechtert"
+            if profit_delta < 0
+            else "unverändert"
+        )
+        drawdown_assessment = (
+            "gesunken"
+            if drawdown_delta < 0
+            else "gestiegen"
+            if drawdown_delta > 0
+            else "unverändert"
+        )
+        assessment = (
+            f"Gewinn {profit_assessment} "
+            f"um {profit_delta:+.2f} USDT; Drawdown "
+            f"{drawdown_assessment} "
+            f"um {abs(drawdown_delta):.2f} Prozentpunkte."
+        )
+
+    return {
+        "schema_version": 1,
+        "pair": pair,
+        "years": years,
+        "comparison_scope": "same_pair_same_period_previous_material_strategy",
+        "current": _history_run_summary(current) if current is not None else None,
+        "previous": _history_run_summary(previous) if previous is not None else None,
+        "delta_vs_previous": deltas,
+        "assessment_de": assessment,
+        "all_preserved_runs": [_history_run_summary(run) for run in reversed(candidates)],
+        "duplicate_execution_allowed": False,
+    }
+
+
+def _pair_histories(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    shell = {"runs": completed}
+    cells = sorted(
+        {
+            (str(run["pair"]), int(run["period_years"]))
+            for run in completed
+            if run.get("pair") != "PORTFOLIO" and run.get("period_years") is not None
+        }
+    )
+    return [
+        build_pair_history_context(shell, pair=pair, years=years)
+        for pair, years in cells
+    ]
+
+
 def analyze_backtest_history(
     results_root: Path,
     *,
@@ -583,7 +732,11 @@ def analyze_backtest_history(
     results_root = results_root.resolve()
     records: list[dict[str, Any]] = []
     if results_root.is_dir():
-        for run_dir in sorted(path for path in results_root.iterdir() if path.is_dir()):
+        for run_dir in sorted(
+            path
+            for path in results_root.iterdir()
+            if path.is_dir() and not path.name.startswith("_")
+        ):
             archives = sorted(run_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime_ns)
             if not archives:
                 records.append(_incomplete_run(run_dir, "Kein Backtest-ZIP vorhanden"))
@@ -650,6 +803,7 @@ def analyze_backtest_history(
         "duplicate_test_groups": duplicate_groups,
         "strategy_matrices": _matrix_summaries(completed),
         "repeat_groups": _group_summaries(completed),
+        "pair_histories": _pair_histories(completed),
         "runs": sorted(
             completed,
             key=lambda row: (row["backtest_end"], row["run_id"]),
@@ -861,6 +1015,79 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_pair_history_markdown(history: dict[str, Any]) -> str:
+    pair = str(history["pair"])
+    years = int(history["years"])
+    lines = [
+        f"# Backtest-Historie {pair} · {years} Jahr{'e' if years != 1 else ''}",
+        "",
+        "Diese Akte vergleicht ausschließlich dasselbe Pair und dieselbe Laufzeit. ",
+        "Unterschiedliche Strategie-Hashes bleiben getrennte Versuche; identische ",
+        "Fingerabdrücke dürfen nicht erneut ausgeführt werden.",
+        "",
+        f"Aktuelle Bewertung: **{history['assessment_de']}**",
+        "",
+        "| Lauf | Experiment | Version | Zeitraum | P/L | Trades | PF | Max DD | Kapitalzeit |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|",
+    ]
+    for run in history["all_preserved_runs"]:
+        start = str(run.get("backtest_start") or "")[:10]
+        end = str(run.get("backtest_end") or "")[:10]
+        period = f"{start} bis {end}"
+        lines.append(
+            "| `{run}` | {experiment} | {version} | {period} | {profit:+.2f} USDT | "
+            "{trades} | {pf:.2f} | {dd:.2f}% | {capital:.2f}% |".format(
+                run=run.get("run_id") or "?",
+                experiment=run.get("experiment_id") or "historisch-nicht-registriert",
+                version=run.get("strategy_version") or "?",
+                period=period,
+                profit=_number(run.get("profit_usdt")),
+                trades=_integer(run.get("trades")),
+                pf=_number(run.get("profit_factor")),
+                dd=_number(run.get("max_drawdown_pct")),
+                capital=_number(run.get("capital_time_utilization_pct")),
+            )
+        )
+    current = history.get("current") or {}
+    previous = history.get("previous") or {}
+    delta = history.get("delta_vs_previous") or {}
+    lines.extend(["", "## Letzte Änderung gegenüber dem Vorgänger", ""])
+    if previous:
+        lines.extend(
+            [
+                f"- Vorgänger: `{previous.get('run_id')}` / {previous.get('strategy_version')}",
+                f"- Aktuell: `{current.get('run_id')}` / {current.get('strategy_version')}",
+                f"- Gewinnänderung: {_number(delta.get('profit_usdt')):+.2f} USDT",
+                f"- Tradeänderung: {_integer(delta.get('trades')):+d}",
+                f"- Profit-Faktor-Änderung: {_number(delta.get('profit_factor')):+.2f}",
+                f"- Drawdown-Änderung: {_number(delta.get('max_drawdown_pct')):+.2f} Prozentpunkte",
+                f"- Vorgänger-Änderung: {previous.get('change_summary') or 'nicht dokumentiert'}",
+                f"- Vorgänger-Ergebnis: {previous.get('result_summary') or 'nicht dokumentiert'}",
+                f"- Aktuelle Hypothese: {current.get('hypothesis') or 'nicht dokumentiert'}",
+                f"- Aktuelle Änderung: {current.get('change_summary') or 'nicht dokumentiert'}",
+                f"- Erfolgskriterium: {current.get('acceptance_criteria') or 'nicht dokumentiert'}",
+                f"- Ergebnis: {current.get('result_summary') or 'noch nicht im Ledger bewertet'}",
+                f"- Entscheidung: {current.get('decision') or 'noch offen'}",
+                f"- Erkenntnis: {current.get('lessons') or 'noch offen'}",
+                f"- Nächster Versuch: {current.get('next_experiment') or 'noch offen'}",
+            ]
+        )
+    else:
+        lines.append("Kein älterer materiell unterschiedlicher Vergleichslauf vorhanden.")
+    lines.extend(
+        [
+            "",
+            "## Forschungsregel",
+            "",
+            "Ein weiterer Lauf dieser Zelle benötigt eine echte, vorab dokumentierte Änderung ",
+            "der Bot-/Strategielogik oder des fest definierten Testprotokolls. Der Backtest ",
+            "selbst optimiert keine Parameter.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def write_history_reports(
     results_root: Path,
     *,
@@ -883,6 +1110,18 @@ def write_history_reports(
         encoding="utf-8",
     )
     output_markdown.write_text(render_markdown(report), encoding="utf-8")
+    pair_report_root = results_root / "_PAIR_HISTORIEN"
+    pair_report_root.mkdir(parents=True, exist_ok=True)
+    for history in report["pair_histories"]:
+        stem = f"{str(history['pair']).replace('/', '_')}-{history['years']}J"
+        (pair_report_root / f"{stem}.json").write_text(
+            json.dumps(history, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (pair_report_root / f"{stem}.md").write_text(
+            render_pair_history_markdown(history),
+            encoding="utf-8",
+        )
     return report
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile, ZipFile
 
-BACKTEST_PROTOCOL_VERSION = "freqtrade-2026.7-ui-fixed-v1"
+BACKTEST_PROTOCOL_VERSION = "freqtrade-2026.7-ui-fixed-v2-candle-cadence"
 STRATEGY_NAME = "CompressionBreakout250"
 PROTOCOL_CONTRACT = {
     "fee_per_order_side": 0.002,
@@ -32,6 +32,7 @@ PROTOCOL_CONTRACT = {
     "cache": "none",
     "export": "trades",
     "trading_mode": "spot",
+    "position_adjustment_cadence": "strategy-candle-opt-in",
 }
 
 DETAILED_EXPERIMENT_FIELDS = (
