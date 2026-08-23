@@ -1,6 +1,6 @@
 name: Testbot Backtest UI
 
-# Exact-strategy loading and candle/history integrity gate for main and active research branches.
+# Exact-strategy loading and candle/history integrity gate for the active paper/backtest UI.
 on:
   push:
     branches:
@@ -14,11 +14,9 @@ on:
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
-      - "runtime/ui/testbot-backtest-ten-pair.js"
       - "runtime/scripts/setup-venv.ps1"
-      - "runtime/user_data/config-ten-pair-research.json"
+      - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
-      - "runtime/user_data/strategies/CompressionBreakout250TenPair.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
@@ -32,11 +30,9 @@ on:
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
-      - "runtime/ui/testbot-backtest-ten-pair.js"
       - "runtime/scripts/setup-venv.ps1"
-      - "runtime/user_data/config-ten-pair-research.json"
+      - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
-      - "runtime/user_data/strategies/CompressionBreakout250TenPair.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
@@ -75,11 +71,8 @@ jobs:
           tests\test_backtest_history_coverage.py
           tests\test_backtest_candle_integrity.py
           tests\runtime\test_v12_17_ten_pair_research_contract.py
-      - name: Ruff Freqtrade strategies
+      - name: Ruff active Freqtrade strategy
         shell: powershell
-        # Freqtrade strategies intentionally expose configuration as class attributes.
-        # RUF012 is therefore scoped out only for strategy sources; all other Ruff rules stay active.
         run: >-
           .\.venv\Scripts\ruff.exe check --ignore RUF012
           runtime\user_data\strategies\CompressionBreakout250.py
-          runtime\user_data\strategies\CompressionBreakout250TenPair.py
