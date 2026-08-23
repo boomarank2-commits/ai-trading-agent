@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "v12-12-liquid-universe-250-dryrun",
+  "bot_name": "v12-17-ten-pair-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,
@@ -17,8 +17,8 @@
   "cancel_open_orders_on_exit": true,
   "trading_mode": "spot",
   "margin_mode": "",
-  "position_adjustment_enable": false,
-  "max_entry_position_adjustment": 0,
+  "position_adjustment_enable": true,
+  "max_entry_position_adjustment": 2,
   "minimal_roi": {
     "0": 0.50
   },
@@ -84,7 +84,11 @@
       "SOL/USDT",
       "XRP/USDT",
       "BNB/USDT",
-      "DOGE/USDT"
+      "DOGE/USDT",
+      "LINK/USDT",
+      "TRX/USDT",
+      "LTC/USDT",
+      "BCH/USDT"
     ],
     "pair_blacklist": []
   },
