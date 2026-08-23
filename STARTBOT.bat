@@ -52,21 +52,20 @@ if not defined FREQTRADE__API_SERVER__PASSWORD (
     pause
     exit /b 1
 )
-set "FREQTRADE__API_SERVER__JWT_SECRET_KEY=%FREQTRADE__API_SERVER__PASSWORD%-jwt"
-set "FREQTRADE__API_SERVER__WS_TOKEN=%FREQTRADE__API_SERVER__PASSWORD%-ws"
+set "FREQTRADE__API_SERVER__JWT_SECRET_KEY=DaviddTech-Local-Testbot-JWT-Secret-%FREQTRADE__API_SERVER__PASSWORD%"
+set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%FREQTRADE__API_SERVER__PASSWORD%"
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
 echo Bot Name : Testbot V12.17
 echo Benutzer : testbot
+echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
 if "%FIRST_LOGIN_HELP%"=="1" (
-    echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
     echo.
     echo ERSTE ANMELDUNG: Dieses zufaellig erzeugte Passwort gilt nur lokal.
     echo Die Login-Hilfe wird zusaetzlich geoeffnet.
     start "" "%~dp0LOGIN_HILFE.html"
 ) else (
-    echo Passwort : eigenes lokales Passwort ist aktiv
     echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
 )
 echo.
