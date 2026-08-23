@@ -30,7 +30,9 @@ def _config() -> dict:
     return json.loads(Path(CONFIG).read_text(encoding="utf-8"))
 
 
-def test_frozen_v8_replay_accepts_current_six_pair_dryrun_bundle() -> None:
+def test_frozen_v8_replay_accepts_current_ten_pair_dryrun_bundle() -> None:
+    # The replay itself stays frozen to its historical three pairs.  Only the
+    # active runtime bundle it validates has grown to ten pairs.
     assert PAIRS == ("BTC/USDT", "ETH/USDT", "SOL/USDT")
     assert ACTIVE_DRYRUN_PAIRS == (
         "BTC/USDT",
@@ -39,6 +41,10 @@ def test_frozen_v8_replay_accepts_current_six_pair_dryrun_bundle() -> None:
         "XRP/USDT",
         "BNB/USDT",
         "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
     )
     _validate_contract(_config())
 
