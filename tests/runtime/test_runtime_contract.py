@@ -162,9 +162,12 @@ def test_public_overlay_keeps_exchange_discovery_public_and_api_local() -> None:
 
 
 def test_dependency_and_image_are_pinned_to_freqtrade_2026_7() -> None:
+    requirement_text = (RUNTIME / "requirements-freqtrade.txt").read_text(
+        encoding="utf-8"
+    )
     requirement_lines = [
         line.strip()
-        for line in (RUNTIME / "requirements-freqtrade.txt").read_text(encoding="utf-8").splitlines()
+        for line in requirement_text.splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert requirement_lines == ["freqtrade==2026.7"]
