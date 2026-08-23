@@ -55,7 +55,46 @@ Für das ausgewählte Pair werden benötigt:
 
 Vor dem Lauf werden Daten aktualisiert und fehlende ältere Bereiche mit dem Freqtrade-Prepend-Pfad ergänzt.
 
+Die Kerzen werden dauerhaft im lokalen, von Git ausgeschlossenen Botpfad
+
+`runtime/user_data/data/binance/`
+
+gespeichert. Ein späterer Lauf verwendet den vorhandenen Bestand weiter und
+lädt nur fehlende ältere beziehungsweise neue Kerzen nach. Schlägt die
+Integritätsprüfung wegen einer unterbrochenen, lückenhaften oder beschädigten
+Datei fehl, wird ausschließlich der betroffene Coin-Datensatz neu aufgebaut.
+Backtests, Paper-Datenbank und Strategy-Quelle werden dabei nicht gelöscht.
+
 Der Lauf bricht fail-closed ab, wenn Daten fehlen, Zeitstempel nicht monoton sind, Duplikate/Lücken vorhanden sind oder das benötigte Fenster nicht vollständig abgedeckt ist.
+
+## Vom Einzeltest zur pair-spezifischen Verbesserung
+
+Das Ziel der Einzeltests ist, jeden der zehn Coins unabhängig zu beurteilen und
+später nur dort eigene Parameter zu verwenden, wo belastbare Daten eine
+Verbesserung zeigen. Der normale UI-Backtest ist dafür die Messung des **aktuell
+laufenden Bots**; er ist absichtlich kein selbstverändernder Optimierer.
+
+Der verbindliche Verbesserungszyklus lautet:
+
+1. Aktuelle Strategy für einen Coin über einen ausgewählten, noch nicht
+   identisch ausgeführten Zeitraum von ein, zwei oder drei Jahren messen.
+2. Tradezahl, Verlustcluster, Profit Factor, Drawdown, Kapitalnutzung,
+   Entry-/Exit-Familien und Gebührenempfindlichkeit auswerten.
+3. Genau eine begründete pair-spezifische Änderung als neue, im Trial Ledger
+   registrierte Strategy-Version erstellen. Die aktive Datei wird nicht während
+   eines laufenden Bots verändert.
+4. Entwicklung, Validierung und unangesehenen Holdout beziehungsweise
+   Walk-Forward trennen; Kostenstress und Datei-/Kerzen-Audit ausführen.
+5. Nur einen nach diesen Prüfungen besseren Kandidaten ausdrücklich in den
+   Paperbot übernehmen.
+6. Danach den gemeinsamen Zehn-Paare-Systemtest ausführen. Dort konkurrieren die
+   zehn verbesserten Pair-Routen um dasselbe reale Modell mit 250 USDT und
+   höchstens drei 80-USDT-Blöcken.
+
+Damit kann beispielsweise LINK andere Parameter als TRX erhalten, ohne aus zehn
+Einzelwallets fälschlich ein 2.500-USDT-Portfolio zu bilden. Ein schöner
+In-Sample-Lauf allein gilt nicht als „optimal“ und ändert den Bot niemals
+automatisch.
 
 ## Backtestparameter
 

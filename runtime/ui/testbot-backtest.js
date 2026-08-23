@@ -184,9 +184,11 @@
           </div>
           <div class="tb-info">
             <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.18-Strategie.<br><br>
+            <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
             <strong>Alle 10 zusammen:</strong> Das ist der echte Systemtest des Paperbots. Alle zehn Coins teilen sich ein einziges 250-USDT-Wallet; gleichzeitig sind höchstens drei Entry-Blöcke zu je maximal 80 USDT beziehungsweise 240 USDT Gesamteinsatz erlaubt.<br><br>
             <strong>Mehrere Blöcke im selben Coin:</strong> Ein zweiter oder dritter Block ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
-            <strong>10 Einzeltests:</strong> Führt für die Diagnose zehn getrennte Tests mit jeweils eigenen 250 USDT aus. Diese Matrix ist kein gemeinsames Portfolio und wird in der Auswertung getrennt gekennzeichnet.
+            <strong>10 Einzeltests:</strong> Führt für die Diagnose zehn getrennte Tests mit jeweils eigenen 250 USDT aus. Diese Matrix ist kein gemeinsames Portfolio und wird in der Auswertung getrennt gekennzeichnet.<br><br>
+            <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">

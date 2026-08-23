@@ -42,9 +42,19 @@ def test_backtest_contract_is_bound_to_active_ten_pairs_and_all_three_periods() 
     assert api._pairs_for_target("LINK/USDT") == ("LINK/USDT",)
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
-    assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
     assert api.BACKTEST_WARMUP_DAYS >= 70
     assert api.STRATEGY_VERSION == "V12.18"
+
+
+def test_market_data_is_updated_and_kept_in_the_repo_local_runtime_cache() -> None:
+    assert api._DATA_ROOT == RUNTIME / "user_data" / "data" / "binance"
+    assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
+    source = Path(api.__file__).read_text(encoding="utf-8")
+    adapter_source = Path(adapter.__file__).read_text(encoding="utf-8")
+    assert '"download-data"' in source
+    assert '"--prepend"' in source
+    assert "_validate_candle_data" in source
+    assert "_candle_path(pair, timeframe).unlink(missing_ok=True)" in adapter_source
 
 
 def test_pair_backtests_remain_pair_local_without_cross_pair_market_context() -> None:
@@ -111,6 +121,9 @@ def test_backtest_ui_offers_real_portfolio_and_ten_independent_diagnostics() -> 
     assert "const years = Number(yearsSelect.value);" in source
     assert "PAIRS.map(([pair]) => ({ pair, years }))" in source
     assert 'startOneBacktest("PORTFOLIO", years)' in source
+    assert "runtime/user_data/data/binance" in source
+    assert "ändert keine Parameter automatisch" in source
+    assert "eigene, dokumentierte Parameter-Hypothese" in source
     assert 'value="1"' in source
     assert 'value="2"' in source
     assert 'value="3"' in source
