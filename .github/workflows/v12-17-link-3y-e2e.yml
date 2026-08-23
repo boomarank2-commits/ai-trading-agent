@@ -36,8 +36,41 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Sync exact locked environment
+        shell: powershell
+        run: uv sync --frozen --all-extras --python 3.12
+
+      - name: Build CI-only Binance market-data overlay
         shell: pwsh
-        run: uv sync --frozen
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import json
+          from pathlib import Path
+
+          source = Path("runtime/user_data/config-public.json")
+          target = Path("runtime/user_data/config-public-ci-marketdata.json")
+          payload = json.loads(source.read_text(encoding="utf-8"))
+          endpoint = "https://data-api.binance.vision/api/v3"
+          payload["exchange"] = {
+              "ccxt_config": {"urls": {"api": {"public": endpoint}}},
+              "ccxt_async_config": {"urls": {"api": {"public": endpoint}}},
+          }
+          target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+          print(target)
+          '@ | & .\.venv\Scripts\python.exe -
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create CI market-data overlay' }
+
+      - name: Verify Binance market-data-only endpoint from runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $info = Invoke-RestMethod -Uri 'https://data-api.binance.vision/api/v3/exchangeInfo?symbol=LINKUSDT' -TimeoutSec 30
+          if ($info.symbols.Count -ne 1 -or $info.symbols[0].symbol -ne 'LINKUSDT') {
+            throw 'Unexpected LINKUSDT exchangeInfo response'
+          }
+          $ping = Invoke-WebRequest -Uri 'https://data-api.binance.vision/api/v3/ping' -TimeoutSec 30
+          if ($ping.StatusCode -ne 200) { throw "Market-data ping failed: $($ping.StatusCode)" }
+          Write-Host 'Official Binance market-data-only endpoint reachable for LINKUSDT.'
 
       - name: Resolve and validate effective paperbot config
         shell: pwsh
@@ -46,7 +79,7 @@ jobs:
           $raw = @(
             & .\.venv\Scripts\freqtrade.exe show-config `
               --config runtime\user_data\config.json `
-              --config runtime\user_data\config-public.json `
+              --config runtime\user_data\config-public-ci-marketdata.json `
               --userdir runtime\user_data
           ) | ForEach-Object { $_.ToString() }
           if ($LASTEXITCODE -ne 0) { throw 'freqtrade show-config failed' }
@@ -54,22 +87,15 @@ jobs:
           $start = $text.IndexOf('{')
           if ($start -lt 0) { throw 'No effective JSON config returned' }
           $cfg = $text.Substring($start) | ConvertFrom-Json
-          $expected = @(
-            'BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT',
-            'DOGE/USDT','LINK/USDT','TRX/USDT','LTC/USDT','BCH/USDT'
-          )
+          $expected = @('BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT','DOGE/USDT','LINK/USDT','TRX/USDT','LTC/USDT','BCH/USDT')
           $actual = @($cfg.exchange.pair_whitelist)
-          if (($actual -join '|') -ne ($expected -join '|')) {
-            throw "Wrong whitelist: $($actual -join ', ')"
-          }
+          if (($actual -join '|') -ne ($expected -join '|')) { throw "Wrong whitelist: $($actual -join ', ')" }
           if (-not $cfg.dry_run) { throw 'dry_run is not true' }
           if ([double]$cfg.dry_run_wallet -ne 250) { throw 'dry_run_wallet is not 250' }
           if ([double]$cfg.stake_amount -ne 80) { throw 'stake_amount is not 80' }
           if ([int]$cfg.max_open_trades -ne 3) { throw 'max_open_trades is not 3' }
           if (-not $cfg.position_adjustment_enable) { throw 'position_adjustment_enable is not true' }
-          if ([int]$cfg.max_entry_position_adjustment -ne 2) {
-            throw 'max_entry_position_adjustment is not 2'
-          }
+          if ([int]$cfg.max_entry_position_adjustment -ne 2) { throw 'max_entry_position_adjustment is not 2' }
           Write-Host 'Effective paperbot config OK: 10 pairs, 250 USDT, 3 x 80, position adjustment ON.'
 
       - name: Start real locked paperbot until API and 10-pair whitelist are live
@@ -82,39 +108,27 @@ jobs:
           $runner = Join-Path $runtime 'locked_freqtrade.py'
           $strategy = Join-Path $runtime 'user_data\strategies\CompressionBreakout250.py'
           $config = Join-Path $runtime 'user_data\config.json'
-          $public = Join-Path $runtime 'user_data\config-public.json'
+          $public = Join-Path $runtime 'user_data\config-public-ci-marketdata.json'
           $userdir = Join-Path $runtime 'user_data'
           $botLog = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.log'
           $stdout = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'v12-17-paperbot.stderr.log'
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $strategy).Hash.ToLowerInvariant()
 
-          function Quote-Arg([string]$value) {
-            return '"' + $value.Replace('"', '\"') + '"'
-          }
-
+          function Quote-Arg([string]$value) { return '"' + $value.Replace('"', '\"') + '"' }
           $parts = @(
-            (Quote-Arg $runner),
-            '--strategy-source', (Quote-Arg $strategy),
-            '--strategy-sha256', $hash,
-            '--strategy-class', 'CompressionBreakout250',
-            '--',
-            'trade',
-            '--config', (Quote-Arg $config),
-            '--config', (Quote-Arg $public),
-            '--userdir', (Quote-Arg $userdir),
-            '--strategy', 'CompressionBreakout250',
-            '--db-url', 'sqlite:///user_data/e2e-v12-17.dryrun.sqlite',
-            '--logfile', (Quote-Arg $botLog)
+            (Quote-Arg $runner),'--strategy-source',(Quote-Arg $strategy),'--strategy-sha256',$hash,
+            '--strategy-class','CompressionBreakout250','--','trade',
+            '--config',(Quote-Arg $config),'--config',(Quote-Arg $public),
+            '--userdir',(Quote-Arg $userdir),'--strategy','CompressionBreakout250',
+            '--db-url','sqlite:///user_data/e2e-v12-17.dryrun.sqlite','--logfile',(Quote-Arg $botLog)
           )
-          $argumentLine = $parts -join ' '
-          $process = Start-Process -FilePath $python -ArgumentList $argumentLine `
-            -WorkingDirectory $runtime -PassThru `
-            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-
+          $process = Start-Process -FilePath $python -ArgumentList ($parts -join ' ') `
+            -WorkingDirectory $runtime -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             $apiReady = $false
-            for ($i = 0; $i -lt 120; $i++) {
+            for ($i = 0; $i -lt 180; $i++) {
+              $process.Refresh()
               if ($process.HasExited) {
                 $outText = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { '' }
                 $errText = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { '' }
@@ -122,74 +136,57 @@ jobs:
               }
               try {
                 $ping = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/v1/ping' -TimeoutSec 2
-                if ($ping.status -eq 'pong') {
-                  $apiReady = $true
-                  break
-                }
+                if ($ping.status -eq 'pong') { $apiReady = $true; break }
               } catch {}
               Start-Sleep -Seconds 1
-              $process.Refresh()
             }
-            if (-not $apiReady) { throw 'Paperbot API did not become ready within 120 seconds' }
-
+            if (-not $apiReady) {
+              $log = if (Test-Path $botLog) { Get-Content $botLog -Raw } else { '' }
+              throw "Paperbot API did not become ready.`n$log"
+            }
             $contractReady = $false
             for ($i = 0; $i -lt 60; $i++) {
               $log = if (Test-Path $botLog) { Get-Content $botLog -Raw } else { '' }
               $hasTen = $log -match 'Whitelist with 10 pairs'
-              $hasAdjustment = (
-                $log -match 'Strategy using position_adjustment_enable:\s*True' -or
-                $log -match 'Position adjustment:\s*On'
-              )
-              if ($hasTen -and $hasAdjustment) {
-                $contractReady = $true
-                break
-              }
+              $hasAdjustment = ($log -match 'Strategy using position_adjustment_enable:\s*True' -or $log -match 'Position adjustment:\s*On')
+              if ($hasTen -and $hasAdjustment) { $contractReady = $true; break }
               Start-Sleep -Seconds 1
             }
-            if (-not $contractReady) {
-              $log = if (Test-Path $botLog) { Get-Content $botLog -Raw } else { '' }
-              throw "Live paperbot contract not observed in log.`n$log"
-            }
+            if (-not $contractReady) { throw "Live paperbot contract not observed.`n$(Get-Content $botLog -Raw)" }
             Write-Host 'Real locked paperbot reached RUNNING/API with whitelist=10 and position adjustment ON.'
           }
           finally {
-            if (-not $process.HasExited) {
-              cmd.exe /c "taskkill /PID $($process.Id) /T /F" | Out-Null
-            }
+            if (-not $process.HasExited) { cmd.exe /c "taskkill /PID $($process.Id) /T /F" | Out-Null }
           }
 
       - name: Run LINK USDT three-year UI backtest path end to end
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $python = '.\.venv\Scripts\python.exe'
           @'
           import json
           import time
           from pathlib import Path
-
           from runtime import ten_pair_backtest_api as api
 
-          request = api.base.BacktestRequest(pair="LINK/USDT", years=3)
-          state = api.start_backtest(request)
-          print("START:", json.dumps({k: state.get(k) for k in ("status", "stage", "progress", "run_id", "pair", "years")}, ensure_ascii=False))
+          api.base._PUBLIC_CONFIG = Path("runtime/user_data/config-public-ci-marketdata.json").resolve()
+          state = api.start_backtest(api.base.BacktestRequest(pair="LINK/USDT", years=3))
+          print("START:", json.dumps({k: state.get(k) for k in ("status","stage","progress","run_id","pair","years")}, ensure_ascii=False), flush=True)
           last = None
           deadline = time.time() + 3300
           while True:
               state = api.get_state()
               marker = (state.get("status"), state.get("stage"), state.get("progress"))
               if marker != last:
-                  print("STATE:", json.dumps({k: state.get(k) for k in ("status", "stage", "progress")}, ensure_ascii=False), flush=True)
+                  print("STATE:", json.dumps({k: state.get(k) for k in ("status","stage","progress")}, ensure_ascii=False), flush=True)
                   last = marker
               if state.get("status") in {"completed", "failed"}:
                   break
               if time.time() > deadline:
-                  raise TimeoutError("LINK/USDT 3y e2e backtest exceeded 55 minutes")
+                  raise TimeoutError("LINK/USDT 3y E2E exceeded 55 minutes")
               time.sleep(5)
-
           if state.get("status") != "completed":
               raise RuntimeError("Backtest failed: " + str(state.get("error")))
-
           result = state["result"]
           checks = {
               "pair": result.get("pair") == "LINK/USDT",
@@ -203,23 +200,10 @@ jobs:
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
               raise RuntimeError("E2E result checks failed: " + ", ".join(failed) + "\n" + json.dumps(result, ensure_ascii=False, indent=2, default=str))
-
-          compact = {
-              key: result.get(key)
-              for key in (
-                  "pair", "years", "starting_balance_usdt", "final_balance_usdt",
-                  "profit_usdt", "profit_pct", "trades", "wins", "winrate_pct",
-                  "profit_factor", "max_drawdown_pct", "backtest_start", "backtest_end",
-                  "backtest_days", "coverage_validated", "data_integrity_validated",
-                  "result_file"
-              )
-          }
+          compact = {key: result.get(key) for key in ("pair","years","starting_balance_usdt","final_balance_usdt","profit_usdt","profit_pct","trades","wins","winrate_pct","profit_factor","max_drawdown_pct","backtest_start","backtest_end","backtest_days","coverage_validated","data_integrity_validated","result_file")}
           print("FINAL_RESULT:", json.dumps(compact, ensure_ascii=False, indent=2), flush=True)
-          Path("v12-17-link-3y-e2e-result.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n",
-              encoding="utf-8",
-          )
-          '@ | & $python -
+          Path("v12-17-link-3y-e2e-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+          '@ | & .\.venv\Scripts\python.exe -
           if ($LASTEXITCODE -ne 0) { throw "LINK 3y E2E Python exited with $LASTEXITCODE" }
 
       - name: Upload E2E result and logs
