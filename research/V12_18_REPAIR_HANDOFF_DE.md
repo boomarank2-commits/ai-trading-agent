@@ -354,3 +354,19 @@ WebSocket-Code 1006 enthält. Andere Uvicorn-, Freqtrade-, Exchange- und
 WebSocketfehler bleiben unverändert sichtbar. Die Änderung beeinflusst weder
 Orders noch Marktdaten, Strategieentscheidungen oder Backtests und wird erst
 beim nächsten normalen `STARTBOT.bat`-Start aktiv.
+
+## Backtest als eigenständige FreqUI-Inhaltsansicht
+
+Die erste Backtest-Navigation öffnete eine fest positionierte Ansicht, ließ den
+zuletzt aktiven FreqUI-Hauptinhalt aber darunter weiter sichtbar. Weil die
+Ansicht pauschal mindestens 90 CSS-Pixel unter dem Fensterrand begann, waren je
+nach vorheriger Seite noch `Multi Pane`, Chart-Kopf oder Trade-Steuerung zwischen
+Navigation und Backtest zu sehen.
+
+Solange Backtest geöffnet ist, blendet die UI jetzt ausschließlich das normale
+FreqUI-`main` aus. Die gemeinsame FreqUI-Kopfzeile mit Botstatus und Navigation
+bleibt erhalten. Der Backtest beginnt exakt an der tatsächlich gemessenen
+Unterkante dieser Kopfzeile und passt sich bei einer Größenänderung erneut an.
+Beim Wechsel zu Trade, Dashboard, Chart oder Logs wird die normale Hauptansicht
+sofort wieder eingeblendet. Dadurch ist Backtest optisch und funktional eine
+eigene Inhaltsseite, ohne die vorhandene FreqUI oder ihre Routen zu ersetzen.

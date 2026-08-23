@@ -3,6 +3,7 @@
 
   const VIEW_ID = "testbot-backtest-view";
   const NAV_ID = "testbot-backtest-nav";
+  const BODY_OPEN_CLASS = "testbot-backtest-open";
   const PAIRS = [
     ["BTC/USDT", "Bitcoin"],
     ["ETH/USDT", "Ethereum"],
@@ -33,6 +34,7 @@
   function hideBacktest() {
     const view = document.getElementById(VIEW_ID);
     if (view) view.style.display = "none";
+    document.body.classList.remove(BODY_OPEN_CLASS);
     const nav = document.getElementById(NAV_ID);
     if (nav) {
       nav.style.color = "";
@@ -42,6 +44,12 @@
       clearInterval(pollTimer);
       pollTimer = null;
     }
+  }
+
+  function syncBacktestTop(view) {
+    const header = document.querySelector("header");
+    const headerBottom = header ? Math.ceil(header.getBoundingClientRect().bottom) : 0;
+    view.style.top = `${headerBottom}px`;
   }
 
   function money(value) {
@@ -105,15 +113,12 @@
     const logsLink = Array.from(document.querySelectorAll("a")).find(
       (anchor) => anchor.textContent && anchor.textContent.trim() === "Logs"
     );
-    const navBottom = logsLink
-      ? Math.max(90, Math.round(logsLink.closest("header")?.getBoundingClientRect().bottom || logsLink.parentElement?.getBoundingClientRect().bottom || 95))
-      : 95;
-
     view = document.createElement("div");
     view.id = VIEW_ID;
     view.innerHTML = `
       <style>
-        #${VIEW_ID} { position: fixed; left: 0; right: 0; bottom: 0; top: ${navBottom}px; z-index: 60; overflow: auto; background: #101619; color: #d6e0e4; font-family: inherit; }
+        body.${BODY_OPEN_CLASS} main { display: none !important; }
+        #${VIEW_ID} { position: fixed; left: 0; right: 0; bottom: 0; top: 0; z-index: 60; overflow: auto; background: #101619; color: #d6e0e4; font-family: inherit; }
         #${VIEW_ID} * { box-sizing: border-box; }
         .tb-wrap { max-width: 1180px; margin: 0 auto; padding: 28px 30px 60px; }
         .tb-title { font-size: 25px; font-weight: 600; margin: 0 0 7px; color: #f2f6f7; }
@@ -214,6 +219,7 @@
       </div>`;
 
     document.body.appendChild(view);
+    syncBacktestTop(view);
     document.getElementById("tb-start").addEventListener("click", startBacktest);
     document.getElementById("tb-start-all").addEventListener("click", startPortfolioBacktest);
     document.getElementById("tb-start-matrix").addEventListener("click", startAllBacktests);
@@ -472,6 +478,8 @@
   function showBacktest(event) {
     if (event) event.preventDefault();
     const view = createView();
+    document.body.classList.add(BODY_OPEN_CLASS);
+    syncBacktestTop(view);
     view.style.display = "block";
     const nav = document.getElementById(NAV_ID);
     if (nav) {
@@ -533,5 +541,9 @@
 
   const observer = new MutationObserver(() => installNavigation());
   observer.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("resize", () => {
+    const view = document.getElementById(VIEW_ID);
+    if (view && view.style.display !== "none") syncBacktestTop(view);
+  });
   installNavigation();
 })();

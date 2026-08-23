@@ -124,6 +124,12 @@ def test_backtest_ui_offers_real_portfolio_and_ten_independent_diagnostics() -> 
     assert "runtime/user_data/data/binance" in source
     assert "ändert keine Parameter automatisch" in source
     assert "eigene, dokumentierte Parameter-Hypothese" in source
+    assert 'const BODY_OPEN_CLASS = "testbot-backtest-open"' in source
+    assert "body.${BODY_OPEN_CLASS} main { display: none !important; }" in source
+    assert "document.body.classList.add(BODY_OPEN_CLASS)" in source
+    assert "document.body.classList.remove(BODY_OPEN_CLASS)" in source
+    assert "syncBacktestTop(view)" in source
+    assert "Math.max(90" not in source
     assert 'value="1"' in source
     assert 'value="2"' in source
     assert 'value="3"' in source
