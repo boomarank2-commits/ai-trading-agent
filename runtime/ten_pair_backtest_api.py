@@ -10,8 +10,11 @@ whole-system test, but it is intentionally not part of the normal UI batch.
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from fastapi import HTTPException
 
 try:
     from runtime import testbot_backtest_api as base
@@ -145,6 +148,56 @@ def _validate_or_repair_candle_data(
         return repaired
 
 
+def _existing_completed_result(request: Any) -> dict[str, Any] | None:
+    """Return an already completed identical run instead of rerunning it.
+
+    The research contract still forbids duplicate execution.  Reusing the
+    preserved result lets an interrupted ten-pair batch resume later while the
+    UI can still show metrics for coins which were already completed.
+    """
+
+    source = base._STRATEGY.read_bytes()
+    identity = base.build_test_identity(
+        strategy_source=source,
+        pair=request.pair,
+        years=request.years,
+        config=base.load_config_contract(base._CONFIG),
+    )
+    history = base.analyze_backtest_history(
+        base._RESULTS_ROOT,
+        current_strategy_path=base._STRATEGY,
+        trial_ledger_path=base._TRIAL_LEDGER,
+    )
+    existing = next(
+        (
+            dict(row)
+            for row in history["runs"]
+            if row.get("test_fingerprint") == identity["test_fingerprint"]
+        ),
+        None,
+    )
+    if existing is None:
+        return None
+
+    experiment, lineage = _active_registered_experiment(
+        base._TRIAL_LEDGER, identity["strategy_sha256"]
+    )
+    existing.update(
+        {
+            "pair": request.pair,
+            "years": request.years,
+            "strategy": existing.get("strategy") or base.STRATEGY_NAME,
+            "strategy_sha256": identity["strategy_sha256"],
+            "coverage_validated": True,
+            "reused_existing_result": True,
+            "experiment": experiment,
+            "experiment_lineage": lineage,
+            "test_identity": identity,
+        }
+    )
+    return existing
+
+
 base.registered_experiment = _active_registered_experiment
 base._validate_candle_data = _validate_or_repair_candle_data
 
@@ -154,7 +207,28 @@ def get_state() -> dict[str, Any]:
 
 
 def start_backtest(request: Any) -> dict[str, Any]:
-    return base.start_backtest(request)
+    try:
+        return base.start_backtest(request)
+    except HTTPException as exc:
+        detail = str(exc.detail or "")
+        if exc.status_code == 409 and detail.startswith("Doppeltest blockiert:"):
+            existing = _existing_completed_result(request)
+            if existing is not None:
+                now = datetime.now(UTC).isoformat()
+                base._set_state(
+                    status="completed",
+                    stage="Vorhandenes identisches Ergebnis geladen - kein Doppeltest ausgefuehrt",
+                    progress=100,
+                    run_id=existing.get("run_id"),
+                    pair=request.pair,
+                    years=request.years,
+                    started_at=now,
+                    finished_at=now,
+                    result=existing,
+                    error=None,
+                )
+                return base.get_state()
+        raise
 
 
 def build_router() -> Any:
