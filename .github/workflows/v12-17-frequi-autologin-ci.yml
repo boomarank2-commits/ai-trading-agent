@@ -1,0 +1,124 @@
+name: V12.17 FreqUI autologin
+
+on:
+  push:
+    branches:
+      - agent/v12-17-ten-pair-research-ui
+    paths:
+      - "runtime/patch_frequi.py"
+      - ".github/workflows/v12-17-frequi-autologin-ci.yml"
+  pull_request:
+    branches:
+      - agent/v12-adaptive-league
+    paths:
+      - "runtime/patch_frequi.py"
+      - ".github/workflows/v12-17-frequi-autologin-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frequi-autologin:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      FREQTRADE__API_SERVER__USERNAME: testbot
+      FREQTRADE__API_SERVER__PASSWORD: UiHook-Test-Password-1234567890
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Sync locked environment
+        shell: powershell
+        run: uv sync --frozen --all-extras --python 3.12
+
+      - name: Install external FreqUI login hook
+        shell: powershell
+        run: |
+          .\.venv\Scripts\python.exe runtime\patch_frequi.py
+          if ($LASTEXITCODE -ne 0) { throw "patch_frequi.py failed" }
+          $hook = .\.venv\Scripts\python.exe -c "from pathlib import Path; import freqtrade; print(Path(freqtrade.__file__).resolve().parent / 'rpc' / 'api_server' / 'ui' / 'installed' / 'testbot-autologin.js')"
+          $index = .\.venv\Scripts\python.exe -c "from pathlib import Path; import freqtrade; print(Path(freqtrade.__file__).resolve().parent / 'rpc' / 'api_server' / 'ui' / 'installed' / 'index.html')"
+          if (-not (Test-Path -LiteralPath $hook -PathType Leaf)) { throw "autologin JS was not created" }
+          $html = Get-Content -LiteralPath $index -Raw
+          if ($html -notmatch 'testbot-autologin\.js\?v=') { throw "external autologin tag missing" }
+          if ($html -match 'TESTBOT_AUTOLOGIN_START') { throw "old inline autologin block still present" }
+          "TESTBOT_AUTOLOGIN_JS=$hook" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Execute login hook against mocked FreqUI storage and API
+        shell: pwsh
+        run: |
+          @'
+          const fs = require('fs');
+          const assert = require('assert');
+
+          const script = fs.readFileSync(process.env.TESTBOT_AUTOLOGIN_JS, 'utf8');
+          const values = new Map();
+          values.set('ftAuthLoginInfo', JSON.stringify({
+            'ftbot.0': {
+              botName: 'Testbot',
+              apiUrl: 'http://127.0.0.1:8080',
+              username: 'testbot',
+              accessToken: 'expired-token',
+              refreshToken: 'expired-refresh',
+              autoRefresh: true,
+              sortId: 0,
+            },
+          }));
+
+          global.localStorage = {
+            getItem: (key) => values.has(key) ? values.get(key) : null,
+            setItem: (key, value) => values.set(key, String(value)),
+          };
+          let reloaded = false;
+          global.window = {
+            location: {
+              origin: 'http://127.0.0.1:8080',
+              reload: () => { reloaded = true; },
+            },
+          };
+          if (typeof global.btoa !== 'function') {
+            global.btoa = (value) => Buffer.from(value, 'binary').toString('base64');
+          }
+
+          const calls = [];
+          global.fetch = async (url, options = {}) => {
+            calls.push({ url, options });
+            if (url === '/api/v1/status') {
+              return { ok: false, status: 401 };
+            }
+            if (url === '/api/v1/token/login') {
+              const expected = 'Basic ' + Buffer.from('testbot:UiHook-Test-Password-1234567890').toString('base64');
+              assert.strictEqual(options.headers.Authorization, expected);
+              return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                  access_token: 'new-access-token',
+                  refresh_token: 'new-refresh-token',
+                }),
+              };
+            }
+            throw new Error('Unexpected fetch: ' + url);
+          };
+
+          eval(script);
+
+          setTimeout(() => {
+            const store = JSON.parse(values.get('ftAuthLoginInfo'));
+            assert.strictEqual(store['ftbot.0'].botName, 'Testbot');
+            assert.strictEqual(store['ftbot.0'].apiUrl, 'http://127.0.0.1:8080');
+            assert.strictEqual(store['ftbot.0'].username, 'testbot');
+            assert.strictEqual(store['ftbot.0'].accessToken, 'new-access-token');
+            assert.strictEqual(store['ftbot.0'].refreshToken, 'new-refresh-token');
+            assert.strictEqual(store['ftbot.0'].autoRefresh, true);
+            assert.strictEqual(values.get('ftSelectedBot'), 'ftbot.0');
+            assert.strictEqual(reloaded, true);
+            assert.strictEqual(calls.length, 2);
+            console.log('FreqUI autologin hook executed successfully.');
+          }, 100);
+          '@ | node
+          if ($LASTEXITCODE -ne 0) { throw "Node autologin execution test failed" }
