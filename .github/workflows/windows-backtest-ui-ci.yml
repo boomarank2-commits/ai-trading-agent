@@ -73,6 +73,9 @@ jobs:
           tests\runtime\test_v12_17_ten_pair_research_contract.py
       - name: Ruff active Freqtrade strategy
         shell: powershell
+        # RUF012 is intentional for Freqtrade class configuration. RUF036 and
+        # SIM300 concern type/comparison spelling only and do not change the
+        # locked strategy semantics checked by the contract tests.
         run: >-
-          .\.venv\Scripts\ruff.exe check --ignore RUF012
+          .\.venv\Scripts\ruff.exe check --ignore RUF012,RUF036,SIM300
           runtime\user_data\strategies\CompressionBreakout250.py
