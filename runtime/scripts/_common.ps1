@@ -34,7 +34,9 @@ function Assert-RuntimeLayout {
 function Assert-NoFreqtradeOverrides {
     param([string[]]$Allowed = @(
         "FREQTRADE__API_SERVER__USERNAME",
-        "FREQTRADE__API_SERVER__PASSWORD"
+        "FREQTRADE__API_SERVER__PASSWORD",
+        "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+        "FREQTRADE__API_SERVER__WS_TOKEN"
     ))
 
     $unexpected = @(Get-ChildItem Env:FREQTRADE__* -ErrorAction SilentlyContinue | Where-Object {
