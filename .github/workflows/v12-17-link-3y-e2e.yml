@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/v12-17-ten-pair-research-ui
+  pull_request:
+    branches:
+      - agent/v12-adaptive-league
   workflow_dispatch:
 
 permissions:
