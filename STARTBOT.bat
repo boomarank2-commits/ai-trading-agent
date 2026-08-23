@@ -41,21 +41,9 @@ if errorlevel 1 (
 
 set "LOCAL_UI_PASSWORD_FILE=%~dp0runtime\user_data\.testbot-ui-password"
 set "FREQTRADE__API_SERVER__USERNAME=testbot"
-set "FIRST_LOGIN_HELP=1"
-if not exist "%LOCAL_UI_PASSWORD_FILE%" (
-    set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
-    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
-    set "TESTBOT_PASSWORD_FILE="
-    if errorlevel 1 (
-        echo.
-        echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort konnte nicht erzeugt werden.
-        echo Der Testbot wird nicht gestartet.
-        pause
-        exit /b 1
-    )
-) else (
-    set "FIRST_LOGIN_HELP=0"
-)
+call :ensure_ui_password
+if errorlevel 1 exit /b 1
+
 set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
 if not defined FREQTRADE__API_SERVER__PASSWORD (
     echo.
@@ -101,6 +89,29 @@ if not "%BOT_EXIT_CODE%"=="0" (
 echo Dieses Fenster kann jetzt geschlossen werden.
 pause
 exit /b %BOT_EXIT_CODE%
+
+:ensure_ui_password
+set "FIRST_LOGIN_HELP=0"
+if not exist "%LOCAL_UI_PASSWORD_FILE%" goto :create_ui_password
+set "EXISTING_UI_PASSWORD="
+set /p EXISTING_UI_PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
+if not defined EXISTING_UI_PASSWORD goto :create_ui_password
+if "%EXISTING_UI_PASSWORD%"=="AAAAAAAAAAAAAAAAAAAAAAAA" goto :create_ui_password
+exit /b 0
+
+:create_ui_password
+set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; $rng=[Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }; $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
+set "TESTBOT_PASSWORD_FILE="
+if errorlevel 1 (
+    echo.
+    echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort konnte nicht erzeugt werden.
+    echo Der Testbot wird nicht gestartet.
+    pause
+    exit /b 1
+)
+set "FIRST_LOGIN_HELP=1"
+exit /b 0
 
 :ensure_uv
 where uv.exe >nul 2>nul
