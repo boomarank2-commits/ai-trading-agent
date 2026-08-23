@@ -301,3 +301,16 @@ nachdem Bot-Eintrag und Auswahl geschrieben wurden. Beim zweiten Laden ist die
 Marke vorhanden; dadurch startet FreqUI mit der fertigen Verbindung, ohne eine
 Reload-Schleife zu erzeugen. Der bestehende Inhalts-Hash ändert zugleich die
 Hook-URL und verhindert die Wiederverwendung der vorherigen JavaScript-Datei.
+
+## Vierte FreqUI-Reparatur: neues isoliertes Edge-Profil
+
+Auch nach dem Einmal-Reload blieb ausschließlich das automatisch gestartete
+Edge-App-Fenster leer, während ein frisches Browserprofil an derselben laufenden
+API weiterhin die vollständige Oberfläche zeigte. Der Supervisor verwendet
+daher nicht mehr das historisch belastete Verzeichnis `browser-profile`,
+sondern dauerhaft `browser-profile-v2` unter den lokalen DaviddTech-Appdaten.
+Das erzeugt genau einmal einen sauberen FreqUI-Zustand und behält ihn für
+folgende Starts bei. Das alte Profil wird bewusst nicht automatisch gelöscht;
+der Patch verändert weder den laufenden Bot noch Browserdaten außerhalb des
+eigenen Testbot-Appbereichs. Der Wechsel wird erst beim nächsten kontrollierten
+Start über `STARTBOT.bat` aktiv.

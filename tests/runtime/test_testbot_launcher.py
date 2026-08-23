@@ -63,6 +63,7 @@ def test_startbot_creates_local_random_ui_password_without_repository_default() 
 
 def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     source = (SCRIPTS / "start-testbot-24x7.ps1").read_text(encoding="utf-8")
+    supervisor = (SCRIPTS / "run-testbot-supervised.ps1").read_text(encoding="utf-8")
 
     assert 'FREQTRADE__DRY_RUN = "true"' in source
     assert 'FREQTRADE__INITIAL_STATE = "running"' in source
@@ -110,6 +111,8 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "config-live" not in source
     assert "FREQTRADE__EXCHANGE__KEY" not in source
     assert "FREQTRADE__EXCHANGE__SECRET" not in source
+    assert '"DaviddTech\\AiTradingAgent\\browser-profile-v2"' in supervisor
+    assert "UI-Profil: frisches, dauerhaft isoliertes Testbot-Profil v2." in supervisor
 
 
 def test_launchers_disable_generated_python_bytecode_cache() -> None:
