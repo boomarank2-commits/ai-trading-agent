@@ -18,6 +18,10 @@ EXPECTED_PAIRS = [
     "XRP/USDT",
     "BNB/USDT",
     "DOGE/USDT",
+    "LINK/USDT",
+    "TRX/USDT",
+    "LTC/USDT",
+    "BCH/USDT",
 ]
 
 
@@ -62,8 +66,8 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "available_capital": 250,
         "dry_run_wallet": 250,
         "max_open_trades": 3,
-        "position_adjustment_enable": False,
-        "max_entry_position_adjustment": 0,
+        "position_adjustment_enable": True,
+        "max_entry_position_adjustment": 2,
         "force_entry_enable": False,
         "cancel_open_orders_on_exit": True,
         "strategy": "CompressionBreakout250",
@@ -80,7 +84,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         240.0,
         abs_tol=1e-12,
     ):
-        raise ValueError("maximum configured exposure must be exactly 240 USDT")
+        raise ValueError("maximum configured three-chunk exposure must be exactly 240 USDT")
 
     exchange = config.get("exchange")
     if not isinstance(exchange, Mapping):
@@ -159,6 +163,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "stake_per_trade_usdt": 80,
         "maximum_exposure_usdt": 240,
         "max_open_positions": 3,
+        "max_entries_per_pair": 3,
         "pairs": EXPECTED_PAIRS,
     }
 
