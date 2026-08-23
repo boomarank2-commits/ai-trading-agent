@@ -229,3 +229,13 @@ Standard bei unklaren Daten oder Signalen. ORB-Retest und Ichimoku bleiben
 separate spätere Challenger und werden nicht in diese Reparatur gemischt. DCA,
 Martingale, Futures, Margin, Shorts und automatische Kapitalerhöhung bleiben
 verboten.
+
+## Sicherheitsnachtrag zum lokalen Start
+
+`STARTBOT.bat` gibt das lokale FreqUI-Passwort nicht mehr im Konsolenfenster
+aus und startet die PowerShell-Helfer nicht mehr mit `ExecutionPolicy Bypass`.
+Bei einer neuen Installation erzeugt der erste Start weiterhin eine zufällige,
+von Git ignorierte lokale Passwortdatei, startet den Bot damit aber noch nicht.
+Der Nutzer setzt zuerst über `PASSWORT_AENDERN.bat` ein eigenes Passwort und
+startet danach erneut. Diese Änderung betrifft nur den nächsten lokalen Start;
+eine bereits laufende Bot-Instanz wurde nicht angefasst.

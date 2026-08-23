@@ -52,7 +52,7 @@ V12.18 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
 
 ## FreqUI
 
-Nach dem Start öffnet der lokale Supervisor die FreqUI auf `127.0.0.1:8080` und überwacht den Prozessbaum. Zugangsdaten werden vom Starter selbst angezeigt bzw. aus der lokalen Passwortdatei gelesen. Diese Anleitung enthält absichtlich keine fest kopierten Zugangsdaten.
+Nach dem Start öffnet der lokale Supervisor die FreqUI auf `127.0.0.1:8080` und überwacht den Prozessbaum. Der Benutzername `testbot` darf angezeigt werden; das Passwort wird ausschließlich aus der ignorierten lokalen Passwortdatei gelesen und nicht im Startfenster ausgegeben. Beim ersten Start mit `PASSWORT_AENDERN.bat` ein eigenes Passwort setzen und den Bot danach neu starten. Diese Anleitung enthält absichtlich keine fest kopierten Zugangsdaten.
 
 Für einen unveränderten Beobachtungstest sollten keine manuellen Force-Entry-/Force-Exit-Aktionen verwendet werden.
 

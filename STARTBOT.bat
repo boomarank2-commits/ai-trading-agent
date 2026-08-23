@@ -32,7 +32,7 @@ echo.
 call :ensure_uv
 if errorlevel 1 exit /b 1
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
 if errorlevel 1 (
     echo.
     echo SICHERHEITSSTOPP: Eine alte oder fremde Runtime konnte nicht sicher bereinigt werden.
@@ -45,6 +45,16 @@ set "LOCAL_UI_PASSWORD_FILE=%~dp0runtime\user_data\.testbot-ui-password"
 set "FREQTRADE__API_SERVER__USERNAME=testbot"
 call :ensure_ui_password
 if errorlevel 1 exit /b 1
+if "%FIRST_LOGIN_HELP%"=="1" (
+    echo.
+    echo ERSTE ANMELDUNG: Aus Sicherheitsgruenden wird das zufaellig erzeugte
+    echo Erstpasswort nicht im Fenster angezeigt.
+    echo Bitte jetzt PASSWORT_AENDERN.bat ausfuehren, ein eigenes lokales
+    echo Passwort setzen und STARTBOT.bat danach erneut starten.
+    start "" "%~dp0LOGIN_HILFE.html"
+    pause
+    exit /b 0
+)
 
 set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
 if not defined FREQTRADE__API_SERVER__PASSWORD (
@@ -61,21 +71,14 @@ echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
 echo Bot Name : Testbot V12.18
 echo Benutzer : testbot
-echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
-if "%FIRST_LOGIN_HELP%"=="1" (
-    echo.
-    echo ERSTE ANMELDUNG: Dieses zufaellig erzeugte Passwort gilt nur lokal.
-    echo Die Login-Hilfe wird zusaetzlich geoeffnet.
-    start "" "%~dp0LOGIN_HILFE.html"
-) else (
-    echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
-)
+echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
+echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
 echo.
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
 if errorlevel 1 (
     echo SICHERHEITSWARNUNG: Nach dem Botende ist Port 8080 nicht sicher frei.
     set "BOT_EXIT_CODE=1"
@@ -102,7 +105,7 @@ exit /b 0
 
 :create_ui_password
 set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; $rng=[Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }; $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
+powershell.exe -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; $path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; $rng=[Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }; $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
 set "TESTBOT_PASSWORD_FILE="
 if errorlevel 1 (
     echo.

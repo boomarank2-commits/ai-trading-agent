@@ -47,6 +47,8 @@ def test_startbot_creates_local_random_ui_password_without_repository_default() 
     assert "FREQTRADE__API_SERVER__PASSWORD" in start
     assert "FREQTRADE__API_SERVER__JWT_SECRET_KEY" in start
     assert "FREQTRADE__API_SERVER__WS_TOKEN" in start
+    assert "echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%" not in start
+    assert "ExecutionPolicy Bypass" not in start
     assert {
         key: public_config["api_server"][key]
         for key in ("password", "jwt_secret_key", "ws_token")
