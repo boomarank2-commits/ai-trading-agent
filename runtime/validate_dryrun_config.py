@@ -90,6 +90,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(exchange, Mapping):
         raise ValueError("exchange must be an object")
     _exact("exchange.name", exchange.get("name"), "binance")
+    _exact("exchange.enable_ws", exchange.get("enable_ws"), False)
     _exact("exchange.pair_whitelist", exchange.get("pair_whitelist"), EXPECTED_PAIRS)
     _exact("exchange.pair_blacklist", exchange.get("pair_blacklist"), [])
     for secret_name in ("key", "secret", "password", "uid"):

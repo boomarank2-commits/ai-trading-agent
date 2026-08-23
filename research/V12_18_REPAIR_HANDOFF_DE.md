@@ -258,3 +258,26 @@ Schlüssel und fremde Cloud-/API-Geheimnisse bleiben aus dem Kindprozess
 entfernt. Ein Regressionstest prüft beide Seiten dieses Vertrags. Die
 Korrektur wird erst beim nächsten kontrollierten Neustart aktiv; der während
 der Diagnose laufende Paper-Bot und seine Position wurden nicht verändert.
+
+## Zweite FreqUI-/Marktdatenreparatur
+
+Der Neustart `20260823T185336Z-pid-17540` bewies, dass die vier lokalen
+API-Variablen nun korrekt bis Freqtrade gelangen. FreqUI und API starteten, die
+Zehn-Paare-Whitelist sowie der vorhandene BTC-Papertrade wurden geladen. Danach
+beendete Binance jedoch alle 30 OHLCV-WebSocket-Abos (zehn Paare mal
+15m/1h/4h) mit Close-Code 1008. Der spätere Prozesscode `-1` war die erwartete
+Zwangsbeendigung durch den Lebensdauer-Wächter, nachdem das UI-Fenster
+geschlossen worden war; er war nicht die ursprüngliche Datenursache.
+
+Das öffentliche Dry-run-Overlay setzt deshalb jetzt ausdrücklich
+`exchange.enable_ws` auf `false`. Laut Freqtrade-Vertrag werden OHLCV-Kerzen
+dann per REST-Fallback geladen. Strategie, Pairliste, Zeitrahmen, Paper-Wallet,
+Positionslimits und Backtestdaten bleiben unverändert. Der STARTBOT-Validator
+verlangt diesen Wert, damit ein späterer Config-Umbau die fehlerhafte
+WebSocket-Fan-out-Konfiguration nicht unbemerkt zurückbringt.
+
+Der externe FreqUI-Login normalisiert außerdem einen bereits gespeicherten
+lokalen Bot-Eintrag auf `Testbot`, wählt ihn aus und lädt die UI genau einmal
+neu, wenn Auswahl oder Metadaten veraltet waren. Die Cache-Version des Hooks
+wird nun aus seinem vollständigen Inhalt berechnet; damit kann der Browser nach
+einem Codeupdate nicht mehr dieselbe alte Hook-URL wiederverwenden.

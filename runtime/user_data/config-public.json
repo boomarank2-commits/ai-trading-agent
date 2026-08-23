@@ -1,7 +1,8 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "_comment": "Public-data/dry-run overlay for CCXT 4.5.73. Binance market discovery stays public (apiKey null). FreqUI is enabled only on localhost for the paper-trading test UI. STARTBOT injects unique local API credentials through environment variables.",
+  "_comment": "Public-data/dry-run overlay for CCXT 4.5.73. Binance market discovery stays public (apiKey null). Exchange OHLCV websockets are disabled after Binance rejected the 10-pair x 3-timeframe subscription fan-out with close code 1008; Freqtrade uses its documented REST fallback for the same candles. FreqUI is enabled only on localhost for the paper-trading test UI. STARTBOT injects unique local API credentials through environment variables.",
   "exchange": {
+    "enable_ws": false,
     "ccxt_config": {
       "apiKey": null
     },

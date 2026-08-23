@@ -84,7 +84,12 @@ installierte Umgebung als exakt zu `uv.lock` passend bestätigen.
 
 Analyse- und Dry-run-Skripte laden zusätzlich `config-public.json`. Es setzt
 CCXTs internen `apiKey` auf `null`, damit ausschließlich öffentliche
-Binance-Endpunkte genutzt werden. Der Live-Launcher lädt dieses Overlay nie.
+Binance-Endpunkte genutzt werden. Für den Zehn-Paare-Betrieb deaktiviert das
+Overlay außerdem Exchange-OHLCV-WebSockets: Binance beendete den gleichzeitigen
+Abruf von zehn Paaren auf 15m/1h/4h mit Close-Code 1008. Freqtrade verwendet
+dadurch seinen dokumentierten REST-Fallback für dieselben Kerzen. Das betrifft
+weder lokale Backtestdaten noch die Strategieparameter. Der Live-Launcher lädt
+dieses Overlay nie.
 `config-analysis.json` ist nur für Freqtrades Lookahead-Diagnose bestimmt.
 
 Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr

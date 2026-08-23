@@ -151,6 +151,7 @@ def test_real_money_overlay_remains_paused_and_not_promoted_with_new_paper_rules
 def test_public_overlay_keeps_exchange_discovery_public_and_api_local() -> None:
     public = load_json(PUBLIC_OVERLAY_PATH)
     exchange = public["exchange"]
+    assert exchange["enable_ws"] is False
     assert exchange["ccxt_config"]["apiKey"] is None
     assert exchange["ccxt_async_config"]["apiKey"] is None
     assert "secret" not in exchange["ccxt_config"]

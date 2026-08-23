@@ -83,6 +83,27 @@ def _autologin_script(username: str, password: str) -> str:
     }}
   }};
 
+  const normalizedBot = (existing, accessToken, refreshToken) => ({{
+    botName: 'Testbot',
+    apiUrl: API_URL,
+    username: TESTBOT_USERNAME,
+    accessToken,
+    refreshToken,
+    autoRefresh: true,
+    sortId: Number.isFinite(existing.sortId) ? existing.sortId : 0,
+  }});
+
+  const saveBotSelection = (store, botId, bot) => {{
+    const botChanged = JSON.stringify(store[botId] || {{}}) !== JSON.stringify(bot);
+    const selectionChanged = localStorage.getItem(SELECTED_KEY) !== botId;
+    if (botChanged) {{
+      store[botId] = bot;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }}
+    if (selectionChanged) localStorage.setItem(SELECTED_KEY, botId);
+    return botChanged || selectionChanged;
+  }};
+
   const login = async () => {{
     const store = parseStore();
     const botId = chooseBotId(store);
@@ -93,7 +114,8 @@ def _autologin_script(username: str, password: str) -> str:
       existing.username === TESTBOT_USERNAME &&
       await tokenWorks(existing.accessToken)
     ) {{
-      localStorage.setItem(SELECTED_KEY, botId);
+      const bot = normalizedBot(existing, existing.accessToken, existing.refreshToken);
+      if (saveBotSelection(store, botId, bot)) window.location.reload();
       return;
     }}
 
@@ -117,17 +139,8 @@ def _autologin_script(username: str, password: str) -> str:
       return;
     }}
 
-    store[botId] = {{
-      botName: 'Testbot',
-      apiUrl: API_URL,
-      username: TESTBOT_USERNAME,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      autoRefresh: true,
-      sortId: Number.isFinite(existing.sortId) ? existing.sortId : 0,
-    }};
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    localStorage.setItem(SELECTED_KEY, botId);
+    const bot = normalizedBot(existing, tokens.access_token, tokens.refresh_token);
+    saveBotSelection(store, botId, bot);
     window.location.reload();
   }};
 
@@ -164,7 +177,7 @@ def main() -> int:
     if username and password:
         script = _autologin_script(username, password)
         autologin_path.write_text(script, encoding="utf-8", newline="")
-        version = hashlib.sha256(f"{username}\0{password}".encode()).hexdigest()[:12]
+        version = hashlib.sha256(script.encode("utf-8")).hexdigest()[:12]
         tag = f'<script src="/{AUTOLOGIN_FILENAME}?v={version}" defer></script>'
         text = text.replace(marker, f"{tag}{marker}", 1)
     else:
