@@ -51,9 +51,21 @@ jobs:
           target = Path("runtime/user_data/config-public-ci-marketdata.json")
           payload = json.loads(source.read_text(encoding="utf-8"))
           endpoint = "https://data-api.binance.vision/api/v3"
+          spot_only = {
+              "defaultType": "spot",
+              "fetchMarkets": {"types": ["spot"]},
+          }
           payload["exchange"] = {
-              "ccxt_config": {"urls": {"api": {"public": endpoint}}},
-              "ccxt_async_config": {"urls": {"api": {"public": endpoint}}},
+              "ccxt_config": {
+                  "apiKey": None,
+                  "urls": {"api": {"public": endpoint}},
+                  "options": spot_only,
+              },
+              "ccxt_async_config": {
+                  "apiKey": None,
+                  "urls": {"api": {"public": endpoint}},
+                  "options": spot_only,
+              },
           }
           target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
           print(target)
