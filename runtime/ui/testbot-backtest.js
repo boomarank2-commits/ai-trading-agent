@@ -59,6 +59,15 @@
     return found ? `${found[1]} · ${found[0]}` : pair;
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
   function resultCard(label, value, className = "") {
     return `<div class="tb-metric"><div class="tb-label">${label}</div><div class="tb-value ${className}">${value}</div></div>`;
   }
@@ -134,6 +143,8 @@
         .tb-batch-table td { color: #dce7ea; }
         .tb-batch-ok { color: #6fd39a !important; }
         .tb-batch-fail { color: #ff7f7f !important; }
+        .tb-batch-error { max-width: 420px; white-space: normal !important; text-align: left !important; line-height: 1.45; }
+        .tb-batch-error strong { display: block; margin-bottom: 4px; }
         @media (max-width: 900px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-actions { flex-direction: column; } .tb-button { width: 100%; } }
         @media (max-width: 520px) { .tb-wrap { padding: 20px 14px 45px; } .tb-grid { grid-template-columns: 1fr; } }
       </style>
@@ -268,10 +279,11 @@
     body.innerHTML = batchResults.map((item) => {
       const label = pairLabel(item.pair);
       if (item.error) {
+        const errorText = escapeHtml(item.error);
         if (item.skipped) {
-          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
+          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral tb-batch-error"><strong>Doppeltest übersprungen</strong>${errorText}</td></tr>`;
         }
-        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
+        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail tb-batch-error"><strong>Fehler</strong>${errorText}</td></tr>`;
       }
       const r = item.result;
       const profit = Number(r.profit_usdt || 0);
