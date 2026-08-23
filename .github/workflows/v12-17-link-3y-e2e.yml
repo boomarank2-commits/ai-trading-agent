@@ -19,6 +19,7 @@ jobs:
     env:
       PYTHONUTF8: "1"
       PYTHONDONTWRITEBYTECODE: "1"
+      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}\v12-17-e2e-venv
       FREQTRADE__API_SERVER__USERNAME: testbot
       FREQTRADE__API_SERVER__PASSWORD: E2E-Local-Password-Only-1234567890
       FREQTRADE__API_SERVER__JWT_SECRET_KEY: E2E-JWT-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ
@@ -35,7 +36,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Sync exact locked environment
+      - name: Sync exact locked environment outside audited repository
         shell: powershell
         run: uv sync --frozen --all-extras --python 3.12
 
@@ -43,6 +44,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $python = Join-Path $env:UV_PROJECT_ENVIRONMENT 'Scripts\python.exe'
           @'
           import json
           from pathlib import Path
@@ -69,7 +71,7 @@ jobs:
           }
           target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
           print(target)
-          '@ | & .\.venv\Scripts\python.exe -
+          '@ | & $python -
           if ($LASTEXITCODE -ne 0) { throw 'Could not create CI market-data overlay' }
 
       - name: Verify Binance market-data-only endpoint from runner
@@ -88,8 +90,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $freqtrade = Join-Path $env:UV_PROJECT_ENVIRONMENT 'Scripts\freqtrade.exe'
           $raw = @(
-            & .\.venv\Scripts\freqtrade.exe show-config `
+            & $freqtrade show-config `
               --config runtime\user_data\config.json `
               --config runtime\user_data\config-public-ci-marketdata.json `
               --userdir runtime\user_data
@@ -116,7 +119,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = (Get-Location).Path
           $runtime = Join-Path $root 'runtime'
-          $python = Join-Path $root '.venv\Scripts\python.exe'
+          $python = Join-Path $env:UV_PROJECT_ENVIRONMENT 'Scripts\python.exe'
           $runner = Join-Path $runtime 'locked_freqtrade.py'
           $strategy = Join-Path $runtime 'user_data\strategies\CompressionBreakout250.py'
           $config = Join-Path $runtime 'user_data\config.json'
@@ -175,6 +178,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $python = Join-Path $env:UV_PROJECT_ENVIRONMENT 'Scripts\python.exe'
           @'
           import json
           import time
@@ -215,7 +219,7 @@ jobs:
           compact = {key: result.get(key) for key in ("pair","years","starting_balance_usdt","final_balance_usdt","profit_usdt","profit_pct","trades","wins","winrate_pct","profit_factor","max_drawdown_pct","backtest_start","backtest_end","backtest_days","coverage_validated","data_integrity_validated","result_file")}
           print("FINAL_RESULT:", json.dumps(compact, ensure_ascii=False, indent=2), flush=True)
           Path("v12-17-link-3y-e2e-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
-          '@ | & .\.venv\Scripts\python.exe -
+          '@ | & $python -
           if ($LASTEXITCODE -ne 0) { throw "LINK 3y E2E Python exited with $LASTEXITCODE" }
 
       - name: Upload E2E result and logs
