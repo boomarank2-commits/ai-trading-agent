@@ -50,6 +50,10 @@ ACTIVE_DRYRUN_PAIRS = (
     "XRP/USDT",
     "BNB/USDT",
     "DOGE/USDT",
+    "LINK/USDT",
+    "TRX/USDT",
+    "LTC/USDT",
+    "BCH/USDT",
 )
 WARMUP_DAYS = 75
 
@@ -163,7 +167,7 @@ def _validate_contract(config: dict[str, Any]) -> None:
         "trailing_stop": False,
         "trading_mode": "spot",
         "margin_mode": "",
-        # The replay remains frozen to PAIRS.  This field validates the current
+        # The replay remains frozen to PAIRS. This field validates the current
         # dry-run bundle and must not silently force that bundle back to V8's
         # historical three-pair universe.
         "pair_whitelist": list(ACTIVE_DRYRUN_PAIRS),
