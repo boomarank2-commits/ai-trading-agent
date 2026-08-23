@@ -3,22 +3,19 @@
 
   const VIEW_ID = "testbot-backtest-view";
   const NAV_ID = "testbot-backtest-nav";
-  const BATCH_CASES = [
-    { pair: "PORTFOLIO", years: 3 },
-    { pair: "PORTFOLIO", years: 1 },
-    { pair: "BTC/USDT", years: 3 },
-    { pair: "BTC/USDT", years: 1 },
-    { pair: "ETH/USDT", years: 3 },
-    { pair: "ETH/USDT", years: 1 },
-    { pair: "SOL/USDT", years: 3 },
-    { pair: "SOL/USDT", years: 1 },
-    { pair: "XRP/USDT", years: 3 },
-    { pair: "XRP/USDT", years: 1 },
-    { pair: "BNB/USDT", years: 3 },
-    { pair: "BNB/USDT", years: 1 },
-    { pair: "DOGE/USDT", years: 3 },
-    { pair: "DOGE/USDT", years: 1 }
+  const PAIRS = [
+    ["BTC/USDT", "Bitcoin"],
+    ["ETH/USDT", "Ethereum"],
+    ["SOL/USDT", "Solana"],
+    ["XRP/USDT", "XRP"],
+    ["BNB/USDT", "BNB"],
+    ["DOGE/USDT", "Dogecoin"],
+    ["LINK/USDT", "Chainlink"],
+    ["TRX/USDT", "TRON"],
+    ["LTC/USDT", "Litecoin"],
+    ["BCH/USDT", "Bitcoin Cash"]
   ];
+
   let pollTimer = null;
   let batchRunning = false;
   let batchResults = [];
@@ -57,8 +54,9 @@
     return `${number > 0 ? "+" : ""}${number.toFixed(2)} %`;
   }
 
-  function targetLabel(pair) {
-    return pair === "PORTFOLIO" ? "Gesamtportfolio" : pair;
+  function pairLabel(pair) {
+    const found = PAIRS.find(([value]) => value === pair);
+    return found ? `${found[1]} · ${found[0]}` : pair;
   }
 
   function resultCard(label, value, className = "") {
@@ -74,6 +72,10 @@
       const pnl = money(item.profit_usdt || 0);
       return `${label}: ${trades} Trades · ${wins} Gewinner · ${pnl}`;
     }).join(" | ");
+  }
+
+  function pairOptions() {
+    return PAIRS.map(([pair, name]) => `<option value="${pair}">${name} · ${pair}</option>`).join("");
   }
 
   function createView() {
@@ -97,14 +99,15 @@
         .tb-title { font-size: 25px; font-weight: 600; margin: 0 0 7px; color: #f2f6f7; }
         .tb-sub { margin: 0 0 26px; color: #93a5ad; line-height: 1.55; }
         .tb-panel { background: #171e22; border: 1px solid #26343a; border-radius: 4px; padding: 22px; margin-bottom: 20px; }
-        .tb-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; gap: 18px; align-items: end; }
+        .tb-row { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(180px, .55fr) auto; gap: 18px; align-items: end; }
         .tb-actions { display: flex; gap: 10px; align-items: end; }
         .tb-field label { display: block; color: #aebdc3; font-size: 13px; margin-bottom: 7px; }
         .tb-field select { width: 100%; height: 42px; border-radius: 4px; border: 1px solid #35454c; background: #101619; color: #edf5f7; padding: 0 12px; font: inherit; outline: none; }
         .tb-button { height: 42px; border: 1px solid #00b8d4; border-radius: 4px; background: #062e36; color: #00d2ee; font-weight: 600; padding: 0 22px; cursor: pointer; font: inherit; white-space: nowrap; }
         .tb-button-secondary { border-color: #8ba0a9; background: #1a2429; color: #dce8ec; }
         .tb-button:disabled { opacity: .55; cursor: not-allowed; }
-        .tb-info { margin-top: 17px; color: #879ba4; font-size: 13px; line-height: 1.55; }
+        .tb-info { margin-top: 17px; color: #879ba4; font-size: 13px; line-height: 1.6; }
+        .tb-info strong { color: #bdcbd0; }
         .tb-status, .tb-results { display: none; }
         .tb-status-line { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 10px; }
         .tb-stage { color: #d9e5e8; }
@@ -131,63 +134,35 @@
         .tb-batch-table td { color: #dce7ea; }
         .tb-batch-ok { color: #6fd39a !important; }
         .tb-batch-fail { color: #ff7f7f !important; }
-        @media (max-width: 850px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-actions { flex-direction: column; } .tb-button { width: 100%; } }
+        @media (max-width: 900px) { .tb-row { grid-template-columns: 1fr; } .tb-grid { grid-template-columns: repeat(2, 1fr); } .tb-actions { flex-direction: column; } .tb-button { width: 100%; } }
         @media (max-width: 520px) { .tb-wrap { padding: 20px 14px 45px; } .tb-grid { grid-template-columns: 1fr; } }
       </style>
       <div class="tb-wrap">
-        <h1 class="tb-title">Backtest</h1>
-        <p class="tb-sub">Simuliert exakt den aktuell gestarteten pair-lokalen Testbot mit historischen Binance-Daten. Der Gesamtportfolio-Modus teilt ein einziges 250-USDT-Konto realistisch auf alle sechs freigegebenen Märkte auf.</p>
+        <h1 class="tb-title">Backtest · 10 Kryptowährungen</h1>
+        <p class="tb-sub">Jeder Coin wird separat mit einem eigenen virtuellen Startwert von 250 USDT getestet. Zeitraum und Coin sind frei wählbar.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
-              <label for="tb-pair">Prüfmodus</label>
-              <select id="tb-pair">
-                <option value="PORTFOLIO" selected>Gesamtportfolio · 6 liquide Spot-Pairs</option>
-                <option value="BTC/USDT">Bitcoin · BTC/USDT</option>
-                <option value="ETH/USDT">Ethereum · ETH/USDT</option>
-                <option value="SOL/USDT">Solana · SOL/USDT</option>
-                <option value="XRP/USDT">XRP · XRP/USDT</option>
-                <option value="BNB/USDT">BNB · BNB/USDT</option>
-                <option value="DOGE/USDT">Dogecoin · DOGE/USDT</option>
-              </select>
+              <label for="tb-pair">Kryptowährung</label>
+              <select id="tb-pair">${pairOptions()}</select>
             </div>
             <div class="tb-field">
               <label for="tb-years">Zeitraum</label>
               <select id="tb-years">
                 <option value="1">1 Jahr</option>
-                <option value="2" selected>2 Jahre</option>
-                <option value="3">3 Jahre</option>
+                <option value="2">2 Jahre</option>
+                <option value="3" selected>3 Jahre</option>
               </select>
             </div>
             <div class="tb-actions">
               <button id="tb-start" class="tb-button">Backtest starten</button>
-              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 14 Backtests</button>
+              <button id="tb-start-all" class="tb-button tb-button-secondary">Alle 10 nacheinander</button>
             </div>
           </div>
           <div class="tb-info">
-            V12.15 übernimmt alle sechs V12.12-Pairs, Signale, Exits und Risikogrenzen.
-            BTC- und ETH-Trend-Reclaim sowie alle Donchian-Kerne bleiben unverändert.
-            Eine pair-lokale Low-Profit-Sperre pausiert nach zwei schwachen Trades
-            innerhalb von 14 Tagen für drei Tage. Nur Champion-Trades erhalten nach
-            mindestens +30 % einen +5-%-Gewinnboden. Der feste -5,5-%-Hard-Stop bleibt
-            bestehen.<br><br><strong>Kapitalnutzung:</strong> Der Gesamtportfolio-Test
-            ist die maßgebliche 250-USDT-Sicht. Alle sechs Märkte konkurrieren gemeinsam
-            um höchstens drei Positionen zu je 80 USDT. Die Einzeltests dienen nur der
-            Pair-Attribution und dürfen nicht als sechs getrennte 250-USDT-Konten
-            addiert werden.<br><br><strong>Dateikontrolle:</strong> Der gesperrte
-            Backtest protokolliert geöffnete Repo-, Konfigurations- und Strategy-Dateien.
-            Native Arrow-Candle-Ladevorgänge werden an Freqtrades Dateinamen-Grenze mit
-            SHA-256 vor und nach dem Lauf gebunden. Der Lauf scheitert, wenn eine andere
-            Strategy, eine andere Konfiguration, Kerzen eines nicht angeforderten Pairs
-            oder ein unerwarteter Kindprozess verwendet wird.<br><br><strong>Keine
-            Testschleifen:</strong> Strategie-Logik, Parameter, Prüfmodus, Zeitraum und
-            das feste Protokoll bilden einen Fingerabdruck. Ein bereits vorhandener
-            Fingerabdruck wird vor Download und Simulation blockiert. Auch ein technisch
-            fehlgeschlagener Versuch mit Ergebnis-ZIP bleibt blockiert. Nur Version,
-            Kommentar oder Beschreibung zu ändern erzeugt keinen neuen Test.<br><br>
-            <strong>Alle 14 Backtests</strong> prüft Gesamtportfolio und alle sechs
-            Einzelpaare jeweils über 3 Jahre und 1 Jahr. Bereits vorhandene Zellen
-            werden sauber als Doppeltest übersprungen.
+            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.17-Strategie. Ein Entry-Block beträgt höchstens 80 USDT. Falls derselbe Coin später erneut ein vollständiges Entry-Signal erzeugt, darf die Simulation – genau wie der Paperbot – einen zweiten oder dritten 80-USDT-Block ergänzen.<br><br>
+            <strong>Alle 10 nacheinander:</strong> Der aktuell gewählte Zeitraum gilt für alle zehn Coins. Bei 2 Jahren entstehen also zehn voneinander unabhängige 2-Jahres-Backtests mit jeweils 250 USDT Startwert. Das entspricht nominell 2.500 USDT über zehn getrennte Simulationen, ist aber ausdrücklich <strong>kein gemeinsames 2.500-USDT-Portfolio</strong>.<br><br>
+            <strong>Getrennt vom Paperbot:</strong> Der laufende Paperbot besitzt nur ein gemeinsames 250-USDT-Wallet und insgesamt maximal drei 80-USDT-Blöcke über alle zehn Coins. Der spätere Gesamt-Systembacktest dieses gemeinsamen 3×80-Wallets ist ein eigener Test und gehört nicht zum Knopf „Alle 10 nacheinander“.
           </div>
         </div>
         <div id="tb-status" class="tb-panel tb-status">
@@ -196,20 +171,21 @@
           <div id="tb-error" class="tb-error"></div>
         </div>
         <div id="tb-results" class="tb-panel tb-results">
-          <div class="tb-result-head"><h2>Ergebnis</h2><div id="tb-result-meta" class="tb-result-meta"></div></div>
+          <div class="tb-result-head"><h2>Einzelergebnis</h2><div id="tb-result-meta" class="tb-result-meta"></div></div>
           <div id="tb-grid" class="tb-grid"></div>
           <div id="tb-note" class="tb-note"></div>
         </div>
         <div id="tb-batch-results" class="tb-panel tb-results">
-          <div class="tb-result-head"><h2>Alle 14 Backtests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
+          <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 Einzeltests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
-              <thead><tr><th>Test</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Kapitalzeit</th><th>Ohne Position</th><th>Status</th></tr></thead>
+              <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
               <tbody id="tb-batch-body"></tbody>
             </table>
           </div>
         </div>
       </div>`;
+
     document.body.appendChild(view);
     document.getElementById("tb-start").addEventListener("click", startBacktest);
     document.getElementById("tb-start-all").addEventListener("click", startAllBacktests);
@@ -227,7 +203,8 @@
     button.disabled = active;
     allButton.disabled = active;
     status.style.display = state.status === "idle" ? "none" : "block";
-    document.getElementById("tb-stage").textContent = state.stage || "Bereit";
+    const stageText = String(state.stage || "Bereit").replaceAll("V12.15", "V12.17");
+    document.getElementById("tb-stage").textContent = stageText;
     document.getElementById("tb-progress-text").textContent = `${Number(state.progress || 0)} %`;
     document.getElementById("tb-progress-bar").style.width = `${Math.max(0, Math.min(100, Number(state.progress || 0)))}%`;
 
@@ -249,7 +226,7 @@
       const tradesPerYear = (trades / days) * 365.25;
       const profitClass = profit > 0 ? "tb-positive" : profit < 0 ? "tb-negative" : "tb-neutral";
       results.style.display = "block";
-      document.getElementById("tb-result-meta").textContent = `${targetLabel(r.pair)} · ${r.years} Jahr${Number(r.years) === 1 ? "" : "e"} · ${r.timeframe} / Detail ${r.timeframe_detail}`;
+      document.getElementById("tb-result-meta").textContent = `${pairLabel(r.pair)} · ${r.years} Jahr${Number(r.years) === 1 ? "" : "e"} · Start 250 USDT`;
       document.getElementById("tb-grid").innerHTML = [
         resultCard("Gewinn / Verlust", money(profit), profitClass),
         resultCard("USDT / Tag", money(profitPerDay), profitClass),
@@ -260,53 +237,48 @@
         resultCard("Profit Factor", Number(r.profit_factor || 0).toFixed(2), Number(r.profit_factor) >= 1 ? "tb-positive" : "tb-negative"),
         resultCard("Trefferquote", `${Number(r.winrate_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
-        resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral"),
-        resultCard("Kapitalzeit genutzt", `${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %`, "tb-neutral"),
-        resultCard("Zeit ohne Position", `${Number(r.no_position_time_pct || 0).toFixed(2)} %`, "tb-neutral"),
-        resultCard("Ø offene Positionen", Number(r.average_open_positions || 0).toFixed(3), "tb-neutral"),
-        resultCard("Max. gleichzeitig", String(Number(r.max_simultaneous_positions || 0)), "tb-neutral")
+        resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral")
       ].join("");
-      const independence = r.cross_pair_context === false ? "Signale bleiben pair-lokal: ja" : "Pair-Lokalität nicht bestätigt";
-      const target = profitPerDay > 1 ? "Stretch-Ziel >1 USDT/Tag erreicht" : "Stretch-Ziel >1 USDT/Tag noch nicht erreicht";
+
       const entries = breakdownText(r.entry_tag_breakdown, "Keine Entry-Attribution verfügbar");
       const exits = breakdownText(r.exit_reason_breakdown, "Keine Exit-Attribution verfügbar");
       const experiment = r.experiment || {};
       const identity = r.test_identity || {};
       const fileAudit = r.execution_file_audit || {};
-      const auditText = fileAudit.passed
-        ? `${Number(fileAudit.observed_candle_files?.length || 0)} erwartete Candle-Dateien, exakte Strategy/Configs, keine fremde Repo-Datei und kein Kindprozess`
-        : "keine Dateiaudit-Bestätigung";
-      document.getElementById("tb-note").textContent = `Experiment ${experiment.experiment_id || "nicht angegeben"}; Vorgänger ${experiment.parent_experiment_id || "keiner"}. Geändert: ${experiment.change_summary || "nicht angegeben"}. Getestet wurde exakt ${r.strategy} mit Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… und Test-Fingerabdruck ${String(identity.test_fingerprint || "").slice(0, 16)}… . ${independence}. ${target}. Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). Kerzendaten: ${r.data_integrity_validated ? "Lücken/Duplikate/Abdeckung geprüft" : "keine Integritätsbestätigung"}. Dateiaudit: ${auditText}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      const auditText = fileAudit.passed ? "Datei-/Candle-Audit bestanden" : "keine Audit-Bestätigung";
+      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.17 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }
   }
 
-  function renderBatchResults(completed, total, currentLabel = "") {
+  function renderBatchResults(completed, total, years, currentLabel = "") {
     const panel = document.getElementById("tb-batch-results");
     const meta = document.getElementById("tb-batch-meta");
+    const title = document.getElementById("tb-batch-title");
     const body = document.getElementById("tb-batch-body");
-    if (!panel || !meta || !body) return;
+    if (!panel || !meta || !body || !title) return;
 
     panel.style.display = "block";
+    title.textContent = `Alle 10 Einzeltests · ${years} Jahr${years === 1 ? "" : "e"}`;
     meta.textContent = batchRunning
       ? `${completed}/${total} abgeschlossen${currentLabel ? ` · läuft: ${currentLabel}` : ""}`
-      : `${completed}/${total} abgeschlossen`;
+      : `${completed}/${total} abgeschlossen · je Test 250 USDT Startwert`;
 
     body.innerHTML = batchResults.map((item) => {
-      const label = `${targetLabel(item.pair)} · ${item.years} Jahr${item.years === 1 ? "" : "e"}`;
+      const label = pairLabel(item.pair);
       if (item.error) {
         if (item.skipped) {
-          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
+          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral">Doppeltest übersprungen</td></tr>`;
         }
-        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
+        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail">Fehler</td></tr>`;
       }
       const r = item.result;
       const profit = Number(r.profit_usdt || 0);
       const days = Math.max(1, Number(r.backtest_days || 0));
       const profitPerDay = profit / days;
       const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
-      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %</td><td>${Number(r.no_position_time_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
+      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.winrate_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">Fertig</td></tr>`;
     }).join("");
   }
 
@@ -382,6 +354,8 @@
     const allButton = document.getElementById("tb-start-all");
     const pairSelect = document.getElementById("tb-pair");
     const yearsSelect = document.getElementById("tb-years");
+    const years = Number(yearsSelect.value);
+    const cases = PAIRS.map(([pair]) => ({ pair, years }));
 
     try {
       const current = await fetchStatus();
@@ -402,14 +376,15 @@
     batchResults = [];
     singleButton.disabled = true;
     allButton.disabled = true;
-    renderBatchResults(0, BATCH_CASES.length, "wird vorbereitet");
+    pairSelect.disabled = true;
+    yearsSelect.disabled = true;
+    renderBatchResults(0, cases.length, years, "wird vorbereitet");
 
-    for (let index = 0; index < BATCH_CASES.length; index += 1) {
-      const test = BATCH_CASES[index];
-      const label = `${targetLabel(test.pair)} · ${test.years} Jahr${test.years === 1 ? "" : "e"}`;
+    for (let index = 0; index < cases.length; index += 1) {
+      const test = cases[index];
+      const label = pairLabel(test.pair);
       pairSelect.value = test.pair;
-      yearsSelect.value = String(test.years);
-      renderBatchResults(batchResults.length, BATCH_CASES.length, label);
+      renderBatchResults(batchResults.length, cases.length, years, label);
 
       try {
         const result = await startOneBacktest(test.pair, test.years);
@@ -417,13 +392,15 @@
       } catch (error) {
         batchResults.push({ ...test, error: String(error.message || error), skipped: Boolean(error.isDuplicate) });
       }
-      renderBatchResults(batchResults.length, BATCH_CASES.length, "");
+      renderBatchResults(batchResults.length, cases.length, years, "");
     }
 
     batchRunning = false;
     singleButton.disabled = false;
     allButton.disabled = false;
-    renderBatchResults(batchResults.length, BATCH_CASES.length, "");
+    pairSelect.disabled = false;
+    yearsSelect.disabled = false;
+    renderBatchResults(batchResults.length, cases.length, years, "");
     if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
   }
 
