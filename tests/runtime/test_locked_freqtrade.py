@@ -16,6 +16,7 @@ STRATEGY = (
     REPO_ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout250.py"
 )
 CONFIG = REPO_ROOT / "runtime" / "user_data" / "config.json"
+PUBLIC_OVERLAY = REPO_ROOT / "runtime" / "user_data" / "config-public.json"
 LIVE_OVERLAY = REPO_ROOT / "runtime" / "user_data" / "config-live.example.json"
 USER_DATA = REPO_ROOT / "runtime" / "user_data"
 
@@ -51,7 +52,31 @@ class LockedStrategyLoaderTests(unittest.TestCase):
             self.assertFalse(hasattr(strategy_type, "EVIL"))
             self.assertEqual(strategy_type.stoploss, -0.055)
 
-    def test_freqtrade_resolver_receives_exact_in_memory_class(self) -> None:
+    def test_freqtrade_resolver_receives_exact_in_memory_class_for_active_dryrun(self) -> None:
+        digest = hashlib.sha256(STRATEGY.read_bytes()).hexdigest()
+        strategy_type, source = _load_exact_strategy(
+            STRATEGY, digest, "CompressionBreakout250"
+        )
+        original_loader = StrategyResolver._load_strategy
+        try:
+            _install_exact_loader(strategy_type, source, "CompressionBreakout250")
+            config = Configuration(
+                {
+                    "config": [str(CONFIG), str(PUBLIC_OVERLAY)],
+                    "strategy": "CompressionBreakout250",
+                    "user_data_dir": str(USER_DATA),
+                },
+                RunMode.DRY_RUN,
+            ).get_config()
+            config["initial_state"] = "running"
+            loaded = StrategyResolver.load_strategy(config)
+            self.assertIs(type(loaded), strategy_type)
+            self.assertEqual(type(loaded).__authorized_source_sha256__, digest)
+            loaded.bot_start()
+        finally:
+            StrategyResolver._load_strategy = staticmethod(original_loader)
+
+    def test_unpromoted_live_overlay_cannot_start_v12_17_adjustment_contract(self) -> None:
         digest = hashlib.sha256(STRATEGY.read_bytes()).hexdigest()
         strategy_type, source = _load_exact_strategy(
             STRATEGY, digest, "CompressionBreakout250"
@@ -68,9 +93,8 @@ class LockedStrategyLoaderTests(unittest.TestCase):
                 RunMode.LIVE,
             ).get_config()
             loaded = StrategyResolver.load_strategy(config)
-            self.assertIs(type(loaded), strategy_type)
-            self.assertEqual(type(loaded).__authorized_source_sha256__, digest)
-            loaded.bot_start()
+            with self.assertRaisesRegex(RuntimeError, "execution safety contract failed"):
+                loaded.bot_start()
         finally:
             StrategyResolver._load_strategy = staticmethod(original_loader)
 
