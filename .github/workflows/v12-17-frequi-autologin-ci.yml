@@ -35,6 +35,12 @@ jobs:
         shell: powershell
         run: uv sync --frozen --all-extras --python 3.12
 
+      - name: Install official FreqUI
+        shell: powershell
+        run: |
+          .\.venv\Scripts\freqtrade.exe install-ui
+          if ($LASTEXITCODE -ne 0) { throw "FreqUI installation failed" }
+
       - name: Install external FreqUI login hook
         shell: powershell
         run: |
