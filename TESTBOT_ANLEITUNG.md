@@ -82,15 +82,14 @@ Diese Helfer sind keine alternativen Trading-Strategien.
 
 Der integrierte Backtest verwendet die tatsächlich aktive Strategy-Quelle. Details stehen in `BACKTEST_ANLEITUNG.md`.
 
-Für die Frage, wie sinnvoll die 250 USDT tatsächlich eingesetzt werden, ist
-`Alle 10 zusammen` maßgeblich: alle zehn Pairs teilen dort genau ein
-250-USDT-Konto mit höchstens drei 80-USDT-Blöcken. `Gewählten Coin testen`
-startet einen Einzeltest. `10 Einzeltests` führt zehn voneinander unabhängige
-Diagnosen aus, wobei jede Diagnose erneut mit 250 USDT beginnt; diese 2.500
-USDT dürfen nicht als gemeinsames Portfolioergebnis interpretiert werden. Die
-Oberfläche zeigt zusätzlich Kapitalzeit, Zeit ohne Position sowie
-durchschnittlich und maximal gleichzeitig offene Positionen, Entry-Blöcke und
-das maximal gebundene Kapital. Der Dateiaudit
+`Gewählten Coin testen` startet einen Lauf für die aktuelle Auswahl.
+`Alle 10 einzeln testen` führt automatisch zehn voneinander unabhängige Läufe
+nacheinander aus, wobei jeder Coin erneut mit 250 USDT beginnt; diese 2.500 USDT
+dürfen nicht als gemeinsames Portfolioergebnis interpretiert werden. Der
+gemeinsame Portfolio-Lauf bleibt intern für Replay/Audit verfügbar und wird
+nicht als dritter UI-Knopf gezeigt. Die Oberfläche zeigt zusätzlich Kapitalzeit,
+Zeit ohne Position sowie durchschnittlich und maximal gleichzeitig offene
+Positionen, Entry-Blöcke und das maximal gebundene Kapital. Der Dateiaudit
 stoppt einen Lauf, sobald eine unerwartete Strategy-, Config-, Candle- oder
 Repo-Datei beziehungsweise ein Kindprozess verwendet wird.
 

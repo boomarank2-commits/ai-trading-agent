@@ -103,17 +103,18 @@ def test_three_chunk_same_pair_logic_is_signal_gated_and_globally_capped() -> No
     assert "current_profit <= 0.0" in adjustment
 
 
-def test_backtest_ui_offers_single_pair_real_portfolio_and_diagnostic_matrix() -> None:
+def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() -> None:
     ui = _text(BACKTEST_UI)
     for pair in TEN_PAIRS:
         assert pair in ui
-    assert "Alle 10 zusammen" in ui
-    assert "10 Einzeltests" in ui
+    assert "Alle 10 einzeln testen" in ui
+    assert 'id="tb-start-all"' not in ui
+    assert "startPortfolioBacktest" not in ui
     assert "eigenen 250-USDT-Testwallet" in ui
-    assert "ein einziges 250-USDT-Wallet" in ui
+    assert "Jeder Coin beginnt mit eigenen 250 USDT" in ui
     assert "const years = Number(yearsSelect.value);" in ui
     assert "PAIRS.map(([pair]) => ({ pair, years }))" in ui
-    assert 'startOneBacktest("PORTFOLIO", years)' in ui
+    assert 'startOneBacktest("PORTFOLIO", years)' not in ui
     assert 'value="1"' in ui
     assert 'value="2"' in ui
     assert 'value="3"' in ui

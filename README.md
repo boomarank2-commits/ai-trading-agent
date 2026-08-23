@@ -58,11 +58,11 @@ Zeiträume nicht zu einer künstlichen Kapitalkurve. Neue identische UI-Läufe
 werden über einen inhaltlichen Fingerabdruck vor dem Start blockiert;
 Versions- oder Kommentaränderungen reichen nicht als neuer Versuch.
 
-Der UI-Backtest unterscheidet drei Aktionen: einen ausgewählten Coin mit 250
-USDT testen, alle zehn Coins gemeinsam mit einem einzigen 250-USDT-Wallet
-testen oder zehn getrennte 250-USDT-Diagnosen nacheinander ausführen. Nur
-`Alle 10 zusammen` ist der maßgebliche System-/Kapitalnutzungstest. Jeder Lauf
-protokolliert außerdem die tatsächlich
+Der UI-Backtest bietet zwei klare Aktionen: einen ausgewählten Coin mit eigenem
+250-USDT-Testwallet testen oder mit `Alle 10 einzeln testen` automatisch zehn
+getrennte 250-USDT-Läufe nacheinander ausführen. Der gemeinsame Portfolio-Lauf
+bleibt als interner Replay-/Audit-Pfad erhalten und ist kein normaler UI-Knopf.
+Jeder Lauf protokolliert außerdem die tatsächlich
 geöffnete Strategie und Konfigurationskette sowie die nativen Candle-Ladevorgänge
 mit Datei-Hash und bricht bei einer
 unerwarteten Repo-Datei oder einem Kindprozess ab.

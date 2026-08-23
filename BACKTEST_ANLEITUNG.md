@@ -17,7 +17,6 @@ V8-Baseline unter
 
 Im UI können getestet werden:
 
-- gemeinsames Portfolio aller zehn Paare mit einem einzigen 250-USDT-Konto
 - BTC/USDT
 - ETH/USDT
 - SOL/USDT
@@ -30,11 +29,15 @@ Im UI können getestet werden:
 - BCH/USDT
 - 1, 2 oder 3 Jahre
 
-Der Gesamtportfolio-Modus ist die maßgebliche Sicht auf die Nutzung der echten
-250 USDT: alle zehn Märkte konkurrieren gemeinsam um höchstens drei Entry-Blöcke
-zu je 80 USDT. Der UI-Knopf heißt `Alle 10 zusammen`. Die Einzelpaar-Läufe und
-der Knopf `10 Einzeltests` sind nur für Attribution und Diagnose; ihre Gewinne
-dürfen nicht als gemeinsames Konto addiert werden.
+Die normale Oberfläche hat bewusst nur zwei Startaktionen:
+
+- `Gewählten Coin testen`: ein ausgewählter Coin mit eigenem 250-USDT-Testwallet.
+- `Alle 10 einzeln testen`: zehn automatische Läufe nacheinander, jeder Coin mit
+  einem neuen eigenen 250-USDT-Testwallet.
+
+Die zehn Ergebnisse bleiben getrennt und dürfen nicht als gemeinsames Konto
+addiert werden. Der gemeinsame Portfolio-Lauf mit einem einzigen 250-USDT-Wallet
+bleibt als interner Replay-/Audit-Pfad erhalten, ist aber kein normaler UI-Knopf.
 
 Alle Signale bleiben **pair-lokal**. V12.18 injiziert kein BTC-Regime in andere
 Pairs. BTC und ETH behalten ihre markierten Trend-Reclaims; die übrigen acht

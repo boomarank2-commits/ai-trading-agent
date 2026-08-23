@@ -100,15 +100,18 @@ folgenden Bedingungen gleichzeitig erfüllt sind:
 Damit ist ein zusätzlicher Block echtes Pyramiding in einen steigenden Gewinner.
 Ein Verlust-Nachkauf oder ein tieferer Wiedereinstieg wird fail-closed abgelehnt.
 
-### Echter Zehn-Paare-Systemtest
+### Interner Zehn-Paare-Systemtest
 
-Der Button `Alle 10 zusammen` sendet das Ziel `PORTFOLIO`. Die Basisschnittstelle
-löst dieses Ziel auf exakt alle zehn Whitelist-Paare auf. Freqtrade erhält eine
-gemeinsame `--dry-run-wallet 250`, `max_open_trades = 3`, `stake_amount = 80`,
+Die Basisschnittstelle kann das interne Ziel `PORTFOLIO` weiterhin auf exakt
+alle zehn Whitelist-Paare auflösen. Freqtrade erhält dabei eine gemeinsame
+`--dry-run-wallet 250`, `max_open_trades = 3`, `stake_amount = 80`,
 1-Minuten-Detail, 0,2 Prozent Gebühr je Orderseite und aktivierte Protections.
+Dieser Pfad bleibt für Replay/Audit erhalten, wird aber nicht mehr als dritter
+Knopf in der normalen Oberfläche angeboten.
 
-Der Button `10 Einzeltests` bleibt für die separate Paarmatrix erhalten. Seine
-Ergebnisse dürfen nicht addiert und als gemeinsames Wallet ausgegeben werden.
+Der sichtbare Knopf `Alle 10 einzeln testen` startet die separate Paarmatrix.
+Seine Ergebnisse dürfen nicht addiert und als gemeinsames Wallet ausgegeben
+werden.
 
 ### Nachweis der tatsächlich genutzten Blöcke
 

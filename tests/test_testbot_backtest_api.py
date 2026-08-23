@@ -110,17 +110,18 @@ def test_pair_breakdown_includes_entry_chunk_attribution() -> None:
     ]
 
 
-def test_backtest_ui_offers_real_portfolio_and_ten_independent_diagnostics() -> None:
+def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
     for pair in TEN_PAIRS:
         assert pair in source
-    assert "Alle 10 zusammen" in source
-    assert "10 Einzeltests" in source
+    assert "Alle 10 einzeln testen" in source
+    assert 'id="tb-start-all"' not in source
+    assert "startPortfolioBacktest" not in source
     assert "eigenen 250-USDT-Testwallet" in source
-    assert "ein einziges 250-USDT-Wallet" in source
+    assert "Jeder Coin beginnt mit eigenen 250 USDT" in source
     assert "const years = Number(yearsSelect.value);" in source
     assert "PAIRS.map(([pair]) => ({ pair, years }))" in source
-    assert 'startOneBacktest("PORTFOLIO", years)' in source
+    assert 'startOneBacktest("PORTFOLIO", years)' not in source
     assert "runtime/user_data/data/binance" in source
     assert "ändert keine Parameter automatisch" in source
     assert "eigene, dokumentierte Parameter-Hypothese" in source
@@ -139,7 +140,7 @@ def test_backtest_ui_offers_real_portfolio_and_ten_independent_diagnostics() -> 
 
 def test_portfolio_target_is_exposed_as_one_shared_wallet_run() -> None:
     source = UI_SCRIPT.read_text(encoding="utf-8")
-    assert "PORTFOLIO" in source
+    assert "PORTFOLIO" not in source
     assert "PORTFOLIO" in api.ALLOWED_TARGETS
     assert "real ten-pair" in Path(
         adapter.__file__

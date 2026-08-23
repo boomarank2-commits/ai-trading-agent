@@ -109,21 +109,18 @@ Die UI bietet:
 - 2 Jahre
 - 3 Jahre
 
-`Backtest starten` testet genau den ausgewählten Coin.
+`Gewählten Coin testen` testet genau den ausgewählten Coin.
 
-`Alle 10 zusammen` startet den echten Systemtest: alle zehn Coins konkurrieren
-chronologisch um ein gemeinsames 250-USDT-Wallet und maximal drei 80-USDT-Blöcke.
-
-`10 Einzeltests` nimmt den aktuell gewählten Zeitraum und startet zusätzlich
-zehn unabhängige Diagnoseläufe. Jeder dieser zehn Läufe beginnt erneut mit 250
-USDT.
+`Alle 10 einzeln testen` nimmt den aktuell gewählten Zeitraum und startet
+automatisch zehn unabhängige Läufe nacheinander. Jeder Coin beginnt erneut mit
+250 USDT. Du musst den Startknopf daher nicht zehnmal drücken.
 
 Damit sind bei zehn Einzeltests nominell 10 × 250 = 2.500 USDT Startwerte im
 Spiel, aber **nicht als gemeinsames Portfolio**. Die Ergebnisse dürfen nicht
 addiert und als gemeinsame Kapitalkurve interpretiert werden.
 
-Der gemeinsame Zehn-Paare-Systembacktest ist damit kein späterer versteckter
-Testtyp mehr, sondern ein eigener sichtbarer UI-Ablauf.
+Der gemeinsame Zehn-Paare-Systembacktest bleibt für Replay und Audit intern
+erhalten. Er ist bewusst kein dritter Knopf im normalen Backtest-Bildschirm.
 
 ## Neue Paare und erste Strategiezuordnung
 
@@ -219,15 +216,14 @@ Für einen Einzeltest:
    Trefferquote, Tradezahl, tatsächliche Entry-Blöcke sowie Paar-/Entry-/Exit-
    Attribution.
 
-Für den echten gemeinsamen Systemtest:
+Für alle zehn getrennten Coin-Tests:
 
-`Alle 10 zusammen`
+`Alle 10 einzeln testen`
 
-Dieser Button startet `PORTFOLIO`: zehn Coins, ein gemeinsames 250-USDT-Wallet,
-maximal drei 80-USDT-Blöcke.
-
-`10 Einzeltests` startet dagegen die zehn unabhängigen Diagnosewallets
-nacheinander. Diese Ergebnisse bleiben getrennt vom Systemtest.
+Dieser Knopf startet zehn unabhängige 250-USDT-Testwallets nacheinander. Die
+Ergebnisse bleiben je Coin getrennt. Der interne `PORTFOLIO`-Pfad für zehn Coins
+mit einem gemeinsamen 250-USDT-Wallet bleibt ausschließlich für Replay/Audit
+erhalten und wird nicht als dritter UI-Knopf angeboten.
 
 Für lokale historische Werkzeuge existiert zusätzlich:
 
@@ -343,10 +339,10 @@ PAPERBOT:
 EINZEL-BACKTEST:
 1 Coin → eigenes 250-USDT-Testwallet → 1/2/3 Jahre.
 
-ALLE 10 NACHEINANDER:
+ALLE 10 EINZELN TESTEN:
 10 unabhängige Einzeltests → jeweils 250 USDT → gleicher ausgewählter Zeitraum.
 
-SYSTEMTEST (`Alle 10 zusammen`):
+INTERNER REPLAY-/AUDIT-SYSTEMTEST (kein UI-Knopf):
 10 Coins gemeinsam → 1 Wallet 250 USDT → maximal 3×80 insgesamt.
 ```
 

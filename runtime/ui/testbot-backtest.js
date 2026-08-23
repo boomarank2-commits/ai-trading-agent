@@ -63,7 +63,6 @@
   }
 
   function pairLabel(pair) {
-    if (pair === "PORTFOLIO") return "Alle 10 zusammen · gemeinsames 250-USDT-Wallet";
     const found = PAIRS.find(([value]) => value === pair);
     return found ? `${found[1]} · ${found[0]}` : pair;
   }
@@ -166,7 +165,7 @@
       </style>
       <div class="tb-wrap">
         <h1 class="tb-title">Backtest · 10 Kryptowährungen</h1>
-        <p class="tb-sub">Ein Coin kann mit eigenen 250 USDT getestet werden. Der gemeinsame Systemtest lässt alle zehn Coins um dasselbe 250-USDT-Wallet und höchstens drei 80-USDT-Blöcke konkurrieren.</p>
+        <p class="tb-sub">Teste einen ausgewählten Coin oder starte alle zehn Coins automatisch nacheinander. Jeder Einzeltest verwendet ein eigenes 250-USDT-Testwallet und dieselben aktuellen Bot-Regeln.</p>
         <div class="tb-panel">
           <div class="tb-row">
             <div class="tb-field">
@@ -183,16 +182,14 @@
             </div>
             <div class="tb-actions">
               <button id="tb-start" class="tb-button">Gewählten Coin testen</button>
-              <button id="tb-start-all" class="tb-button">Alle 10 zusammen</button>
-              <button id="tb-start-matrix" class="tb-button tb-button-secondary">10 Einzeltests</button>
+              <button id="tb-start-matrix" class="tb-button tb-button-secondary">Alle 10 einzeln testen</button>
             </div>
           </div>
           <div class="tb-info">
             <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.18-Strategie.<br><br>
             <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
-            <strong>Alle 10 zusammen:</strong> Das ist der echte Systemtest des Paperbots. Alle zehn Coins teilen sich ein einziges 250-USDT-Wallet; gleichzeitig sind höchstens drei Entry-Blöcke zu je maximal 80 USDT beziehungsweise 240 USDT Gesamteinsatz erlaubt.<br><br>
-            <strong>Mehrere Blöcke im selben Coin:</strong> Ein zweiter oder dritter Block ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
-            <strong>10 Einzeltests:</strong> Führt für die Diagnose zehn getrennte Tests mit jeweils eigenen 250 USDT aus. Diese Matrix ist kein gemeinsames Portfolio und wird in der Auswertung getrennt gekennzeichnet.<br><br>
+            <strong>Alle 10 einzeln testen:</strong> Startet automatisch zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT; du musst den Backtest nicht zehnmal von Hand starten. Die Ergebnisse werden je Coin getrennt ausgewertet.<br><br>
+            <strong>Kapitalregel je Einzeltest:</strong> Ein zweiter oder dritter 80-USDT-Block im selben Coin ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
             <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
         </div>
@@ -208,7 +205,7 @@
           <div id="tb-note" class="tb-note"></div>
         </div>
         <div id="tb-batch-results" class="tb-panel tb-results">
-          <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 Einzeltests</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
+          <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 einzeln</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
               <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
@@ -221,7 +218,6 @@
     document.body.appendChild(view);
     syncBacktestTop(view);
     document.getElementById("tb-start").addEventListener("click", startBacktest);
-    document.getElementById("tb-start-all").addEventListener("click", startPortfolioBacktest);
     document.getElementById("tb-start-matrix").addEventListener("click", startAllBacktests);
     return view;
   }
@@ -230,13 +226,11 @@
     const status = document.getElementById("tb-status");
     const results = document.getElementById("tb-results");
     const button = document.getElementById("tb-start");
-    const allButton = document.getElementById("tb-start-all");
     const matrixButton = document.getElementById("tb-start-matrix");
-    if (!status || !results || !button || !allButton || !matrixButton) return;
+    if (!status || !results || !button || !matrixButton) return;
 
     const active = state.status === "running" || batchRunning;
     button.disabled = active;
-    allButton.disabled = active;
     matrixButton.disabled = active;
     status.style.display = state.status === "idle" ? "none" : "block";
     const stageText = String(state.stage || "Bereit");
@@ -314,7 +308,7 @@
     if (!panel || !meta || !body || !title) return;
 
     panel.style.display = "block";
-    title.textContent = `Alle 10 Einzeltests · ${years} Jahr${years === 1 ? "" : "e"}`;
+    title.textContent = `Alle 10 einzeln · ${years} Jahr${years === 1 ? "" : "e"}`;
     meta.textContent = batchRunning
       ? `${completed}/${total} abgeschlossen${currentLabel ? ` · läuft: ${currentLabel}` : ""}`
       : `${completed}/${total} abgeschlossen · je Test 250 USDT Startwert`;
@@ -378,10 +372,8 @@
     const pair = document.getElementById("tb-pair").value;
     const years = Number(document.getElementById("tb-years").value);
     const button = document.getElementById("tb-start");
-    const allButton = document.getElementById("tb-start-all");
     const matrixButton = document.getElementById("tb-start-matrix");
     button.disabled = true;
-    allButton.disabled = true;
     matrixButton.disabled = true;
     try {
       const response = await fetch("/api/v1/testbot/backtest/start", {
@@ -400,18 +392,7 @@
     } catch (error) {
       renderState({ status: "failed", stage: error.isDuplicate ? "Doppeltest blockiert" : "Fehler", progress: 100, error: String(error.message || error) });
       button.disabled = false;
-      allButton.disabled = false;
       matrixButton.disabled = false;
-    }
-  }
-
-  async function startPortfolioBacktest() {
-    if (batchRunning) return;
-    const years = Number(document.getElementById("tb-years").value);
-    try {
-      await startOneBacktest("PORTFOLIO", years);
-    } catch (error) {
-      renderState({ status: "failed", stage: error.isDuplicate ? "Doppeltest blockiert" : "Fehler", progress: 100, error: String(error.message || error) });
     }
   }
 
@@ -419,7 +400,6 @@
     if (batchRunning) return;
 
     const singleButton = document.getElementById("tb-start");
-    const allButton = document.getElementById("tb-start-all");
     const matrixButton = document.getElementById("tb-start-matrix");
     const pairSelect = document.getElementById("tb-pair");
     const yearsSelect = document.getElementById("tb-years");
@@ -444,7 +424,6 @@
     batchRunning = true;
     batchResults = [];
     singleButton.disabled = true;
-    allButton.disabled = true;
     matrixButton.disabled = true;
     pairSelect.disabled = true;
     yearsSelect.disabled = true;
@@ -467,7 +446,6 @@
 
     batchRunning = false;
     singleButton.disabled = false;
-    allButton.disabled = false;
     matrixButton.disabled = false;
     pairSelect.disabled = false;
     yearsSelect.disabled = false;

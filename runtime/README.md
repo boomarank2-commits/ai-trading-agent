@@ -96,11 +96,11 @@ Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
-Der UI-Knopf `Alle 10 zusammen` simuliert alle zehn Pairs gemeinsam mit genau
-einem 250-USDT-Wallet und den bestehenden Positionsgrenzen. `10 Einzeltests`
-führt dagegen zehn unabhängige 250-USDT-Diagnosen aus; deren Startkapital darf
-nicht addiert und als gemeinsames Portfolio interpretiert werden. Ergebnis und
-Gesamtauswertung weisen zusätzlich
+Der UI-Knopf `Alle 10 einzeln testen` führt zehn unabhängige 250-USDT-Läufe
+nacheinander aus; deren Startkapital darf nicht addiert und als gemeinsames
+Portfolio interpretiert werden. Ein gemeinsamer Zehn-Paare-Lauf mit einem
+250-USDT-Wallet bleibt als interner Replay-/Audit-Pfad erhalten und wird nicht
+als normaler UI-Knopf angeboten. Ergebnis und Gesamtauswertung weisen zusätzlich
 Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
 gleichzeitig offene Positionen, Entry-Blöcke und maximal gebundenes Kapital aus.
 
