@@ -80,6 +80,18 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "show-config" in source
     assert "effectiveSettings.capital_usdt" in source
     assert "$environmentAllowlist" in source
+    allowlist_block = source.partition("$environmentAllowlist = @(")[2].partition(
+        "Get-ChildItem Env:"
+    )[0]
+    for local_api_key in (
+        "FREQTRADE__API_SERVER__USERNAME",
+        "FREQTRADE__API_SERVER__PASSWORD",
+        "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+        "FREQTRADE__API_SERVER__WS_TOKEN",
+    ):
+        assert f'"{local_api_key}"' in allowlist_block
+    assert "FREQTRADE__EXCHANGE__KEY" not in allowlist_block
+    assert "FREQTRADE__EXCHANGE__SECRET" not in allowlist_block
     assert '"PYTHONDONTWRITEBYTECODE"' in source
     assert '"PYTHONUTF8"' in source
     assert "$environmentWasMinimized = $true" in source

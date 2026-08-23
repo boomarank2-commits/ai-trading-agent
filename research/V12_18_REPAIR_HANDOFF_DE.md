@@ -239,3 +239,22 @@ von Git ignorierte lokale Passwortdatei, startet den Bot damit aber noch nicht.
 Der Nutzer setzt zuerst über `PASSWORT_AENDERN.bat` ein eigenes Passwort und
 startet danach erneut. Diese Änderung betrifft nur den nächsten lokalen Start;
 eine bereits laufende Bot-Instanz wurde nicht angefasst.
+
+## Reparatur der leeren FreqUI
+
+Die leere Trade-/Dashboard-/Chart-Ansicht war kein Zehn-Paare- oder
+Strategiefehler. Der laufende Bot meldete über seine API zehn Whitelist-Paare,
+Dry-run und eine aktive Paper-Position. Die API akzeptierte aber den öffentlich
+dokumentierten Platzhalter `LOCAL_ENV_REQUIRED` statt des lokalen Passworts.
+Ursache war die Prozess-Umgebungsbereinigung in
+`runtime/scripts/start-testbot-24x7.ps1`: Sie entfernte vor dem Freqtrade-Start
+auch die vier ausdrücklich erlaubten lokalen `FREQTRADE__API_SERVER__*`-Werte.
+Damit konnte die FreqUI-Autoanmeldung keine Markt-, Paar-, Chart- oder
+Dashboarddaten laden, während die getrennte Backtest-Seite sichtbar blieb.
+
+Der Startvertrag bewahrt jetzt ausschließlich Benutzername, Passwort,
+JWT-Secret und WebSocket-Token der an `127.0.0.1` gebundenen FreqUI. Exchange-
+Schlüssel und fremde Cloud-/API-Geheimnisse bleiben aus dem Kindprozess
+entfernt. Ein Regressionstest prüft beide Seiten dieses Vertrags. Die
+Korrektur wird erst beim nächsten kontrollierten Neustart aktiv; der während
+der Diagnose laufende Paper-Bot und seine Position wurden nicht verändert.
