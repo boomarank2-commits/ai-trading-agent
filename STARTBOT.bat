@@ -11,7 +11,8 @@ echo ================================================================
 echo.
 echo V12.30 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
 echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
-echo SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH handeln zunaechst den Broad-Core-Donchian-Pfad.
+echo SOL/XRP/BNB/LINK/TRX/LTC/BCH handeln den Broad-Core-Donchian-Pfad.
+echo DOGE nutzt den kausal geprueften Supertrend-Ausbruch mit steigendem EMA100.
 echo Nur SOL verlangt dabei zusaetzlich einen 4h-ADX von mindestens 21.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
 echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitten.
