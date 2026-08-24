@@ -5,9 +5,10 @@
 > Fehler fest: „Alle 10“ waren zehn unabhängige 250-USDT-Läufe statt des vom
 > Paperbot gespiegelten gemeinsamen Portfolios; außerdem war das Aufstocken
 > nicht sicher auf Gewinner begrenzt. V12.18 korrigierte den Sicherheitsfehler;
-> V12.19 ergänzt die dauerhafte Lernakte und Laufzeitreparatur. Der aktuelle
-> technische Stand, Begründungen und nächste Prüfungen stehen in
-> [`../research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`](../research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md)
+> V12.19 ergänzte die dauerhafte Lernakte und Laufzeitreparatur; V12.20
+> korrigiert die schädliche Zusatzblock-Verteilung. Der aktuelle technische
+> Stand, Begründungen und nächste Prüfungen stehen in
+> [`../research/V12_20_SELECTIVE_PYRAMID_DE.md`](../research/V12_20_SELECTIVE_PYRAMID_DE.md)
 > und [`../START_HERE_DE.md`](../START_HERE_DE.md). Die folgenden Abschnitte
 > bleiben ausschließlich als historische, nicht 1:1 zu wiederholende Evidenz
 > erhalten.

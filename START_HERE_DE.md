@@ -1,6 +1,6 @@
-# Start hier: V12.19-Zehn-Paare-Testbot und Research-System
+# Start hier: V12.20-Zehn-Paare-Testbot und Research-System
 
-Stand: 23.08.2026
+Stand: 24.08.2026
 
 ## Aktueller Stand
 
@@ -8,10 +8,10 @@ Die eingefrorene historische Research-Baseline bleibt `CompressionBreakout250` /
 V8 unter `research/baselines/V8/`.
 
 Der aktuelle Paper-/Dry-run-Kandidat ist jedoch
-`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.19** auf dem
+`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.20** auf dem
 Arbeitsbranch `agent/v12-17-ten-pair-research-ui`.
 
-V12.19 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
+V12.20 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
 Spot-Paare:
 
 - BTC/USDT
@@ -29,17 +29,19 @@ Der Paperbot besitzt **ein einziges gemeinsames 250-USDT-Wallet**. Ein Entry-
 Block ist maximal 80 USDT groß. Insgesamt dürfen höchstens 240 USDT bzw. drei
 80-USDT-Blöcke gleichzeitig gebunden sein.
 
-Ein bereits offener Coin darf einen zweiten oder dritten 80-USDT-Block erhalten,
-aber nur wenn auf einer späteren Candle erneut ein vollständiges normales
-Entry-Signal entsteht, der Trade im Gewinn liegt und der neue Preis über allen
-früheren Entry-Fills liegt. Verlust-Nachkauf und Martingale sind gesperrt.
+BTC, ETH, LINK und TRX dürfen in einem bereits offenen Trade einen zweiten oder
+dritten 80-USDT-Block erhalten, aber nur wenn auf einer späteren Candle erneut
+ein vollständiges normales Entry-Signal entsteht, der Trade im Gewinn liegt
+und der neue Preis über allen früheren Entry-Fills liegt. Die anderen sechs
+Coins behalten normale erste Entries, aber keine Zusatzblöcke. Verlust-Nachkauf
+und Martingale sind gesperrt.
 
 Status:
 
-**V12.19 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
+**V12.20 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
 
 Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
-Position-Adjustment-Vertrag. Dadurch darf V12.19 nicht versehentlich als
+Position-Adjustment-Vertrag. Dadurch darf V12.20 nicht versehentlich als
 Echtgeldbot starten.
 
 ## Wichtige historische Referenzen
@@ -67,6 +69,11 @@ Die aktuelle V12.18-Reparaturübergabe steht in:
 Die darauf aufbauende V12.19-Laufzeit-/Lernübergabe steht in:
 
 `research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
+
+Die aktuelle finanzielle V12.20-Entscheidung und der genaue nächste Zyklus
+stehen in:
+
+`research/V12_20_SELECTIVE_PYRAMID_DE.md`
 
 Die frühere V12.17-Roadmap bleibt als historische Fehler- und Herkunftsakte
 unter `research/V12_17_CONTINUATION_HANDOFF_DE.md` erhalten.
@@ -119,7 +126,7 @@ Die UI bietet:
 automatisch zehn unabhängige Läufe nacheinander. Jeder Coin beginnt erneut mit
 250 USDT. Du musst den Startknopf daher nicht zehnmal drücken.
 
-V12.19 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
+V12.20 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
 zum lokalen Bot-Server und nicht zur gerade sichtbaren Browserseite: Du kannst
 zwischen Trade, Dashboard, Chart, Logs und Backtest wechseln, ohne den Batch zu
 stoppen. Nach einem Bot-Neustart wird ein unvollständiger Batch als fortsetzbar
@@ -135,7 +142,7 @@ erhalten. Er ist bewusst kein dritter Knopf im normalen Backtest-Bildschirm.
 
 ## Neue Paare und erste Strategiezuordnung
 
-LINK, TRX, LTC und BCH starten in V12.19 weiterhin auf dem bereits vorhandenen
+LINK, TRX, LTC und BCH starten in V12.20 weiterhin auf dem bereits vorhandenen
 Broad-Core-Donchian-Pfad, den auch SOL/XRP/BNB/DOGE verwenden.
 
 BTC und ETH behalten ihre spezialisierten Champion-/Reclaim-Pfade aus dem
@@ -146,17 +153,19 @@ Die vier neuen Coins werden nicht sofort auf bereits angesehene Historie
 pair-spezifische Parameter oder Signalpfade einzeln, vorregistriert und mit
 klarer Begründung angepasst werden.
 
-## Mehrere Entries im selben Pair
+## Selektive weitere Entries im selben Pair
 
-V12.19 verwendet für den Paper-/Backtest-Kandidaten:
+V12.20 verwendet technisch für den Paper-/Backtest-Kandidaten:
 
 ```text
 position_adjustment_enable = true
 max_entry_position_adjustment = 2
 ```
 
-Dadurch kann ein offener Freqtrade-Trade bis zu drei erfolgreiche Entry-Orders
-enthalten.
+Dadurch kann ein offener Freqtrade-Trade bei BTC, ETH, LINK und TRX bis zu drei
+erfolgreiche Entry-Orders enthalten. Für SOL, XRP, BNB, DOGE, LTC und BCH gibt
+`adjust_trade_position()` immer `None` zurück; diese Coins dürfen aber weiterhin
+ihren normalen ersten Trade eröffnen.
 
 Zusätzliche Sicherheitslogik prüft:
 
@@ -247,7 +256,7 @@ HISTORISCHER_BACKTEST.bat
 ## Historischer V8-Full-System-Replay
 
 Der bestehende V8-Replay bleibt eine eingefrorene historische Drei-Paare-
-Research-Evidenz und wird nicht auf V12.19 umetikettiert.
+Research-Evidenz und wird nicht auf V12.20 umetikettiert.
 
 Er handelt weiterhin nur:
 
@@ -306,7 +315,8 @@ Aktuell zwingend:
 - kein Futures/Margin;
 - pro Entry höchstens 80 USDT;
 - global höchstens 240 USDT offen;
-- höchstens drei erfolgreiche Entries je Pair;
+- höchstens drei erfolgreiche Entries bei BTC/ETH/LINK/TRX, sonst genau ein
+  erster Entry je offenem Trade;
 - Zusatz-Entry nur auf einem neuen Signal;
 - kein blindes DCA/Martingale;
 - Hard-Stop -5,5 %;
@@ -321,20 +331,21 @@ Aktuell zwingend:
 ## Nächste Reihenfolge
 
 1. Die aktuell grünen CI-/Runtime-/Safety-Checks bei jeder Änderung grün halten.
-2. BTC 1 Jahr nicht wiederholen; der formale Lauf war technisch korrekt, aber
-   mit 250 → 248,1414 USDT finanziell negativ.
-3. V12.19 im Paperbetrieb mit allen zehn Coins laufen lassen.
-4. Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
-5. LINK, TRX, LTC und BCH über 1/2/3 Jahre einzeln diagnostizieren.
-6. Den sichtbaren gemeinsamen 250/3×80-Zehn-Paare-Systemtest für 1/2/3 Jahre ausführen.
-7. Pair-spezifische Änderungen nur einzeln und vorregistriert durchführen.
-8. Fee-/Stress-/Walk-Forward-/PBO-/DSR-/Paritäts-Gates schließen.
-9. Erst danach über Live-Promotion oder spätere Erhöhung von Stake/Slotzahl
+2. Den exakten V12.20-Kandidaten im Paperbetrieb mit allen zehn Coins laufen
+   lassen; fertig gespeicherte identische Backtests nicht wiederholen.
+3. V12.20 für die noch fehlenden 1-/2-/3-Jahres-Fingerprints je Coin messen.
+4. Selektives Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
+5. SOL, LTC und BCH nacheinander mit jeweils genau einer neuen,
+   vorregistrierten Hypothese untersuchen. V12.21 nicht wiederholen.
+6. Jede neue Pair-Verbesserung anschließend im gemeinsamen
+   250/3×80-Zehn-Paare-Systemtest prüfen.
+7. Fee-/Stress-/Walk-Forward-/PBO-/DSR-/Paritäts-Gates schließen.
+8. Erst danach über Live-Promotion oder spätere Erhöhung von Stake/Slotzahl
    entscheiden.
 
 `NO_TRADE` bleibt der sichere Standard bei unsicheren Daten, Regimen oder
 Signalen. ORB-Retest und Ichimoku bleiben getrennte spätere Research-Challenger
-und werden nicht ohne eigenes Experiment in V12.19 eingebaut.
+und werden nicht ohne eigenes Experiment in V12.20 eingebaut.
 
 ## Wichtig für spätere GPT-/Codex-Runden
 
@@ -362,3 +373,5 @@ INTERNER REPLAY-/AUDIT-SYSTEMTEST (kein UI-Knopf):
 Aktuelle Übergabe:
 
 `research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
+
+`research/V12_20_SELECTIVE_PYRAMID_DE.md`

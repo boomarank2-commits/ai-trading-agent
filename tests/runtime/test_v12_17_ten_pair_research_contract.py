@@ -30,7 +30,7 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_active_v12_19_python_files_are_syntax_valid() -> None:
+def test_active_v12_20_python_files_are_syntax_valid() -> None:
     for path in (STRATEGY, BACKTEST_API, LOCKED_RUNTIME):
         ast.parse(_text(path), filename=str(path))
 
@@ -51,7 +51,7 @@ def test_active_paper_config_is_exact_ten_pair_250_80_3_contract() -> None:
 
 def test_active_strategy_expands_broad_core_and_keeps_btc_eth_special_paths() -> None:
     text = _text(STRATEGY)
-    assert 'STRATEGY_VERSION = "V12.19"' in text
+    assert 'STRATEGY_VERSION = "V12.20"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert '"ADA/USDT"' not in text
@@ -88,7 +88,7 @@ def test_three_chunk_same_pair_logic_is_signal_gated_and_globally_capped() -> No
         "date_last_filled_utc",
         "Trade.total_open_trades_stakes()",
         "> self.MAX_TOTAL_EXPOSURE_USDT + 1e-6",
-        "profit_pyramid_chunk",
+        "selective_pyramid_chunk",
         "current_profit <= 0.0",
         "current_entry_profit <= 0.0",
         "select_filled_orders",
@@ -101,6 +101,21 @@ def test_three_chunk_same_pair_logic_is_signal_gated_and_globally_capped() -> No
         "def custom_stoploss(", 1
     )[0]
     assert "current_profit <= 0.0" in adjustment
+
+
+def test_v12_20_reserves_profit_pyramids_for_the_four_proven_pairs() -> None:
+    text = _text(STRATEGY)
+    pyramid_block = text.split("PYRAMIDING_PAIRS", maxsplit=1)[1].split(
+        "BROAD_CORE_PAIRS", maxsplit=1
+    )[0]
+    for pair in ("BTC/USDT", "ETH/USDT", "LINK/USDT", "TRX/USDT"):
+        assert f'"{pair}"' in pyramid_block
+    for pair in ("SOL/USDT", "XRP/USDT", "BNB/USDT", "DOGE/USDT", "LTC/USDT", "BCH/USDT"):
+        assert f'"{pair}"' not in pyramid_block
+    adjustment = text.split("def adjust_trade_position(", 1)[1].split(
+        "def custom_stoploss(", 1
+    )[0]
+    assert "trade.pair not in self.PYRAMIDING_PAIRS" in adjustment
 
 
 def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() -> None:
@@ -131,7 +146,8 @@ def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio
     assert "base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE" in api
     assert "base.PORTFOLIO_TARGET" in api
     assert "real ten-pair" in api
-    assert 'base.STRATEGY_VERSION = "V12.19"' in api
+    assert 'base.STRATEGY_VERSION = "V12.20"' in api
+    assert 'ACTIVE_EXPERIMENT_ID = "V12.20-SELECTIVE-PYRAMID-ELIGIBILITY"' in api
     assert '"batch-plan.json"' in api
     assert '"batch-result.json"' in api
 

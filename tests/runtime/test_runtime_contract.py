@@ -69,9 +69,15 @@ def test_active_paper_config_is_ten_pair_spot_and_three_80_chunks() -> None:
     assert config["pairlists"] == [{"method": "StaticPairList"}]
 
 
-def test_active_strategy_matches_v12_19_cap_and_adjustment_contract() -> None:
+def test_active_strategy_matches_v12_20_cap_and_adjustment_contract() -> None:
     source, cls = _strategy_class()
-    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.19"
+    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.20"
+    assert _literal_assignment(cls, "PYRAMIDING_PAIRS") == {
+        "BTC/USDT",
+        "ETH/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+    }
     assert _literal_assignment(cls, "position_adjustment_on_new_strategy_candle_only") is True
     assert _literal_assignment(cls, "can_short") is False
     assert _literal_assignment(cls, "position_adjustment_enable") is True
@@ -85,7 +91,7 @@ def test_active_strategy_matches_v12_19_cap_and_adjustment_contract() -> None:
     assert "Trade.total_open_trades_stakes()" in source
     assert "Trade.get_open_trade_count()" in source
     assert "date_last_filled_utc" in source
-    assert "profit_pyramid_chunk" in source
+    assert "selective_pyramid_chunk" in source
     assert "current_profit <= 0.0" in source
     assert "select_filled_orders" in source
     assert "enter_short" not in source

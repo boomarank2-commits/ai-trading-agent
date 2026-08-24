@@ -29,11 +29,11 @@ def _lf_sha256(path: Path) -> str:
     return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_baseline_is_preserved_and_v12_19_is_active_paper_candidate() -> None:
+def test_v8_baseline_is_preserved_and_v12_20_is_active_paper_candidate() -> None:
     assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
 
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.19"' in text
+    assert 'STRATEGY_VERSION = "V12.20"' in text
     assert "PAIR_PROFILES" in text
     assert "RECLAIM_PROFILES" in text
     assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
@@ -49,7 +49,7 @@ def test_v8_baseline_is_preserved_and_v12_19_is_active_paper_candidate() -> None
     assert "stoploss_from_open" in text
     assert "v12_17_" in text
     assert "def adjust_trade_position(" in text
-    assert "profit_pyramid_chunk" in text
+    assert "selective_pyramid_chunk" in text
     assert "current_profit <= 0.0" in text
     assert '"only_per_pair": True' in text
 

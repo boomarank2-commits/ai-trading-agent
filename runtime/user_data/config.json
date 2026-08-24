@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "v12-19-ten-pair-250-dryrun",
+  "bot_name": "v12-20-ten-pair-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,

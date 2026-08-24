@@ -162,13 +162,14 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
         current_entry_profit: float | None = None,
         current_rate: float = 10.0,
         filled_rates: tuple[float, ...] = (9.0,),
+        pair: str = "LINK/USDT",
     ):
         signal_time = datetime(2026, 8, 23, 9, 15, tzinfo=UTC)
         self.strategy.dp = _DataProvider(
             pd.DataFrame([{"date": signal_time, "enter_long": signal}])
         )
         trade = SimpleNamespace(
-            pair="LINK/USDT",
+            pair=pair,
             has_open_orders=False,
             nr_of_successful_entries=entries,
             date_last_filled_utc=last_filled,
@@ -206,7 +207,7 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
             open_stake=80.0,
             signal=1,
         )
-        self.assertEqual(result, (80.0, "v12_18_link_profit_pyramid_chunk"))
+        self.assertEqual(result, (80.0, "v12_20_link_selective_pyramid_chunk"))
 
         self.assertIsNone(
             self._adjust_trade(
@@ -272,6 +273,20 @@ class StrategyRuntimeGuardTests(unittest.TestCase):
                 filled_rates=(9.0,),
             )
         )
+
+    def test_noneligible_pairs_keep_first_entries_but_never_receive_extra_chunks(self) -> None:
+        last = datetime(2026, 8, 23, 8, 45, tzinfo=UTC)
+        for pair in ("SOL/USDT", "XRP/USDT", "BNB/USDT", "DOGE/USDT", "LTC/USDT", "BCH/USDT"):
+            self.assertIsNone(
+                self._adjust_trade(
+                    entries=1,
+                    last_filled=last,
+                    open_stake=80.0,
+                    signal=1,
+                    pair=pair,
+                ),
+                pair,
+            )
 
     def test_entry_guard_rejects_weakened_adjustment_and_market_contract(self) -> None:
         for key, unsafe in (

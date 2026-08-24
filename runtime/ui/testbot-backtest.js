@@ -202,7 +202,7 @@
             </div>
           </div>
           <div class="tb-info">
-            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.19-Strategie.<br><br>
+            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.20-Strategie.<br><br>
             <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
             <strong>Alle 10 einzeln testen:</strong> Startet serverseitig zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT. Plan, Fortschritt, Vorher/Nachher-Vergleich und Ergebnis werden dauerhaft gespeichert; ein Neuladen der UI unterbricht die Warteschlange nicht.<br><br>
             <strong>Kapitalregel je Einzeltest:</strong> Ein zweiter oder dritter 80-USDT-Block im selben Coin ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
@@ -317,7 +317,7 @@
         ? `Vorgänger ${previous.strategy_version || "?"} / ${previous.run_id || "?"}: ${money(previous.profit_usdt)}. Änderung: ${money(delta.profit_usdt)} · Trades ${Number(delta.trades || 0) >= 0 ? "+" : ""}${Number(delta.trades || 0)} · Drawdown ${Number(delta.max_drawdown_pct || 0) >= 0 ? "+" : ""}${Number(delta.max_drawdown_pct || 0).toFixed(2)} Punkte. ${historical.assessment_de || ""}`
         : (historical.assessment_de || "Kein älterer gleicher Pair-/Zeitraumvergleich vorhanden.");
       const timingText = `Daten ${durationText(timing.market_data_seconds)} · Simulation ${durationText(timing.simulation_seconds)} · Auswertung ${durationText(timing.analysis_seconds)} · Gesamt ${durationText(timing.total_seconds)}`;
-      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.19 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.20 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }

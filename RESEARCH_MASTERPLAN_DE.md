@@ -26,10 +26,10 @@ Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backte
 Klarstellung zum aktuellen Repository-Stand vom 24.08.2026: „Champion“ bezeichnet
 hier die unveränderte Forschungsreferenz unter `research/baselines/V8/`, nicht
 die gerade von `STARTBOT.bat` geladene Datei. Der aktive, separat registrierte
-Paper-/Dry-run-Kandidat ist V12.19. Sein genauer technischer Stand, seine
-Vorgängerkette und die noch offenen finanziellen Prüfungen stehen in
-`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`. V12.19 ist nicht als neuer
-Champion und nicht für Echtgeld promoviert.
+Paper-/Dry-run-Kandidat ist V12.20. Sein genauer technischer Stand, seine
+Vorgängerkette und die noch offenen Robustheitsprüfungen stehen in
+`research/V12_20_SELECTIVE_PYRAMID_DE.md`. V12.20 ist nicht als neuer Champion
+und nicht für Echtgeld promoviert.
 
 Sicherheitsvertrag der eingefrorenen V8-Referenz:
 

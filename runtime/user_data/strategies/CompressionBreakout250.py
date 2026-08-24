@@ -1,4 +1,4 @@
-"""V12.19 ten-pair paper strategy with a global three-chunk capital budget.
+"""V12.20 ten-pair paper strategy with selective profit pyramiding.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
@@ -41,10 +41,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.19: V12.18 decisions with candle-cadenced pyramid evaluation."""
+    """V12.20: retain ten entry routes but reserve pyramids for proven pairs."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.19"
+    STRATEGY_VERSION = "V12.20"
 
     can_short = False
     timeframe = "15m"
@@ -80,6 +80,17 @@ class CompressionBreakout250(IStrategy):
         "TRX/USDT",
         "LTC/USDT",
         "BCH/USDT",
+    }
+    # V12.18's complete ten-pair development matrix showed that later chunks
+    # preserved positive multi-entry expectancy only for these pairs.  The
+    # other six pairs keep their normal first entry but may not occupy another
+    # scarce 80-USDT block until a separately preregistered experiment provides
+    # new evidence.  This is a fixed eligibility decision, not dynamic sizing.
+    PYRAMIDING_PAIRS: ClassVar[set[str]] = {
+        "BTC/USDT",
+        "ETH/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
     }
     BROAD_CORE_PAIRS: ClassVar[set[str]] = {
         "SOL/USDT",
@@ -646,6 +657,8 @@ class CompressionBreakout250(IStrategy):
         try:
             if trade.pair not in self.ALLOWED_PAIRS or self.dp is None:
                 return None
+            if trade.pair not in self.PYRAMIDING_PAIRS:
+                return None
             # With 1m execution detail Freqtrade calls this callback once per
             # minute while a trade is open.  The input signal dataframe changes
             # only on the 15m strategy boundary, so the other fourteen calls
@@ -718,7 +731,7 @@ class CompressionBreakout250(IStrategy):
                 return None
 
             asset = trade.pair.split("/")[0].lower()
-            return self.MAX_STAKE_USDT, f"v12_18_{asset}_profit_pyramid_chunk"
+            return self.MAX_STAKE_USDT, f"v12_20_{asset}_selective_pyramid_chunk"
         except Exception:
             return None
 

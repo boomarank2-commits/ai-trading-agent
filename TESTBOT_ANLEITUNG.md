@@ -8,7 +8,7 @@ Aktueller Entwicklungszweig: `agent/v12-17-ten-pair-research-ui`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.19"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.20"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
@@ -25,12 +25,12 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.19 macht
+## Was V12.20 macht
 
 Alle zehn Pairs werden mit ihren eigenen 15m/1h/4h-Daten bewertet. Im laufenden
 Paperbot teilen sie sich ein einziges 250-USDT-Wallet und höchstens drei
-gleichzeitige 80-USDT-Kapitalblöcke. V12.19 behält den bewährten
-V12.15-Kern und die V12.18-Sicherheitsreparatur des Zehn-Paare-Ausbaus.
+gleichzeitige 80-USDT-Kapitalblöcke. V12.20 behält den bewährten V12.15-Kern,
+die V12.18-Sicherheitsreparatur und die schnelle, fortsetzbare V12.19-Laufzeit.
 
 - BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
 - SOL, XRP, BNB, DOGE, LINK, TRX, LTC und BCH verwenden keinen
@@ -39,15 +39,15 @@ V12.15-Kern und die V12.18-Sicherheitsreparatur des Zehn-Paare-Ausbaus.
   pair-lokale `LowProfitPairs`-Protection dieses Pair für 72 Stunden.
 - Nur bei Champion-Donchian-Trades wird nach mindestens +30 % laufendem Gewinn
   ein +5-%-Stopboden gesetzt; Reclaims und normale Bewegungen bleiben unberührt.
-- Eine zweite oder dritte 80-USDT-Stufe ist nur bei positivem Gesamt- und
-  Einstiegsergebnis und zu einem Kurs oberhalb aller bisherigen Einstiege
-  zulässig. Maximal bleiben es 240 USDT. Ein fallender/verlierender Trade wird
-  niemals aufgestockt.
+- Nur BTC, ETH, LINK und TRX dürfen eine zweite oder dritte 80-USDT-Stufe
+  erhalten; weiterhin nur bei positivem Gesamt- und Einstiegsergebnis und zu
+  einem Kurs oberhalb aller bisherigen Einstiege. SOL, XRP, BNB, DOGE, LTC und
+  BCH handeln weiter mit normalen ersten Entries, aber ohne Zusatzblock.
 - Der feste Stop-Loss bleibt bei −5,5 %; Verlust-DCA und Shorting bleiben
   deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.19 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+V12.20 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
 Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI
