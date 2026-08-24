@@ -488,7 +488,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         if version == "V12.16":
             matrix_pairs = v12_16_pairs
-        elif version in {"V12.17", "V12.18", "V12.19", "V12.20", "V12.21"}:
+        elif version in {"V12.17", "V12.18", "V12.19", "V12.20", "V12.21", "V12.22"}:
             matrix_pairs = v12_17_pairs
         elif version in {"V12.12", "V12.13", "V12.14", "V12.15"}:
             matrix_pairs = v12_12_pairs

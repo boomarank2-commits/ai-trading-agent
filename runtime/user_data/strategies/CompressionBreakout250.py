@@ -1,4 +1,4 @@
-"""V12.20 ten-pair paper strategy with selective profit pyramiding.
+"""V12.22 ten-pair paper challenger with a SOL-only ADX quality gate.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
@@ -41,10 +41,10 @@ from pandas import DataFrame
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.20: retain ten entry routes but reserve pyramids for proven pairs."""
+    """V12.22: retain V12.20 and require directional SOL breakouts."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.20"
+    STRATEGY_VERSION = "V12.22"
 
     can_short = False
     timeframe = "15m"
@@ -510,6 +510,16 @@ class CompressionBreakout250(IStrategy):
                     dataframe["breakout_strength_atr_4h"]
                     <= float(profile["breakout_strength_max_atr"])
                 )
+            )
+        elif pair == "SOL/USDT":
+            # V12.22 changes one decision only.  SOL's V12.20 winners all
+            # entered with 4h ADX above the previously registered pair-local
+            # floor, while directionless breakouts contributed repeated
+            # losses.  Do not restore the rejected V12.7 compound SOL profile:
+            # momentum, RSI, persistence, volume and strength remain exactly
+            # V12.20 here.
+            champion_quality = dataframe["adx_4h"] >= float(
+                self.PAIR_PROFILES[pair]["adx_min"]
             )
         elif pair in self.BROAD_CORE_PAIRS:
             champion_quality = dataframe["volume"] > 0

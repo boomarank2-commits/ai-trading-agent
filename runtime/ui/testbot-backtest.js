@@ -202,9 +202,10 @@
             </div>
           </div>
           <div class="tb-info">
-            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.20-Strategie.<br><br>
+            <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.22-Strategie.<br><br>
             <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
             <strong>Alle 10 einzeln testen:</strong> Startet serverseitig zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT. Plan, Fortschritt, Vorher/Nachher-Vergleich und Ergebnis werden dauerhaft gespeichert; ein Neuladen der UI unterbricht die Warteschlange nicht.<br><br>
+            <strong>Aktive V12.22-Änderung:</strong> Nur SOL verlangt beim vorhandenen Donchian-Einstieg zusätzlich einen 4h-ADX von mindestens 21. Die Regeln der anderen neun Coins bleiben gegenüber V12.20 unverändert.<br><br>
             <strong>Kapitalregel je Einzeltest:</strong> Nur BTC, ETH, LINK und TRX dürfen einen zweiten oder dritten 80-USDT-Block erhalten, und nur bei einem späteren vollständigen Einstiegssignal, einem bereits profitablen Trade und einem Kurs über allen vorherigen Einstiegskursen. SOL, XRP, BNB, DOGE, LTC und BCH handeln weiterhin normal mit ihrem ersten Block. Verlust-Nachkäufe sind gesperrt.<br><br>
             <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
@@ -317,7 +318,7 @@
         ? `Vorgänger ${previous.strategy_version || "?"} / ${previous.run_id || "?"}: ${money(previous.profit_usdt)}. Änderung: ${money(delta.profit_usdt)} · Trades ${Number(delta.trades || 0) >= 0 ? "+" : ""}${Number(delta.trades || 0)} · Drawdown ${Number(delta.max_drawdown_pct || 0) >= 0 ? "+" : ""}${Number(delta.max_drawdown_pct || 0).toFixed(2)} Punkte. ${historical.assessment_de || ""}`
         : (historical.assessment_de || "Kein älterer gleicher Pair-/Zeitraumvergleich vorhanden.");
       const timingText = `Daten ${durationText(timing.market_data_seconds)} · Simulation ${durationText(timing.simulation_seconds)} · Auswertung ${durationText(timing.analysis_seconds)} · Gesamt ${durationText(timing.total_seconds)}`;
-      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.20 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.22 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
     } else if (state.status === "running") {
       results.style.display = "none";
     }

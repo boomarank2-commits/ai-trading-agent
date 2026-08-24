@@ -6,9 +6,11 @@
 > Paperbot gespiegelten gemeinsamen Portfolios; außerdem war das Aufstocken
 > nicht sicher auf Gewinner begrenzt. V12.18 korrigierte den Sicherheitsfehler;
 > V12.19 ergänzte die dauerhafte Lernakte und Laufzeitreparatur; V12.20
-> korrigiert die schädliche Zusatzblock-Verteilung. Der aktuelle technische
+> korrigierte die schädliche Zusatzblock-Verteilung; V12.22 ergänzt nur den
+> vorregistrierten SOL-ADX-Filter. Der aktuelle technische
 > Stand, Begründungen und nächste Prüfungen stehen in
 > [`../research/V12_20_SELECTIVE_PYRAMID_DE.md`](../research/V12_20_SELECTIVE_PYRAMID_DE.md)
+> und [`../research/V12_22_SOL_ADX21_DE.md`](../research/V12_22_SOL_ADX21_DE.md)
 > und [`../START_HERE_DE.md`](../START_HERE_DE.md). Die folgenden Abschnitte
 > bleiben ausschließlich als historische, nicht 1:1 zu wiederholende Evidenz
 > erhalten.

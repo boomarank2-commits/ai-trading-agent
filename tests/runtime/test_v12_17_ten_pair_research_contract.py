@@ -51,7 +51,7 @@ def test_active_paper_config_is_exact_ten_pair_250_80_3_contract() -> None:
 
 def test_active_strategy_expands_broad_core_and_keeps_btc_eth_special_paths() -> None:
     text = _text(STRATEGY)
-    assert 'STRATEGY_VERSION = "V12.20"' in text
+    assert 'STRATEGY_VERSION = "V12.22"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert '"ADA/USDT"' not in text
@@ -152,8 +152,8 @@ def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio
     assert "base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE" in api
     assert "base.PORTFOLIO_TARGET" in api
     assert "real ten-pair" in api
-    assert 'base.STRATEGY_VERSION = "V12.20"' in api
-    assert 'ACTIVE_EXPERIMENT_ID = "V12.20-SELECTIVE-PYRAMID-ELIGIBILITY"' in api
+    assert 'base.STRATEGY_VERSION = "V12.22"' in api
+    assert 'ACTIVE_EXPERIMENT_ID = "V12.22-SOL-ADX21"' in api
     assert '"batch-plan.json"' in api
     assert '"batch-result.json"' in api
 

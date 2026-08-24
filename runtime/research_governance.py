@@ -26,6 +26,7 @@ V12_18_SHA256 = "ce0dc4938a365c593a4e06589f910b4c3b2a86020f6903b92bc1dbcca7f11fb
 V12_19_SHA256 = "6f0a006a7c459a165105ddf245222d99b27961acfd5ccde47b46181534f256ce"
 V12_20_SHA256 = "8eb1ad98e3cf13ea05c9c7f6dfb7c4b50b425741d3e225116e3b29f80391a3fb"
 V12_21_SHA256 = "53642d7cddd1b55d66462c83d87d4093f428a9f797aee95c5f389f34541c8b1d"
+V12_22_SHA256 = "f7aac4afe8204aa7ce28a4a2bbf1d3c579ff4f084effa8bbff1c78ad8e9d2caf"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
 GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
@@ -291,6 +292,17 @@ def validate_trial_ledger(path: Path) -> list[str]:
     )
     if v12_21 is None or v12_21.get("strategy_hash", "").strip() != V12_21_SHA256:
         errors.append("V12.21 strategy is not exactly registered in trial ledger")
+
+    v12_22 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.22-SOL-ADX21"
+        ),
+        None,
+    )
+    if v12_22 is None or v12_22.get("strategy_hash", "").strip() != V12_22_SHA256:
+        errors.append("V12.22 strategy is not exactly registered in trial ledger")
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()

@@ -186,7 +186,7 @@ def _install_testbot_api_routes() -> None:
     # In that mode Python places ``runtime`` itself on sys.path, not its parent,
     # so sibling modules must be imported without the ``runtime.`` package prefix.
     # The adapter keeps candle repair, exact-environment auditing and duplicate
-    # result reuse on top of the same active V12.20 ten-pair strategy/config.
+    # result reuse on top of the same active V12.22 ten-pair strategy/config.
     from ten_pair_backtest_api import build_router
 
     marker = "__daviddtech_testbot_backtest_installed__"
