@@ -22,13 +22,15 @@ The current rule is deliberately conservative:
 Runtime clarification (2026-08-24): V8 is the frozen research champion stored
 under `research/baselines/V8/`; it is not the file currently loaded by
 `STARTBOT.bat`. The active, separately registered paper/dry-run candidate is
-`CompressionBreakout250` V12.22. Read
+`CompressionBreakout250` V12.30. Read
 `research/V12_20_SELECTIVE_PYRAMID_DE.md` and
-`research/V12_22_SOL_ADX21_DE.md` before modifying it. V12.22 retains V12.20
-and adds only the preregistered SOL 4h-ADX >= 21 entry gate. It is not a
-real-money promotion. Its exact ten-pair result is slightly better than V12.20
-but remains below the V12.15 six-pair promotion reference; formal UI file audit
-and fresh paper-forward evidence are still required.
+`research/V12_22_SOL_ADX21_DE.md` plus
+`research/V12_30_DOGE_SUPERTREND_DE.md` before modifying it. V12.30 retains
+V12.22 and replaces only DOGE's route with the preregistered 4h
+Supertrend(20, 3) flip above a rising EMA100. It is not a real-money promotion.
+Its exact shared ten-pair test ended at 623.606 USDT from 250 USDT with PF
+2.3576 and 13.3897 percent closed drawdown; fresh paper-forward evidence is
+still required.
 
 ## Preserve provenance and used upstream roles
 

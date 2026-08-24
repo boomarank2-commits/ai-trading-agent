@@ -43,7 +43,7 @@ def test_backtest_contract_is_bound_to_active_ten_pairs_and_all_three_periods() 
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
     assert api.BACKTEST_WARMUP_DAYS >= 70
-    assert api.STRATEGY_VERSION == "V12.22"
+    assert api.STRATEGY_VERSION == "V12.30"
 
 
 def test_market_data_is_updated_and_kept_in_the_repo_local_runtime_cache() -> None:
@@ -272,7 +272,7 @@ def test_reused_result_keeps_saved_history_and_timing(
     monkeypatch.setattr(
         adapter.base,
         "registered_experiment",
-        lambda *_args: ({"experiment_id": "V12.22"}, []),
+        lambda *_args: ({"experiment_id": "V12.30"}, []),
     )
 
     result = adapter._existing_completed_result(

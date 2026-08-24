@@ -8,7 +8,7 @@ Aktueller Entwicklungszweig: `agent/v12-17-ten-pair-research-ui`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.22"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.30"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
@@ -25,17 +25,19 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.22 macht
+## Was V12.30 macht
 
 Alle zehn Pairs werden mit ihren eigenen 15m/1h/4h-Daten bewertet. Im laufenden
 Paperbot teilen sie sich ein einziges 250-USDT-Wallet und höchstens drei
-gleichzeitige 80-USDT-Kapitalblöcke. V12.22 behält den bewährten V12.15-Kern,
+gleichzeitige 80-USDT-Kapitalblöcke. V12.30 behält den bewährten V12.15-Kern,
 die V12.18-Sicherheitsreparatur, die schnelle, fortsetzbare V12.19-Laufzeit
 und das selektive V12.20-Gewinn-Pyramiding.
 
 - BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
-- SOL, XRP, BNB, DOGE, LINK, TRX, LTC und BCH verwenden keinen
-  Reclaim-Challenger, sondern ihren markierten Donchian-/Trendkern.
+- SOL, XRP, BNB, LINK, TRX, LTC und BCH verwenden keinen Reclaim-Challenger,
+  sondern ihren markierten Donchian-/Trendkern.
+- DOGE verwendet den 4h-Supertrend(20, 3)-Wechsel oberhalb einer steigenden
+  EMA100 und steigt beim Gegenwechsel aus.
 - Nur SOL verlangt beim vorhandenen Donchian-Einstieg zusätzlich einen
   bestätigten 4h-ADX von mindestens 21. Andere SOL-Filter bleiben deaktiviert.
 - Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
@@ -50,7 +52,7 @@ und das selektive V12.20-Gewinn-Pyramiding.
   deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.22 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+V12.30 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
 Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI

@@ -1,6 +1,6 @@
 """Ten-pair adapter for the existing locked Testbot backtest API.
 
-The active paper bot and the backtester share the exact same V12.22
+The active paper bot and the backtester share the exact same V12.30
 CompressionBreakout250 source and the same ten-pair config. The UI exposes both
 single-pair tests with an independent 250-USDT wallet and the real ten-pair
 portfolio in which all pairs compete for one shared 250-USDT / 3x80 budget.
@@ -39,11 +39,11 @@ TEN_PAIR_UNIVERSE = (
     "LTC/USDT",
     "BCH/USDT",
 )
-ACTIVE_EXPERIMENT_ID = "V12.22-SOL-ADX21"
+ACTIVE_EXPERIMENT_ID = "V12.30-DOGE-SUPERTREND20X3-MACRO100"
 
 base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE
 base.ALLOWED_TARGETS = (*TEN_PAIR_UNIVERSE, base.PORTFOLIO_TARGET)
-base.STRATEGY_VERSION = "V12.22"
+base.STRATEGY_VERSION = "V12.30"
 base._UI_SCRIPT = base._RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 
 _original_validate_candle_data = base._validate_candle_data

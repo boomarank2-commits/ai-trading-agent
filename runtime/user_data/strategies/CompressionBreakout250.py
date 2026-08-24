@@ -1,10 +1,10 @@
-"""V12.22 ten-pair paper challenger with a SOL-only ADX quality gate.
+"""V12.30 ten-pair paper challenger with a causal DOGE Supertrend route.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
-pairs.  The four newly added pairs (LINK/TRX/LTC/BCH) initially reuse the same
-broad Donchian route as SOL/XRP/BNB/DOGE so their suitability can be measured
-before pair-specific tuning.
+pairs.  V12.22's SOL-only ADX gate remains active.  DOGE alone replaces its
+broad Donchian path with the preregistered 4h Supertrend(20, 3) flip above a
+rising EMA100.
 
 Capital model:
 - one 250 USDT paper wallet
@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
+import numpy as np
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
@@ -37,14 +38,55 @@ from freqtrade.strategy import (
     informative,
     stoploss_from_open,
 )
-from pandas import DataFrame
+from pandas import DataFrame, Series
+
+
+def _supertrend_direction(
+    dataframe: DataFrame, period: int, multiplier: float
+) -> Series:
+    """Return a causal Supertrend direction using only completed 4h candles."""
+    atr = Series(ta.ATR(dataframe, timeperiod=period), index=dataframe.index)
+    midpoint = (dataframe["high"] + dataframe["low"]) / 2.0
+    upper = midpoint + multiplier * atr
+    lower = midpoint - multiplier * atr
+    final_upper = upper.copy()
+    final_lower = lower.copy()
+    direction = Series(0, index=dataframe.index, dtype="int8")
+
+    for pos in range(1, len(dataframe)):
+        previous = pos - 1
+        if np.isnan(atr.iat[pos]):
+            continue
+        if (
+            np.isnan(final_upper.iat[previous])
+            or dataframe["close"].iat[previous] > final_upper.iat[previous]
+        ):
+            final_upper.iat[pos] = upper.iat[pos]
+        else:
+            final_upper.iat[pos] = min(upper.iat[pos], final_upper.iat[previous])
+        if (
+            np.isnan(final_lower.iat[previous])
+            or dataframe["close"].iat[previous] < final_lower.iat[previous]
+        ):
+            final_lower.iat[pos] = lower.iat[pos]
+        else:
+            final_lower.iat[pos] = max(lower.iat[pos], final_lower.iat[previous])
+
+        previous_direction = int(direction.iat[previous])
+        if previous_direction <= 0 and dataframe["close"].iat[pos] > final_upper.iat[previous]:
+            direction.iat[pos] = 1
+        elif previous_direction >= 0 and dataframe["close"].iat[pos] < final_lower.iat[previous]:
+            direction.iat[pos] = -1
+        else:
+            direction.iat[pos] = previous_direction or -1
+    return direction
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.22: retain V12.20 and require directional SOL breakouts."""
+    """V12.30: retain V12.22 and replace only DOGE's route."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.22"
+    STRATEGY_VERSION = "V12.30"
 
     can_short = False
     timeframe = "15m"
@@ -383,6 +425,7 @@ class CompressionBreakout250(IStrategy):
     ) -> DataFrame:
         del metadata
         dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["ema_macro100"] = ta.EMA(dataframe, timeperiod=100)
         dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
         dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
@@ -403,6 +446,12 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
         ).astype(int)
+        dataframe["ema_macro100_rising_12"] = (
+            dataframe["ema_macro100"] > dataframe["ema_macro100"].shift(12)
+        ).astype(int)
+        dataframe["doge_supertrend_direction"] = _supertrend_direction(
+            dataframe, period=20, multiplier=3.0
+        )
         for bars in (3, 4, 6):
             dataframe[f"trend_persist_{bars}"] = (
                 (dataframe["close"] > dataframe["ema_fast"])
@@ -461,6 +510,29 @@ class CompressionBreakout250(IStrategy):
             return dataframe
 
         asset = pair.split("/")[0].lower()
+        if pair == "DOGE/USDT":
+            doge_flip_long = (
+                (dataframe["doge_supertrend_direction_4h"] > 0)
+                & (
+                    dataframe["doge_supertrend_direction_4h"].shift(1).fillna(0)
+                    <= 0
+                )
+            )
+            doge_signal = (
+                doge_flip_long
+                & (dataframe["close_4h"] > dataframe["ema_macro100_4h"])
+                & (dataframe["ema_macro100_rising_12_4h"] > 0)
+                & (dataframe["volume"] > 0)
+            )
+            dataframe.loc[doge_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[doge_signal, "route_family"] = self.FAMILY_DONCHIAN
+            dataframe.loc[doge_signal, "no_trade_reason"] = ""
+            dataframe.loc[doge_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                "v12_30_doge_supertrend20x3",
+            )
+            return dataframe
+
         fresh_slow = (
             (dataframe["fresh_breakout_4h"] > 0)
             & (dataframe["fresh_breakout_4h"].shift(1).fillna(0) <= 0)
@@ -588,7 +660,21 @@ class CompressionBreakout250(IStrategy):
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        del metadata
+        pair = str(metadata.get("pair", ""))
+        if pair == "DOGE/USDT":
+            doge_flip_short = (
+                (dataframe["doge_supertrend_direction_4h"] < 0)
+                & (
+                    dataframe["doge_supertrend_direction_4h"].shift(1).fillna(0)
+                    >= 0
+                )
+            )
+            dataframe.loc[
+                doge_flip_short & (dataframe["volume"] > 0),
+                ["exit_long", "exit_tag"],
+            ] = (1, "v12_30_doge_supertrend_exit")
+            return dataframe
+
         structure_exit = dataframe["close_4h"] < dataframe["donchian_exit_4h"]
         regime_exit = (
             (dataframe["close_4h"] < dataframe["ema_fast_4h"])
@@ -781,6 +867,9 @@ class CompressionBreakout250(IStrategy):
                 current_time - trade.open_date_utc
             ).total_seconds() / 3600.0
             enter_tag = str(getattr(trade, "enter_tag", "") or "")
+
+            if "_doge_supertrend20x3" in enter_tag:
+                return None
 
             if "_trend_reclaim" in enter_tag:
                 if current_profit >= 0:
