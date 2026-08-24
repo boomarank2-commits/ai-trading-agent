@@ -1,0 +1,11 @@
+pair,active_route,pyramiding,individual_source_version,individual_profit_usdt,individual_trades,individual_profit_factor,individual_drawdown_pct,evidence_level,shared_v12_31_contribution_usdt
+BTC/USDT,champion_donchian_plus_ema20_reclaim,true,V12.20_inherited,164.5771,14,8.8236,2.58,B,80.81060115
+ETH/USDT,pair_champion_donchian_plus_ema20_reclaim,true,V12.20_inherited,135.93,43,2.37,13.19,B,9.18573934
+SOL/USDT,broad_core_donchian_plus_adx21,false,V12.22_inherited,8.021,23,1.16,12.26,B,-39.90971668
+XRP/USDT,broad_core_donchian,false,V12.20_inherited,92.73,19,3.95,7.18,B,108.38781422
+BNB/USDT,broad_core_donchian,false,V12.20_inherited,17.82,18,1.66,5.87,B,34.75648604
+DOGE/USDT,supertrend20x3_above_rising_ema100,false,V12.31_parity,112.552,25,2.9046,6.4536,A,120.68701044
+LINK/USDT,broad_core_donchian,true,V12.20_inherited,60.84,30,1.61,26.02,B,90.26390650
+TRX/USDT,broad_core_donchian,true,V12.20_inherited,15.23,5,2.53,3.63,B,12.35207934
+LTC/USDT,broad_core_donchian,false,V12.20_inherited,-45.01,18,0.00,18.01,B,-18.83099862
+BCH/USDT,ema30_cross_ema80_above_rising_ema100_adx24,false,V12.31_exact,25.398,20,1.54,11.21,A,22.15414880

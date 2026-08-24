@@ -86,6 +86,11 @@ unerwarteten Repo-Datei oder einem Kindprozess ab.
 
 ## Research und Sicherheit
 
+Die getrennte Deep-Research-Uebergabe fuer alle zehn Coins liegt unter
+[research/deep_research_10_coins/README_DE.md](research/deep_research_10_coins/README_DE.md).
+Sie verhindert eine Einheitsstrategie, trennt Einzelwallet und gemeinsames
+3x80-USDT-Portfolio und fuehrt angenommene sowie verworfene Pair-Versuche auf.
+
 Der eingefrorene V8-Stand bleibt als Baseline unter `research/baselines/V8/`
 erhalten. Historische V8/V9/V10/V11-Ergebnisse sind Evidenz, keine parallel
 aktiven Bot-Versionen. Neue Kandidaten müssen die dokumentierten Replay-,

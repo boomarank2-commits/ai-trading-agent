@@ -1,4 +1,14 @@
-# Offline research scheduler
+# Research
+
+Die aktuelle, kopierfertige Uebergabe fuer eine getrennte Deep-Research-
+Auswertung aller zehn Coins beginnt unter
+deep_research_10_coins/README_DE.md. Sie enthaelt den Masterprompt, eine
+Evidenzmatrix, ein verbindliches Pruefprotokoll, die Nicht-wiederholen-Liste
+und ein eigenes Dossier fuer jeden Coin. Das zugehoerige PowerShell-Skript
+erstellt eine bereinigte Upload-ZIP ohne Marktdaten, Logs, Datenbanken oder
+Zugangsdaten.
+
+## Offline research scheduler
 
 `Start-ResearchDesk.ps1` contains a prototype for turning the upstream role files into repeatable
 Codex research jobs. **Autonomous execution is hard-disabled in this checkout.** Only `-Status`
