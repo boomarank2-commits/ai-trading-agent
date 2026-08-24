@@ -90,6 +90,11 @@ und die aktive V12.31-Kombination stehen in:
 
 `research/V12_31_DOGE_BCH_COMBINATION_DE.md`
 
+Der anschließend geprüfte und verworfene V12.32-LTC-Kombinationsversuch steht
+in:
+
+`research/V12_32_LTC_ROUTE_COMBINATION_DE.md`
+
 Die frühere V12.17-Roadmap bleibt als historische Fehler- und Herkunftsakte
 unter `research/V12_17_CONTINUATION_HANDOFF_DE.md` erhalten.
 
@@ -352,8 +357,9 @@ Aktuell zwingend:
 3. V12.31 für die noch fehlenden 1-/2-/3-Jahres-Fingerprints je Coin messen und
    den formalen UI-Dateizugriffsaudit abschließen.
 4. Selektives Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
-5. Die aktiven DOGE-/BCH-Routen und die verworfenen TRX-/LTC-/BNB-Routen nicht
-   auf demselben Fenster nachstimmen. Neue Pair-Hypothesen nur mit dem
+5. Die aktiven DOGE-/BCH-Routen und die verworfenen TRX-/LTC-/BNB-Routen sowie
+   die verworfene V12.32-LTC-Kombination nicht auf demselben Fenster
+   nachstimmen. Neue Pair-Hypothesen nur mit dem
    reparierten kausalen Screen V2 vorregistrieren; alte V1-Screen-Ausgaben nicht
    wiederverwenden.
 6. Jede neue Pair-Verbesserung anschließend im gemeinsamen

@@ -26,7 +26,10 @@ under `research/baselines/V8/`; it is not the file currently loaded by
 `research/V12_20_SELECTIVE_PYRAMID_DE.md` and
 `research/V12_22_SOL_ADX21_DE.md` plus
 `research/V12_30_DOGE_SUPERTREND_DE.md` and
-`research/V12_31_DOGE_BCH_COMBINATION_DE.md` before modifying it. V12.31
+`research/V12_31_DOGE_BCH_COMBINATION_DE.md` before modifying it. Before any
+new LTC work, also read the rejected immutable-combination record
+`research/V12_32_LTC_ROUTE_COMBINATION_DE.md`; do not retune that route or its
+slot rules on the viewed window. V12.31
 retains V12.30 and combines the immutable V12.26 BCH EMA30/EMA80 route above a
 rising EMA100 at ADX24. It is not a real-money promotion. Its exact shared
 ten-pair test ended at 669.857 USDT from 250 USDT with PF 2.4358 and 12.5447

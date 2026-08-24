@@ -37,6 +37,13 @@ genauer technischer Stand, seine Vorgängerkette und die offenen Prüfungen steh
 `research/V12_31_DOGE_BCH_COMBINATION_DE.md`. V12.31 ist nicht als neuer Champion
 und nicht für Echtgeld promoviert.
 
+Die unveränderte V12.23-LTC-Route wurde danach einmalig als V12.32 mit V12.31
+kombiniert und verworfen: LTC blieb im gemeinsamen Wallet negativ, der Gewinn
+fiel um 50,035 USDT, der Profit-Faktor sank und der Drawdown stieg. Der genaue
+Nachweis steht in `research/V12_32_LTC_ROUTE_COMBINATION_DE.md`. Diese Route,
+ihre benachbarten Schwellen und weitere aus den gesehenen Slotfolgen abgeleitete
+LTC-Regeln dürfen auf demselben Fenster nicht erneut optimiert werden.
+
 Sicherheitsvertrag der eingefrorenen V8-Referenz:
 
 - Strategie: `CompressionBreakout250` / V8
