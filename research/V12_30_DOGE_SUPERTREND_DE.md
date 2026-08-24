@@ -12,7 +12,7 @@ Vor dem ersten Finanzlauf registrierter SHA-256:
 
 `978c4626ba213de9bf8b93acceaf209074ab41b9d31a5a62da893e3018925630`
 
-Status: **ÜBERNOMMEN ALS AKTIVER PAPER-/DRY-RUN-KANDIDAT.**
+Status: **BESTANDEN; SPÄTER DURCH DIE BESSERE V12.31-KOMBINATION ERSETZT.**
 
 ## Auswahl ohne V1-Randfehler
 
@@ -78,7 +78,9 @@ Gegenüber V12.22 steigt der gemeinsame Gewinn um **+92,8305 USDT**, der PF
 von 2,0230 auf 2,3576; der geschlossene Drawdown sinkt von 16,07 auf 13,3897
 Prozent. Alle vorab bindenden Hürden bestanden.
 
-Entscheidung: `KEEP_AS_ACTIVE_PAPER_CHALLENGER_NOT_REAL_MONEY`. V12.30 ist
-damit die gemeinsame Quelle für Paperbot und künftige Backtests. Das ist keine
-Echtgeldfreigabe und kein Versprechen, dass ein zukünftiger Zeitraum oder jeder
-einzelne Coin 250 USDT Gewinn erzielt.
+Entscheidung zum damaligen Lauf: `KEEP_AS_ACTIVE_PAPER_CHALLENGER_NOT_REAL_MONEY`.
+V12.30 war anschließend die gemeinsame Quelle für Paperbot und Backtests. Am
+24.08.2026 wurde sie ohne Retuning ihrer DOGE-Route durch die vorregistrierte,
+in `V12_31_DOGE_BCH_COMBINATION_DE.md` dokumentierte V12.31 ersetzt. Das ist
+keine Echtgeldfreigabe und kein Versprechen, dass ein zukünftiger Zeitraum oder
+jeder einzelne Coin 250 USDT Gewinn erzielt.

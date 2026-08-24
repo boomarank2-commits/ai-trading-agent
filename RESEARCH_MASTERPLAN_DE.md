@@ -26,13 +26,15 @@ Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backte
 Klarstellung zum aktuellen Repository-Stand vom 24.08.2026: „Champion“ bezeichnet
 hier die unveränderte Forschungsreferenz unter `research/baselines/V8/`, nicht
 die gerade von `STARTBOT.bat` geladene Datei. Der aktive, separat registrierte
-Paper-/Dry-run-Kandidat ist V12.30. Er behält V12.22 einschließlich des
-SOL-Filters `adx_4h >= 21` und ersetzt ausschließlich DOGEs Route durch den
-vorregistrierten 4h-Supertrend(20, 3) oberhalb einer steigenden EMA100. Sein
+Paper-/Dry-run-Kandidat ist V12.31. Er behält V12.22 einschließlich des
+SOL-Filters `adx_4h >= 21`, DOGEs vorregistrierten 4h-Supertrend(20, 3)
+oberhalb einer steigenden EMA100 und kombiniert die unveränderte, bereits exakt
+geprüfte BCH-EMA30/EMA80-Route oberhalb steigender EMA100 bei ADX 24. Sein
 genauer technischer Stand, seine Vorgängerkette und die offenen Prüfungen stehen in
 `research/V12_20_SELECTIVE_PYRAMID_DE.md` und
 `research/V12_22_SOL_ADX21_DE.md` sowie
-`research/V12_30_DOGE_SUPERTREND_DE.md`. V12.30 ist nicht als neuer Champion
+`research/V12_30_DOGE_SUPERTREND_DE.md` sowie
+`research/V12_31_DOGE_BCH_COMBINATION_DE.md`. V12.31 ist nicht als neuer Champion
 und nicht für Echtgeld promoviert.
 
 Sicherheitsvertrag der eingefrorenen V8-Referenz:

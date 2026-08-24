@@ -503,6 +503,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "V12.28",
             "V12.29",
             "V12.30",
+            "V12.31",
         }:
             matrix_pairs = v12_17_pairs
         elif version in {"V12.12", "V12.13", "V12.14", "V12.15"}:

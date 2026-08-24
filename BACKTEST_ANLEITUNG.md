@@ -9,7 +9,7 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
 Auf dem Branch `agent/v12-17-ten-pair-research-ui` repräsentiert diese aktive
-Strategy-Quelle den **V12.30-Paper-/Dry-run-Kandidaten** des Bots. Die eingefrorene
+Strategy-Quelle den **V12.31-Paper-/Dry-run-Kandidaten** des Bots. Die eingefrorene
 V8-Baseline unter
 `research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
@@ -46,11 +46,12 @@ oder Neuladen der Backtest-Seite stoppt den Batch nicht. Nach einem Bot-Neustart
 kann ein unvollständiger Batch fortgesetzt werden; bereits fertige identische
 Zellen werden aus der erhaltenen Evidenz geladen und nicht neu berechnet.
 
-Alle Signale bleiben **pair-lokal**. V12.30 injiziert kein BTC-Regime in andere
+Alle Signale bleiben **pair-lokal**. V12.31 injiziert kein BTC-Regime in andere
 Pairs. BTC und ETH behalten ihre markierten Trend-Reclaims; SOL behält
 `adx_4h >= 21`. DOGE verwendet den eigenen 4h-Supertrend(20, 3)-Wechsel
-oberhalb einer steigenden EMA100; die übrigen sieben Paare behalten ihre
-V12.22-Routen. Die 72-Stunden-Pairpause nach zwei
+oberhalb einer steigenden EMA100. BCH verwendet die feste EMA30/EMA80-Route
+oberhalb einer steigenden EMA100 bei ADX mindestens 24; die übrigen sechs Paare
+behalten ihre V12.22-Routen. Die 72-Stunden-Pairpause nach zwei
 unprofitablen Trades und der +5-%-Stopboden nach mindestens +30 % bei
 Champion-Trades bleiben erhalten. Ein zweiter oder dritter Block im selben
 Trade ist nur für BTC, ETH, LINK und TRX bei einem neuen Signal, positivem Trade
@@ -79,7 +80,7 @@ Integritätsprüfung wegen einer unterbrochenen, lückenhaften oder beschädigte
 Datei fehl, wird ausschließlich der betroffene Coin-Datensatz neu aufgebaut.
 Backtests, Paper-Datenbank und Strategy-Quelle werden dabei nicht gelöscht.
 
-V12.30 verarbeitet Stop-Loss und Exit weiterhin auf jeder 1-Minuten-Detailkerze.
+V12.31 verarbeitet Stop-Loss und Exit weiterhin auf jeder 1-Minuten-Detailkerze.
 Nur die Prüfung eines zusätzlichen Entry-Blocks wird im Backtest auf die neue
 15-Minuten-Strategiekerze begrenzt, weil sich das dafür verwendete
 `enter_long`-Signal dazwischen nicht ändern kann. Zusätzlich entfallen defensive

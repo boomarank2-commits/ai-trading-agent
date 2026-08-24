@@ -23,7 +23,7 @@ def test_v8_reference_is_preserved_while_v12_22_is_active() -> None:
 
 def test_v12_22_is_pair_local_without_btc_regime_dependency() -> None:
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.30"' in text
+    assert 'STRATEGY_VERSION = "V12.31"' in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert "btc_close_4h" not in text

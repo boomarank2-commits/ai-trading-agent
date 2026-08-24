@@ -1,10 +1,11 @@
-"""V12.30 ten-pair paper challenger with a causal DOGE Supertrend route.
+"""V12.31 ten-pair challenger combining fixed DOGE and BCH routes.
 
 This is the active paper/dry-run strategy.  It keeps the accepted V12.15
 Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
-pairs.  V12.22's SOL-only ADX gate remains active.  DOGE alone replaces its
-broad Donchian path with the preregistered 4h Supertrend(20, 3) flip above a
-rising EMA100.
+pairs.  V12.22's SOL-only ADX gate remains active.  DOGE keeps the accepted
+4h Supertrend(20, 3) flip above a rising EMA100.  BCH reuses the immutable,
+previously exact-tested V12.26 EMA30/EMA80 route above a rising EMA100; none of
+its viewed thresholds are retuned.
 
 Capital model:
 - one 250 USDT paper wallet
@@ -83,10 +84,10 @@ def _supertrend_direction(
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.30: retain V12.22 and replace only DOGE's route."""
+    """V12.31: retain V12.30 and add the fixed V12.26 BCH route."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.30"
+    STRATEGY_VERSION = "V12.31"
 
     can_short = False
     timeframe = "15m"
@@ -449,6 +450,13 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_macro100_rising_12"] = (
             dataframe["ema_macro100"] > dataframe["ema_macro100"].shift(12)
         ).astype(int)
+        dataframe["bch_ema_fast"] = ta.EMA(dataframe, timeperiod=30)
+        dataframe["bch_ema_slow"] = ta.EMA(dataframe, timeperiod=80)
+        dataframe["bch_ema_macro"] = ta.EMA(dataframe, timeperiod=100)
+        dataframe["bch_ema_macro_rising_12"] = (
+            dataframe["bch_ema_macro"]
+            > dataframe["bch_ema_macro"].shift(12)
+        ).astype(int)
         dataframe["doge_supertrend_direction"] = _supertrend_direction(
             dataframe, period=20, multiplier=3.0
         )
@@ -530,6 +538,30 @@ class CompressionBreakout250(IStrategy):
             dataframe.loc[doge_signal, ["enter_long", "enter_tag"]] = (
                 1,
                 "v12_30_doge_supertrend20x3",
+            )
+            return dataframe
+
+        if pair == "BCH/USDT":
+            bch_cross_long = (
+                (dataframe["bch_ema_fast_4h"] > dataframe["bch_ema_slow_4h"])
+                & (
+                    dataframe["bch_ema_fast_4h"].shift(1)
+                    <= dataframe["bch_ema_slow_4h"].shift(1)
+                )
+            )
+            bch_signal = (
+                bch_cross_long
+                & (dataframe["close_4h"] > dataframe["bch_ema_macro_4h"])
+                & (dataframe["bch_ema_macro_rising_12_4h"] > 0)
+                & (dataframe["adx_4h"] >= 24)
+                & (dataframe["volume"] > 0)
+            )
+            dataframe.loc[bch_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[bch_signal, "route_family"] = self.FAMILY_DONCHIAN
+            dataframe.loc[bch_signal, "no_trade_reason"] = ""
+            dataframe.loc[bch_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                "v12_31_bch_ema30_80_trend",
             )
             return dataframe
 
@@ -673,6 +705,14 @@ class CompressionBreakout250(IStrategy):
                 doge_flip_short & (dataframe["volume"] > 0),
                 ["exit_long", "exit_tag"],
             ] = (1, "v12_30_doge_supertrend_exit")
+            return dataframe
+
+        if pair == "BCH/USDT":
+            dataframe.loc[
+                (dataframe["close_4h"] < dataframe["bch_ema_slow_4h"])
+                & (dataframe["volume"] > 0),
+                ["exit_long", "exit_tag"],
+            ] = (1, "v12_31_bch_ema30_80_exit")
             return dataframe
 
         structure_exit = dataframe["close_4h"] < dataframe["donchian_exit_4h"]
@@ -868,7 +908,10 @@ class CompressionBreakout250(IStrategy):
             ).total_seconds() / 3600.0
             enter_tag = str(getattr(trade, "enter_tag", "") or "")
 
-            if "_doge_supertrend20x3" in enter_tag:
+            if (
+                "_doge_supertrend20x3" in enter_tag
+                or "_bch_ema30_80_trend" in enter_tag
+            ):
                 return None
 
             if "_trend_reclaim" in enter_tag:

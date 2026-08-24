@@ -82,7 +82,7 @@ PORTFOLIO_TARGET = "PORTFOLIO"
 ALLOWED_TARGETS = (*ALLOWED_PAIRS, PORTFOLIO_TARGET)
 ALLOWED_YEARS = (1, 2, 3)
 STRATEGY_NAME = "CompressionBreakout250"
-STRATEGY_VERSION = "V12.30"
+STRATEGY_VERSION = "V12.31"
 REQUIRED_TIMEFRAMES = ("15m", "1m", "1h", "4h")
 BACKTEST_WARMUP_DAYS = 75
 
@@ -166,7 +166,7 @@ def _clean_subprocess_environment() -> dict[str, str]:
 
 
 def _btc_context_pair(pair: str) -> None:
-    """Compatibility hook: pair-local V12.30 never requests another pair as context."""
+    """Compatibility hook: pair-local V12.31 never requests another pair as context."""
 
     if pair not in ALLOWED_PAIRS:
         raise ValueError(f"unsupported pair: {pair}")
