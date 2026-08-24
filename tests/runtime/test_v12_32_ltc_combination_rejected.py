@@ -19,9 +19,9 @@ def test_v12_32_ltc_combination_is_recorded_as_rejected() -> None:
     assert '"REJECT_DO_NOT_PROMOTE"' in ledger
 
 
-def test_rejected_v12_32_did_not_replace_active_v12_31() -> None:
+def test_rejected_v12_32_did_not_replace_active_v12_33() -> None:
     source = STRATEGY.read_text(encoding="utf-8")
 
-    assert 'STRATEGY_VERSION = "V12.31"' in source
+    assert 'STRATEGY_VERSION = "V12.33"' in source
     assert "v12_32_ltc_ema30_80_trend" not in source
     assert "ltc_ema_macro_rising_12" not in source

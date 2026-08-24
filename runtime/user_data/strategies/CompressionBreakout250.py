@@ -84,10 +84,10 @@ def _supertrend_direction(
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.31: retain V12.30 and add the fixed V12.26 BCH route."""
+    """V12.33: retain V12.31 and disable the negative-expectancy LTC route."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.31"
+    STRATEGY_VERSION = "V12.33"
 
     can_short = False
     timeframe = "15m"
@@ -518,6 +518,16 @@ class CompressionBreakout250(IStrategy):
             return dataframe
 
         asset = pair.split("/")[0].lower()
+        if pair == "LTC/USDT":
+            # The exact V12.31 shared-wallet result assigned -18.831 USDT to
+            # LTC with seven losing trades.  V12.33 changes one decision only:
+            # LTC cannot open a position.  This keeps the scarce three global
+            # 80-USDT slots available until a separately registered LTC family
+            # demonstrates positive shared-wallet value.
+            dataframe["enter_long"] = 0
+            dataframe["no_trade_reason"] = "v12_33_ltc_no_validated_edge"
+            return dataframe
+
         if pair == "DOGE/USDT":
             doge_flip_long = (
                 (dataframe["doge_supertrend_direction_4h"] > 0)

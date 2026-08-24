@@ -71,7 +71,7 @@ def test_active_paper_config_is_ten_pair_spot_and_three_80_chunks() -> None:
 
 def test_v12_22_preserves_v12_20_cap_and_adjustment_contract() -> None:
     source, cls = _strategy_class()
-    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.31"
+    assert _literal_assignment(cls, "STRATEGY_VERSION") == "V12.33"
     assert _literal_assignment(cls, "PYRAMIDING_PAIRS") == {
         "BTC/USDT",
         "ETH/USDT",

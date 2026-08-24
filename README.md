@@ -1,11 +1,11 @@
-# AI Trading Agent – lokaler V12.31-Zehn-Paare-Testbot
+# AI Trading Agent – lokaler V12.33-Zehn-Paare-Testbot
 
 Deutscher Einstieg und aktueller Projektstatus: [`START_HERE_DE.md`](START_HERE_DE.md).
 
 Dieses Repository enthält den lokalen Freqtrade-/Binance-Testbot, seine
 Sicherheitsverträge sowie die Werkzeuge für Backtest, Replay, Audit und
 reproduzierbare Research-Prüfungen. Der aktive Testbot lädt
-`CompressionBreakout250` / V12.31 ausschließlich im Paper-/Dry-run-Modus.
+`CompressionBreakout250` / V12.33 ausschließlich im Paper-/Dry-run-Modus.
 
 ## Aktueller Betriebsrahmen
 
@@ -22,10 +22,12 @@ V12.18 reparierte den begonnenen Zehn-Paare-Ausbau von V12.17. V12.19
 beschleunigte den detailgenauen Backtest und machte den Zehner-Einzelbatch
 fortsetzbar. V12.20 sperrte nach vollständiger Zehn-Paare-Diagnose schädliche
 Zusatzblöcke pair-lokal. V12.22 ergänzte für SOL einen 4h-ADX von mindestens
-21. V12.31 behält dies und DOGEs kausal ausgewählten 4h-Supertrend(20, 3)
+21. V12.33 behält dies und DOGEs kausal ausgewählten 4h-Supertrend(20, 3)
 oberhalb einer steigenden EMA100. Zusätzlich kombiniert sie einmalig die
 unveränderte, zuvor separat geprüfte BCH-EMA30/EMA80-Route oberhalb einer
-steigenden EMA100 bei ADX mindestens 24.
+steigenden EMA100 bei ADX mindestens 24. LTC bleibt als zehnter beobachteter
+Markt erhalten, eröffnet aber bis zu neuer positiver Shared-Wallet-Evidenz
+keinen Trade.
 Alle zehn Märkte
 konkurrieren im Paperbot und im maßgeblichen Portfoliobacktest um dasselbe
 250-USDT-Wallet. Je Trade beginnt der Bot mit 80 USDT. Nur BTC, ETH, LINK und
@@ -48,13 +50,13 @@ versionierten Fingerabdruck nicht identisch wiederholt.
 V12.13 und V12.14 sind als verworfene Versuche dokumentiert. V12.15 bleibt die
 akzeptierte Sechs-Paare-Referenz. V12.16 (ADA) und die fehlerhafte erste
 V12.17-Umsetzung bleiben als nicht 1:1 zu wiederholende Evidenz erhalten.
-V12.31 ist der aktive, vorab registrierte Paper-/Dry-run-Kandidat. Sein exakter
-gemeinsamer Drei-Jahres-Test endete bei 669,857 USDT aus 250 USDT, mit PF 2,4358
-und 12,5447 Prozent geschlossenem Drawdown. DOGE reproduzierte einzeln
+V12.33 ist der aktive, vorab registrierte Paper-/Dry-run-Kandidat. Sein exakter
+gemeinsamer Drei-Jahres-Test endete bei 671,915 USDT aus 250 USDT, mit PF 2,4530
+und 12,1794 Prozent geschlossenem Drawdown. DOGE reproduzierte einzeln
 +112,552 USDT; BCH reproduzierte +25,398 USDT und blieb im jüngsten Jahr sowie
 bei erhöhten Gebühren positiv. Frische Paper-Evidenz steht noch aus; SOL und
-LTC bleiben im gemeinsamen Test negativ und das langfristige Ziel je Coin ist
-noch nicht erreicht.
+SOL bleibt im gemeinsamen Test negativ; LTC bleibt ohne Einstieg. Das
+langfristige Ziel je Coin ist noch nicht erreicht.
 
 ## Start und Auswertung
 
@@ -110,6 +112,8 @@ Maßgebliche Dokumente:
 - [`research/V12_22_SOL_ADX21_DE.md`](research/V12_22_SOL_ADX21_DE.md)
 - [`research/V12_30_DOGE_SUPERTREND_DE.md`](research/V12_30_DOGE_SUPERTREND_DE.md)
 - [`research/V12_31_DOGE_BCH_COMBINATION_DE.md`](research/V12_31_DOGE_BCH_COMBINATION_DE.md)
+- [`research/V12_33_LTC_NO_TRADE_DE.md`](research/V12_33_LTC_NO_TRADE_DE.md)
+- [`research/V12_33_FINAL_10_COIN_RESULTS_DE.md`](research/V12_33_FINAL_10_COIN_RESULTS_DE.md)
 
 Herkunft und Lizenzgrenzen der verbliebenen MIT-lizenzierten Research-Rollen
 sind in [`docs/UPSTREAM.md`](docs/UPSTREAM.md), [`LICENSE`](LICENSE) und

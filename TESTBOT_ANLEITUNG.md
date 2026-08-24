@@ -8,7 +8,7 @@ Aktueller Entwicklungszweig: `agent/v12-17-ten-pair-research-ui`.
 
 Die tatsächlich geladene Strategy-Datei ist
 `runtime/user_data/strategies/CompressionBreakout250.py` mit
-`STRATEGY_VERSION = "V12.31"`. Die eingefrorene V8-Datei unter
+`STRATEGY_VERSION = "V12.33"`. Die eingefrorene V8-Datei unter
 `research/baselines/V8/` bleibt ausschließlich Baseline für Replay, Reproduktion
 und Research-Governance.
 
@@ -25,21 +25,23 @@ und Research-Governance.
 - Hard-Stop bleibt Bestandteil der Strategy-/Config-Grenzen
 - kein automatischer Echtgeld-Release
 
-## Was V12.31 macht
+## Was V12.33 macht
 
 Alle zehn Pairs werden mit ihren eigenen 15m/1h/4h-Daten bewertet. Im laufenden
 Paperbot teilen sie sich ein einziges 250-USDT-Wallet und höchstens drei
-gleichzeitige 80-USDT-Kapitalblöcke. V12.31 behält den bewährten V12.15-Kern,
+gleichzeitige 80-USDT-Kapitalblöcke. V12.33 behält den bewährten V12.15-Kern,
 die V12.18-Sicherheitsreparatur, die schnelle, fortsetzbare V12.19-Laufzeit
 und das selektive V12.20-Gewinn-Pyramiding.
 
 - BTC und ETH behalten ihre separat markierten EMA20-Trend-Reclaims.
-- SOL, XRP, BNB, LINK, TRX und LTC verwenden keinen Reclaim-Challenger,
+- SOL, XRP, BNB, LINK und TRX verwenden keinen Reclaim-Challenger,
   sondern ihren markierten Donchian-/Trendkern.
 - DOGE verwendet den 4h-Supertrend(20, 3)-Wechsel oberhalb einer steigenden
   EMA100 und steigt beim Gegenwechsel aus.
 - BCH verwendet die feste EMA30/EMA80-Kreuzung oberhalb einer steigenden
   EMA100 bei ADX mindestens 24 und steigt unter EMA80 aus.
+- LTC bleibt als Markt und Backtestauswahl sichtbar, eröffnet nach zwei
+  negativen Shared-Wallet-Versuchen aber vorerst keinen Trade.
 - Nur SOL verlangt beim vorhandenen Donchian-Einstieg zusätzlich einen
   bestätigten 4h-ADX von mindestens 21. Andere SOL-Filter bleiben deaktiviert.
 - Nach zwei unprofitablen Trades eines Pairs innerhalb von 14 Tagen sperrt die
@@ -48,13 +50,13 @@ und das selektive V12.20-Gewinn-Pyramiding.
   ein +5-%-Stopboden gesetzt; Reclaims und normale Bewegungen bleiben unberührt.
 - Nur BTC, ETH, LINK und TRX dürfen eine zweite oder dritte 80-USDT-Stufe
   erhalten; weiterhin nur bei positivem Gesamt- und Einstiegsergebnis und zu
-  einem Kurs oberhalb aller bisherigen Einstiege. SOL, XRP, BNB, DOGE, LTC und
-  BCH handeln weiter mit normalen ersten Entries, aber ohne Zusatzblock.
+  einem Kurs oberhalb aller bisherigen Einstiege. SOL, XRP, BNB, DOGE und BCH
+  handeln weiter mit normalen ersten Entries, aber ohne Zusatzblock.
 - Der feste Stop-Loss bleibt bei −5,5 %; Verlust-DCA und Shorting bleiben
   deaktiviert.
 - Gewinner werden nicht durch den verworfenen SOL-Ratchet abgeschnitten.
 
-V12.31 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
+V12.33 ist ein Research-/Paper-Kandidat und **kein Profitversprechen**. Die
 Änderung erhöht weder Positionsgröße noch Maximalengagement.
 
 ## FreqUI

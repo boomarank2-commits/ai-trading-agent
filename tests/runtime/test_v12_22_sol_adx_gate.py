@@ -9,7 +9,7 @@ STRATEGY = ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout2
 def test_v12_22_adds_only_the_registered_sol_adx_quality_branch() -> None:
     source = STRATEGY.read_text(encoding="utf-8")
 
-    assert 'STRATEGY_VERSION = "V12.31"' in source
+    assert 'STRATEGY_VERSION = "V12.33"' in source
     assert 'elif pair == "SOL/USDT":' in source
     assert 'self.PAIR_PROFILES[pair]["adx_min"]' in source
     assert 'elif pair in self.BROAD_CORE_PAIRS:' in source

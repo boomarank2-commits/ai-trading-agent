@@ -10,7 +10,7 @@ API = ROOT / "runtime" / "ten_pair_backtest_api.py"
 def test_v12_31_combines_fixed_doge_and_bch_routes() -> None:
     source = STRATEGY.read_text(encoding="utf-8")
 
-    assert 'STRATEGY_VERSION = "V12.31"' in source
+    assert 'STRATEGY_VERSION = "V12.33"' in source
     assert '"v12_30_doge_supertrend20x3"' in source
     assert '"v12_30_doge_supertrend_exit"' in source
     assert 'dataframe["bch_ema_fast"] = ta.EMA(dataframe, timeperiod=30)' in source
@@ -42,5 +42,5 @@ def test_v12_31_exact_result_and_active_api_are_documented() -> None:
     assert "669,857 USDT" in report
     assert "+419,8571 USDT" in report
     assert "12,5447 Prozent" in report
-    assert 'base.STRATEGY_VERSION = "V12.31"' in api
-    assert 'ACTIVE_EXPERIMENT_ID = "V12.31-DOGE-BCH-FIXED-ROUTE-COMBINATION"' in api
+    assert 'base.STRATEGY_VERSION = "V12.33"' in api
+    assert 'ACTIVE_EXPERIMENT_ID = "V12.33-LTC-NO-TRADE-COUNTERFACTUAL"' in api

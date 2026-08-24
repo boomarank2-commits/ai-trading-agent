@@ -30,7 +30,7 @@ def _source() -> str:
 
 def test_v12_22_keeps_pair_local_champion_donchian_paths_for_ten_pairs() -> None:
     text = _source()
-    assert 'STRATEGY_VERSION = "V12.31"' in text
+    assert 'STRATEGY_VERSION = "V12.33"' in text
     for pair in TEN_PAIRS:
         assert f'"{pair}"' in text
     assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text

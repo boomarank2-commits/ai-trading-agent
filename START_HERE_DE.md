@@ -1,6 +1,6 @@
-# Start hier: V12.31-Zehn-Paare-Testbot und Research-System
+# Start hier: V12.33-Zehn-Paare-Testbot und Research-System
 
-Stand: 24.08.2026
+Stand: 25.08.2026
 
 ## Aktueller Stand
 
@@ -8,10 +8,10 @@ Die eingefrorene historische Research-Baseline bleibt `CompressionBreakout250` /
 V8 unter `research/baselines/V8/`.
 
 Der aktuelle Paper-/Dry-run-Kandidat ist jedoch
-`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.31** auf dem
+`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.33** auf dem
 Arbeitsbranch `agent/v12-17-ten-pair-research-ui`.
 
-V12.31 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
+V12.33 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
 Spot-Paare:
 
 - BTC/USDT
@@ -32,25 +32,26 @@ Block ist maximal 80 USDT groß. Insgesamt dürfen höchstens 240 USDT bzw. drei
 BTC, ETH, LINK und TRX dürfen in einem bereits offenen Trade einen zweiten oder
 dritten 80-USDT-Block erhalten, aber nur wenn auf einer späteren Candle erneut
 ein vollständiges normales Entry-Signal entsteht, der Trade im Gewinn liegt
-und der neue Preis über allen früheren Entry-Fills liegt. Die anderen sechs
-Coins behalten normale erste Entries, aber keine Zusatzblöcke. Verlust-Nachkauf
-und Martingale sind gesperrt.
+und der neue Preis über allen früheren Entry-Fills liegt. Fünf weitere Coins
+behalten normale erste Entries, aber keine Zusatzblöcke. LTC bleibt im
+Universum und in der Datenpflege sichtbar, eröffnet in V12.33 jedoch keinen
+Trade. Verlust-Nachkauf und Martingale sind gesperrt.
 
-V12.31 behält den V12.22-SOL-Filter `adx_4h >= 21` und DOGEs kausal
+V12.33 behält den V12.22-SOL-Filter `adx_4h >= 21` und DOGEs kausal
 ausgewählten 4h-Supertrend(20, 3) oberhalb einer steigenden EMA100. Zusätzlich
 verwendet BCH die unveränderte, zuvor separat geprüfte EMA30/EMA80-Route
 oberhalb einer steigenden EMA100 bei ADX mindestens 24. Sämtliche Stopps,
 Kapitalgrenzen und Pyramiding-Regeln bleiben unverändert. Der exakte gemeinsame
-Drei-Jahres-Diagnoselauf endete bei 669,857 USDT aus 250 USDT, PF 2,4358 und
-12,5447 Prozent geschlossenem Drawdown. Das ist historische Simulation und
+Drei-Jahres-Diagnoselauf endete bei 671,915 USDT aus 250 USDT, PF 2,4530 und
+12,1794 Prozent geschlossenem Drawdown. Das ist historische Simulation und
 keine Garantie für künftige Gewinne.
 
 Status:
 
-**V12.31 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
+**V12.33 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
 
 Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
-Position-Adjustment-Vertrag. Dadurch darf V12.31 nicht versehentlich als
+Position-Adjustment-Vertrag. Dadurch darf V12.33 nicht versehentlich als
 Echtgeldbot starten.
 
 ## Wichtige historische Referenzen
@@ -80,7 +81,7 @@ Die darauf aufbauende V12.19-Laufzeit-/Lernübergabe steht in:
 `research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
 
 Die V12.20-Elternentscheidung, der V12.22-SOL-Schritt, der V12.30-DOGE-Schritt
-und die aktive V12.31-Kombination stehen in:
+und die von V12.33 geerbte V12.31-Kombination stehen in:
 
 `research/V12_20_SELECTIVE_PYRAMID_DE.md`
 
@@ -89,6 +90,13 @@ und die aktive V12.31-Kombination stehen in:
 `research/V12_30_DOGE_SUPERTREND_DE.md`
 
 `research/V12_31_DOGE_BCH_COMBINATION_DE.md`
+
+Die aktive LTC-NO-TRADE-Entscheidung und die vollständigen neuen Ergebnisse
+stehen in:
+
+`research/V12_33_LTC_NO_TRADE_DE.md`
+
+`research/V12_33_FINAL_10_COIN_RESULTS_DE.md`
 
 Der anschließend geprüfte und verworfene V12.32-LTC-Kombinationsversuch steht
 in:
@@ -146,7 +154,7 @@ Die UI bietet:
 automatisch zehn unabhängige Läufe nacheinander. Jeder Coin beginnt erneut mit
 250 USDT. Du musst den Startknopf daher nicht zehnmal drücken.
 
-V12.31 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
+V12.33 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
 zum lokalen Bot-Server und nicht zur gerade sichtbaren Browserseite: Du kannst
 zwischen Trade, Dashboard, Chart, Logs und Backtest wechseln, ohne den Batch zu
 stoppen. Nach einem Bot-Neustart wird ein unvollständiger Batch als fortsetzbar
@@ -163,8 +171,9 @@ erhalten. Er ist bewusst kein dritter Knopf im normalen Backtest-Bildschirm.
 ## Neue Paare und erste Strategiezuordnung
 
 LINK, TRX und LTC verwenden weiterhin den vorhandenen Broad-Core-Donchian-Pfad.
-DOGE nutzt seine Supertrend20×3-/EMA100-Route; BCH nutzt in V12.31 die feste
-EMA30/EMA80-/EMA100-/ADX24-Route; SOL behält den V12.22-ADX21-Filter.
+DOGE nutzt seine Supertrend20×3-/EMA100-Route; BCH nutzt die feste
+EMA30/EMA80-/EMA100-/ADX24-Route; SOL behält den V12.22-ADX21-Filter. LTC wird
+weiter beobachtet, bleibt aber bis zu neuer Evidenz im Zustand `NO_TRADE`.
 
 BTC und ETH behalten ihre spezialisierten Champion-/Reclaim-Pfade aus dem
 bewährten V12.15-Kern.
@@ -176,7 +185,7 @@ klarer Begründung angepasst werden.
 
 ## Selektive weitere Entries im selben Pair
 
-V12.31 verwendet technisch für den Paper-/Backtest-Kandidaten weiterhin:
+V12.33 verwendet technisch für den Paper-/Backtest-Kandidaten weiterhin:
 
 ```text
 position_adjustment_enable = true
@@ -185,8 +194,8 @@ max_entry_position_adjustment = 2
 
 Dadurch kann ein offener Freqtrade-Trade bei BTC, ETH, LINK und TRX bis zu drei
 erfolgreiche Entry-Orders enthalten. Für SOL, XRP, BNB, DOGE, LTC und BCH gibt
-`adjust_trade_position()` immer `None` zurück; diese Coins dürfen aber weiterhin
-ihren normalen ersten Trade eröffnen.
+`adjust_trade_position()` immer `None` zurück. SOL, XRP, BNB, DOGE und BCH
+dürfen ihren normalen ersten Trade eröffnen; LTC derzeit nicht.
 
 Zusätzliche Sicherheitslogik prüft:
 
@@ -277,7 +286,7 @@ HISTORISCHER_BACKTEST.bat
 ## Historischer V8-Full-System-Replay
 
 Der bestehende V8-Replay bleibt eine eingefrorene historische Drei-Paare-
-Research-Evidenz und wird nicht auf V12.31 umetikettiert.
+Research-Evidenz und wird nicht auf V12.33 umetikettiert.
 
 Er handelt weiterhin nur:
 
@@ -336,8 +345,8 @@ Aktuell zwingend:
 - kein Futures/Margin;
 - pro Entry höchstens 80 USDT;
 - global höchstens 240 USDT offen;
-- höchstens drei erfolgreiche Entries bei BTC/ETH/LINK/TRX, sonst genau ein
-  erster Entry je offenem Trade;
+- höchstens drei erfolgreiche Entries bei BTC/ETH/LINK/TRX, sonst höchstens
+  ein erster Entry je offenem Trade; LTC bleibt aktuell ohne Entry;
 - Zusatz-Entry nur auf einem neuen Signal;
 - kein blindes DCA/Martingale;
 - Hard-Stop -5,5 %;
@@ -352,9 +361,9 @@ Aktuell zwingend:
 ## Nächste Reihenfolge
 
 1. Die aktuell grünen CI-/Runtime-/Safety-Checks bei jeder Änderung grün halten.
-2. Den exakten V12.31-Kandidaten im Paperbetrieb mit allen zehn Coins laufen
+2. Den exakten V12.33-Kandidaten im Paperbetrieb mit allen zehn Coins laufen
    lassen; fertig gespeicherte identische Backtests nicht wiederholen.
-3. V12.31 für die noch fehlenden 1-/2-/3-Jahres-Fingerprints je Coin messen und
+3. V12.33 für die noch fehlenden 1-/2-/3-Jahres-Fingerprints je Coin messen und
    den formalen UI-Dateizugriffsaudit abschließen.
 4. Selektives Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
 5. Die aktiven DOGE-/BCH-Routen und die verworfenen TRX-/LTC-/BNB-Routen sowie
@@ -370,7 +379,7 @@ Aktuell zwingend:
 
 `NO_TRADE` bleibt der sichere Standard bei unsicheren Daten, Regimen oder
 Signalen. ORB-Retest und Ichimoku bleiben getrennte spätere Research-Challenger
-und werden nicht ohne eigenes Experiment in V12.31 eingebaut.
+und werden nicht ohne eigenes Experiment in V12.33 eingebaut.
 
 ## Wichtig für spätere GPT-/Codex-Runden
 
