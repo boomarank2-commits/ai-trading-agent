@@ -123,6 +123,7 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     for pair in TEN_PAIRS:
         assert pair in ui
     assert "Alle 10 einzeln testen" in ui
+    assert "Nur BTC, ETH, LINK und TRX dürfen einen zweiten oder dritten" in ui
     assert 'id="tb-start-all"' not in ui
     assert "startPortfolioBacktest" not in ui
     assert "eigenen 250-USDT-Testwallet" in ui
@@ -136,6 +137,11 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert 'value="2"' in ui
     assert 'value="3"' in ui
     assert "Alle 22 Backtests" not in ui
+    batch_start = ui.split("async function startAllBacktests()", maxsplit=1)[1].split(
+        "function showBacktest", maxsplit=1
+    )[0]
+    assert "clearInterval(pollTimer)" not in batch_start
+    assert "setInterval(loadStatus, 1000)" in batch_start
 
 
 def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio() -> None:

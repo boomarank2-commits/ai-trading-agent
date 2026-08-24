@@ -205,7 +205,7 @@
             <strong>Einzeltest:</strong> Der gewählte Coin startet mit einem eigenen 250-USDT-Testwallet und simuliert exakt die aktuelle V12.20-Strategie.<br><br>
             <strong>Marktdaten:</strong> Vor einem neuen Lauf werden die benötigten 1m-, 15m-, 1h- und 4h-Binance-Kerzen automatisch bis heute aktualisiert. Fehlende ältere Bereiche werden nachgeladen; beschädigte oder lückenhafte Dateien werden für den betroffenen Coin frisch aufgebaut. Die geprüften Daten bleiben unter <code>runtime/user_data/data/binance</code> im Botordner gespeichert und können in späteren Läufen wiederverwendet werden.<br><br>
             <strong>Alle 10 einzeln testen:</strong> Startet serverseitig zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT. Plan, Fortschritt, Vorher/Nachher-Vergleich und Ergebnis werden dauerhaft gespeichert; ein Neuladen der UI unterbricht die Warteschlange nicht.<br><br>
-            <strong>Kapitalregel je Einzeltest:</strong> Ein zweiter oder dritter 80-USDT-Block im selben Coin ist nur bei einem späteren vollständigen Einstiegssignal zulässig, wenn der offene Trade bereits im Gewinn liegt und der neue Kurs über allen vorherigen Einstiegskursen liegt. Verlust-Nachkäufe sind gesperrt.<br><br>
+            <strong>Kapitalregel je Einzeltest:</strong> Nur BTC, ETH, LINK und TRX dürfen einen zweiten oder dritten 80-USDT-Block erhalten, und nur bei einem späteren vollständigen Einstiegssignal, einem bereits profitablen Trade und einem Kurs über allen vorherigen Einstiegskursen. SOL, XRP, BNB, DOGE, LTC und BCH handeln weiterhin normal mit ihrem ersten Block. Verlust-Nachkäufe sind gesperrt.<br><br>
             <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
         </div>
@@ -452,11 +452,6 @@
     } catch (error) {
       renderState({ status: "failed", stage: "Fehler", progress: 100, error: String(error.message || error) });
       return;
-    }
-
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
     }
 
     batchRunning = true;
