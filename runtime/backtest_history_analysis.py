@@ -557,8 +557,9 @@ def _load_experiments(path: Path | None) -> list[dict[str, str]]:
         return []
     with path.open("r", encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
+        fields = list(reader.fieldnames or DETAILED_EXPERIMENT_FIELDS)
         return [
-            {field: str(row.get(field) or "").strip() for field in DETAILED_EXPERIMENT_FIELDS}
+            {field: str(row.get(field) or "").strip() for field in fields}
             for row in reader
         ]
 
@@ -647,6 +648,76 @@ def _history_run_summary(run: dict[str, Any]) -> dict[str, Any]:
     return {field: run.get(field) for field in fields}
 
 
+def _documented_pair_experiments(
+    report: dict[str, Any], pair: str, preserved_runs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return pair-local ledger attempts which have no preserved UI result.
+
+    Some gated research attempts stop after an isolated exact run and are
+    recorded only in the immutable trial ledger.  Keeping those attempts in
+    the coin dossier prevents the UI runner (or a later researcher) from
+    proposing the same rejected family again.
+    """
+
+    represented_ids = {
+        str(run.get("experiment_id") or "") for run in preserved_runs
+    }
+    fields = (
+        "experiment_id",
+        "parent_experiment_id",
+        "strategy_version",
+        "strategy_hash",
+        "parameter_hash",
+        "status",
+        "date_decided",
+        "development_window",
+        "validation_window",
+        "holdout_window",
+        "pairs",
+        "fees",
+        "trade_count",
+        "net_return",
+        "profit_factor",
+        "sharpe",
+        "max_drawdown",
+        "reason_accepted_or_rejected",
+        "notes",
+        "hypothesis",
+        "change_summary",
+        "acceptance_criteria",
+        "result_summary",
+        "decision",
+        "lessons",
+        "next_experiment",
+    )
+    relevant = []
+    for experiment in report.get("experiment_ledger", []):
+        targets = {
+            item.strip()
+            for item in str(experiment.get("pairs") or "").split(";")
+            if item.strip()
+        }
+        experiment_id = str(experiment.get("experiment_id") or "")
+        if pair not in targets or experiment_id in represented_ids:
+            continue
+        if len(targets) > 1:
+            asset = pair.split("/", maxsplit=1)[0]
+            target_assets = {target.split("/", maxsplit=1)[0] for target in targets}
+            id_tokens = re.split(r"[^A-Z0-9]+", experiment_id.upper())
+            named_assets = {
+                candidate
+                for candidate in target_assets
+                if any(token.startswith(candidate) for token in id_tokens)
+            }
+            # Pair-named experiments are local to those names. An experiment
+            # without any target asset in its ID is a genuinely global change
+            # and remains relevant to every listed pair.
+            if named_assets and asset not in named_assets:
+                continue
+        relevant.append({field: experiment.get(field) for field in fields})
+    return list(reversed(relevant))
+
+
 def build_pair_history_context(
     report: dict[str, Any],
     *,
@@ -711,6 +782,7 @@ def build_pair_history_context(
             f"um {abs(drawdown_delta):.2f} Prozentpunkte."
         )
 
+    preserved_runs = [_history_run_summary(run) for run in reversed(candidates)]
     return {
         "schema_version": 1,
         "pair": pair,
@@ -720,13 +792,18 @@ def build_pair_history_context(
         "previous": _history_run_summary(previous) if previous is not None else None,
         "delta_vs_previous": deltas,
         "assessment_de": assessment,
-        "all_preserved_runs": [_history_run_summary(run) for run in reversed(candidates)],
+        "all_preserved_runs": preserved_runs,
+        "documented_pair_experiments": _documented_pair_experiments(
+            report, pair, preserved_runs
+        ),
         "duplicate_execution_allowed": False,
     }
 
 
-def _pair_histories(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    shell = {"runs": completed}
+def _pair_histories(
+    completed: list[dict[str, Any]], experiments: list[dict[str, str]]
+) -> list[dict[str, Any]]:
+    shell = {"runs": completed, "experiment_ledger": experiments}
     cells = sorted(
         {
             (str(run["pair"]), int(run["period_years"]))
@@ -820,7 +897,7 @@ def analyze_backtest_history(
         "duplicate_test_groups": duplicate_groups,
         "strategy_matrices": _matrix_summaries(completed),
         "repeat_groups": _group_summaries(completed),
-        "pair_histories": _pair_histories(completed),
+        "pair_histories": _pair_histories(completed, experiments),
         "runs": sorted(
             completed,
             key=lambda row: (row["backtest_end"], row["run_id"]),
@@ -1065,6 +1142,39 @@ def render_pair_history_markdown(history: dict[str, Any]) -> str:
                 capital=_number(run.get("capital_time_utilization_pct")),
             )
         )
+    documented = history.get("documented_pair_experiments") or []
+    if documented:
+        lines.extend(
+            [
+                "",
+                "## Weitere pair-lokale Versuche aus dem Forschungsledger",
+                "",
+                "Diese Versuche besitzen keinen regulären UI-Ergebnisordner, sind aber "
+                "bereits entschieden und dürfen nicht stillschweigend wiederholt werden.",
+                "",
+            ]
+        )
+        for experiment in documented:
+            result_text = (
+                experiment.get("result_summary")
+                or experiment.get("notes")
+                or "keine Finanzmessung"
+            )
+            lines.extend(
+                [
+                    f"### {experiment.get('experiment_id') or '?'}",
+                    "",
+                    f"- Version: {experiment.get('strategy_version') or '?'}",
+                    "- Status/Entscheidung: "
+                    f"{experiment.get('decision') or experiment.get('status') or '?'}",
+                    f"- Hypothese: {experiment.get('hypothesis') or 'nicht dokumentiert'}",
+                    f"- Änderung: {experiment.get('change_summary') or 'nicht dokumentiert'}",
+                    f"- Ergebnis: {result_text}",
+                    f"- Erkenntnis: {experiment.get('lessons') or 'nicht dokumentiert'}",
+                    f"- Nächster Versuch: {experiment.get('next_experiment') or 'noch offen'}",
+                    "",
+                ]
+            )
     current = history.get("current") or {}
     previous = history.get("previous") or {}
     delta = history.get("delta_vs_previous") or {}

@@ -170,6 +170,56 @@ def test_pair_history_records_previous_material_run_and_metric_deltas(
     assert "+5.50 USDT" in markdown
 
 
+def test_pair_history_includes_only_same_pair_ledger_attempts_without_ui_run(
+    tmp_path: Path,
+) -> None:
+    _write_result(tmp_path, "run-eth", pair="ETH/USDT", profit=4.0)
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+    report["experiment_ledger"] = [
+        {
+            "experiment_id": "ETH-REJECTED",
+            "strategy_version": "V99.1",
+            "pairs": "ETH/USDT",
+            "hypothesis": "ETH-only idea",
+            "decision": "REJECT_DO_NOT_REPEAT",
+            "lessons": "Did not survive costs.",
+            "next_experiment": "Use a different ETH family.",
+        },
+        {
+            "experiment_id": "BTC-ONLY",
+            "strategy_version": "V99.2",
+            "pairs": "BTC/USDT",
+            "hypothesis": "BTC-only idea",
+        },
+        {
+            "experiment_id": "PORTFOLIO-SOL-CHANGE",
+            "strategy_version": "V99.3",
+            "pairs": "ETH/USDT;SOL/USDT",
+            "hypothesis": "Change only SOL and preserve ETH.",
+            "change_summary": "Replace only SOL.",
+        },
+        {
+            "experiment_id": "PORTFOLIO-ETH-CHANGE",
+            "strategy_version": "V99.4",
+            "pairs": "ETH/USDT;SOL/USDT",
+            "hypothesis": "Change only ETH and preserve SOL.",
+            "change_summary": "Replace only ETH.",
+        },
+    ]
+
+    history = build_pair_history_context(report, pair="ETH/USDT", years=1)
+
+    documented = history["documented_pair_experiments"]
+    assert [row["experiment_id"] for row in documented] == [
+        "PORTFOLIO-ETH-CHANGE",
+        "ETH-REJECTED",
+    ]
+    markdown = render_pair_history_markdown(history)
+    assert "ETH-REJECTED" in markdown
+    assert "BTC-ONLY" not in markdown
+    assert "PORTFOLIO-SOL-CHANGE" not in markdown
+
+
 def test_history_report_writes_separate_pair_learning_files(tmp_path: Path) -> None:
     _write_result(tmp_path, "run-good", pair="BTC/USDT", profit=5.0)
 

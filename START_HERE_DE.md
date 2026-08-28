@@ -1,6 +1,6 @@
 # Start hier: V12.33-Zehn-Paare-Testbot und Research-System
 
-Stand: 25.08.2026
+Stand: 28.08.2026
 
 ## Aktueller Stand
 
@@ -54,6 +54,12 @@ Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
 Position-Adjustment-Vertrag. Dadurch darf V12.33 nicht versehentlich als
 Echtgeldbot starten.
 
+Ein neuer vollständiger V12.31-Laptopbatch vom 28.08.2026 ist als historische
+Pair-Evidenz dokumentiert. Er lief 10/10 ohne technischen Fehler, verwendete
+aber den älteren Laptop-Commit und ersetzt V12.33 nicht. Die danach exakt
+geprüften V12.39-XRP- und V12.40-SOL-Kandidaten scheiterten an ihren vorab
+festgelegten Finanz-/Zeitfensterhürden. V12.33 blieb deshalb unverändert.
+
 ## Wichtige historische Referenzen
 
 V12.15 bleibt die akzeptierte Sechs-Paare-Referenz vor dem Zehner-Ausbau. Der
@@ -97,6 +103,15 @@ stehen in:
 `research/V12_33_LTC_NO_TRADE_DE.md`
 
 `research/V12_33_FINAL_10_COIN_RESULTS_DE.md`
+
+Der frische V12.31-Batch und die anschließend verworfenen pair-lokalen
+Versuche stehen in:
+
+`research/V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md`
+
+`research/V12_39_XRP_7D_MOMENTUM_DE.md`
+
+`research/V12_40_SOL_DUAL_TREND_COMBINATION_DE.md`
 
 Der anschließend geprüfte und verworfene V12.32-LTC-Kombinationsversuch steht
 in:

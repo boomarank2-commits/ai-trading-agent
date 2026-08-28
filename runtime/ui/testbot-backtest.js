@@ -166,6 +166,16 @@
         .tb-negative { color: #ff7f7f; }
         .tb-neutral { color: #e4eef1; }
         .tb-note { margin-top: 18px; padding-top: 15px; border-top: 1px solid #26343a; color: #81959e; font-size: 12px; line-height: 1.6; white-space: pre-line; }
+        .tb-history { margin-top: 22px; padding-top: 18px; border-top: 1px solid #26343a; }
+        .tb-history h3 { margin: 0 0 6px; color: #eaf2f4; font-size: 17px; }
+        .tb-history-intro { margin: 0 0 14px; color: #879ba4; font-size: 12px; line-height: 1.55; }
+        .tb-history-table-wrap { overflow-x: auto; }
+        .tb-history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .tb-history-table th, .tb-history-table td { padding: 9px 10px; border-bottom: 1px solid #29383e; text-align: left; vertical-align: top; }
+        .tb-history-table th { color: #91a5ad; font-weight: 600; white-space: nowrap; }
+        .tb-history-table td { color: #cbd8dc; line-height: 1.45; min-width: 105px; }
+        .tb-history-table td.tb-history-detail { min-width: 260px; white-space: normal; }
+        .tb-history-table code { color: #8fd8e5; }
         .tb-batch-table-wrap { overflow-x: auto; }
         .tb-batch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .tb-batch-table th, .tb-batch-table td { padding: 10px 12px; border-bottom: 1px solid #29383e; text-align: right; white-space: nowrap; }
@@ -220,6 +230,7 @@
           <div class="tb-result-head"><h2 id="tb-result-title">Einzelergebnis</h2><div id="tb-result-meta" class="tb-result-meta"></div></div>
           <div id="tb-grid" class="tb-grid"></div>
           <div id="tb-note" class="tb-note"></div>
+          <div id="tb-history" class="tb-history"></div>
         </div>
         <div id="tb-batch-results" class="tb-panel tb-results">
           <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 einzeln</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
@@ -319,9 +330,55 @@
         : (historical.assessment_de || "Kein älterer gleicher Pair-/Zeitraumvergleich vorhanden.");
       const timingText = `Daten ${durationText(timing.market_data_seconds)} · Simulation ${durationText(timing.simulation_seconds)} · Auswertung ${durationText(timing.analysis_seconds)} · Gesamt ${durationText(timing.total_seconds)}`;
       document.getElementById("tb-note").textContent = `Aktuelle Strategie: V12.33 / ${r.strategy}. Experiment ${experiment.experiment_id || "?"}. Strategie-Hash ${String(r.strategy_sha256 || "").slice(0, 16)}… · Test-Fingerprint ${String(identity.test_fingerprint || "").slice(0, 16)}… . Tatsächlicher Zeitraum: ${r.backtest_start || "?"} bis ${r.backtest_end || "?"} (${Number(r.backtest_days || 0)} Tage). ${auditText}.\nLaufzeit: ${timingText}.\nHistorie: ${comparison}\nPaare: ${pairs}\nEntry-Familien: ${entries}\nExit-Gründe: ${exits}`;
+      renderPairHistory(historical, r.pair);
     } else if (state.status === "running") {
       results.style.display = "none";
     }
+  }
+
+  function renderPairHistory(history, pair) {
+    const target = document.getElementById("tb-history");
+    if (!target) return;
+    const preserved = Array.isArray(history.all_preserved_runs)
+      ? history.all_preserved_runs
+      : [];
+    const documented = Array.isArray(history.documented_pair_experiments)
+      ? history.documented_pair_experiments
+      : [];
+    if (!preserved.length && !documented.length) {
+      target.innerHTML = `<h3>Testakte ${escapeHtml(pairLabel(pair))}</h3><p class="tb-history-intro">Für dieses Pair und diesen Zeitraum ist noch kein älterer materieller Versuch gespeichert.</p>`;
+      return;
+    }
+
+    const runRows = preserved.map((run) => {
+      const profit = Number(run.profit_usdt || 0);
+      const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
+      const period = `${String(run.backtest_start || "?").slice(0, 10)} bis ${String(run.backtest_end || "?").slice(0, 10)}`;
+      const detail = [
+        `<strong>Änderung:</strong> ${escapeHtml(run.change_summary || "nicht dokumentiert")}`,
+        `<strong>Ergebnis:</strong> ${escapeHtml(run.result_summary || "nur Messwerte gespeichert")}`,
+        `<strong>Erkenntnis:</strong> ${escapeHtml(run.lessons || "noch nicht bewertet")}`,
+        `<strong>Nächster Schritt:</strong> ${escapeHtml(run.next_experiment || "noch offen")}`
+      ].join("<br>");
+      return `<tr><td><code>${escapeHtml(run.strategy_version || "?")}</code><br>${escapeHtml(run.experiment_id || "historisch")}</td><td>${escapeHtml(period)}</td><td class="${profitClass}">${money(profit)}</td><td>${Number(run.trades || 0)}</td><td>${Number(run.profit_factor || 0).toFixed(2)}</td><td>${Number(run.max_drawdown_pct || 0).toFixed(2)} %</td><td>${escapeHtml(run.decision || "nicht bewertet")}</td><td class="tb-history-detail">${detail}</td></tr>`;
+    }).join("");
+    const documentedRows = documented.map((experiment) => {
+      const detail = [
+        `<strong>Hypothese:</strong> ${escapeHtml(experiment.hypothesis || "nicht dokumentiert")}`,
+        `<strong>Änderung:</strong> ${escapeHtml(experiment.change_summary || "nicht dokumentiert")}`,
+        `<strong>Ergebnis:</strong> ${escapeHtml(experiment.result_summary || experiment.notes || "keine Finanzmessung")}`,
+        `<strong>Erkenntnis:</strong> ${escapeHtml(experiment.lessons || "noch nicht bewertet")}`,
+        `<strong>Nächster Schritt:</strong> ${escapeHtml(experiment.next_experiment || "noch offen")}`
+      ].join("<br>");
+      return `<tr><td><code>${escapeHtml(experiment.strategy_version || "?")}</code><br>${escapeHtml(experiment.experiment_id || "?")}</td><td>${escapeHtml(experiment.validation_window || experiment.date_decided || "dokumentiert")}</td><td>—</td><td>${escapeHtml(experiment.trade_count || "—")}</td><td>${escapeHtml(experiment.profit_factor || "—")}</td><td>${escapeHtml(experiment.max_drawdown || "—")}</td><td>${escapeHtml(experiment.decision || experiment.status || "nicht bewertet")}</td><td class="tb-history-detail">${detail}</td></tr>`;
+    }).join("");
+    target.innerHTML = `
+      <h3>Testakte ${escapeHtml(pairLabel(pair))}</h3>
+      <p class="tb-history-intro">Nur Versuche dieses Coins mit derselben Laufzeit. Identische Fingerabdrücke werden nicht erneut gerechnet. Ledger-Versuche ohne regulären UI-Lauf stehen zusätzlich in dieser Akte.</p>
+      <div class="tb-history-table-wrap"><table class="tb-history-table">
+        <thead><tr><th>Version / Versuch</th><th>Zeitraum</th><th>P/L</th><th>Trades</th><th>PF</th><th>DD</th><th>Entscheidung</th><th>Was wurde gelernt?</th></tr></thead>
+        <tbody>${runRows}${documentedRows}</tbody>
+      </table></div>`;
   }
 
   function renderBatchResults(completed, total, years, currentLabel = "") {
@@ -392,6 +449,20 @@
       years,
       state.current_pair ? pairLabel(state.current_pair) : ""
     );
+    const status = document.getElementById("tb-status");
+    const progress = Math.max(0, Math.min(100, Number(state.progress || 0)));
+    if (status) status.style.display = "block";
+    document.getElementById("tb-stage").textContent = String(state.stage || "Zehner-Batch");
+    document.getElementById("tb-progress-text").textContent = `${Number(state.completed_cases || 0)}/${PAIRS.length} Coins · ${progress} %`;
+    document.getElementById("tb-progress-bar").style.width = `${progress}%`;
+    const activity = document.getElementById("tb-activity");
+    if (activity) {
+      activity.textContent = batchRunning
+        ? `Gesamtlauf aktiv${state.current_pair ? ` · ${pairLabel(state.current_pair)} wird gerade gerechnet` : ""}. Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht.`
+        : state.status === "completed"
+          ? "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen."
+          : "Der Zehnerlauf ist beendet, enthält aber mindestens einen Fehler.";
+    }
     if (state.status === "failed" && state.batch_error) {
       const error = document.getElementById("tb-error");
       error.textContent = state.batch_error;

@@ -141,6 +141,10 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert 'value="3"' in source
     assert "Doppeltest übersprungen" in source
     assert "error.isDuplicate" in source
+    assert "renderPairHistory(historical, r.pair)" in source
+    assert "documented_pair_experiments" in source
+    assert "Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht" in source
+    assert "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen" in source
 
 
 def test_batch_state_is_persisted_below_an_ignored_history_directory() -> None:

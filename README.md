@@ -58,6 +58,15 @@ bei erhöhten Gebühren positiv. Frische Paper-Evidenz steht noch aus; SOL und
 SOL bleibt im gemeinsamen Test negativ; LTC bleibt ohne Einstieg. Das
 langfristige Ziel je Coin ist noch nicht erreicht.
 
+Der frische vollständige V12.31-Einzelbatch vom 28.08.2026 ist als historische
+Pair-Evidenz erhalten: 10/10 technisch fertig, neun Paare positiv und LTC
+negativ; er ist wegen des älteren Laptop-Commits kein Ersatz für V12.33.
+V12.39 (XRP 7-Tage-Momentum) und V12.40 (SOL Donchian plus Supertrend) wurden
+anschließend vorregistriert und exakt geprüft. V12.39 scheiterte bereits im
+Dreijahreslauf. V12.40 erreichte drei Jahre lang +63,800 USDT, scheiterte aber
+im getrennten jüngsten Jahr mit -6,362 USDT. Beide bleiben verworfene
+Research-Artefakte; die aktive Strategie wurde nicht verändert.
+
 ## Start und Auswertung
 
 - `STARTBOT.bat`: Testbot und lokale Oberfläche starten
@@ -81,6 +90,12 @@ lokalen Server weiter, wenn die Backtest-Seite geschlossen oder neu geladen
 wird, und schreibt nach jedem Coin Plan, Ergebnis, Laufzeit und den Vergleich
 zum vorherigen materiell anderen Lauf. Der gemeinsame Portfolio-Lauf
 bleibt als interner Replay-/Audit-Pfad erhalten und ist kein normaler UI-Knopf.
+Ein fertiger Einzelcoin setzt die Gesamtanzeige künftig nicht mehr fälschlich
+auf „Fertig 100 %“. Die Fortschrittszeile zeigt während eines Zehnerlaufs
+zusätzlich `x/10 Coins`. Unter jedem Einzelergebnis erscheint eine ausschließlich
+pair-lokale Testakte mit allen erhaltenen Vergleichsläufen sowie dokumentierten
+Ledger-Versuchen, Änderungen, Entscheidungen, Erkenntnissen und nächsten
+zulässigen Schritten.
 Jeder Lauf protokolliert außerdem die tatsächlich
 geöffnete Strategie und Konfigurationskette sowie die nativen Candle-Ladevorgänge
 mit Datei-Hash und bricht bei einer
@@ -114,6 +129,9 @@ Maßgebliche Dokumente:
 - [`research/V12_31_DOGE_BCH_COMBINATION_DE.md`](research/V12_31_DOGE_BCH_COMBINATION_DE.md)
 - [`research/V12_33_LTC_NO_TRADE_DE.md`](research/V12_33_LTC_NO_TRADE_DE.md)
 - [`research/V12_33_FINAL_10_COIN_RESULTS_DE.md`](research/V12_33_FINAL_10_COIN_RESULTS_DE.md)
+- [`research/V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md`](research/V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md)
+- [`research/V12_39_XRP_7D_MOMENTUM_DE.md`](research/V12_39_XRP_7D_MOMENTUM_DE.md)
+- [`research/V12_40_SOL_DUAL_TREND_COMBINATION_DE.md`](research/V12_40_SOL_DUAL_TREND_COMBINATION_DE.md)
 
 Herkunft und Lizenzgrenzen der verbliebenen MIT-lizenzierten Research-Rollen
 sind in [`docs/UPSTREAM.md`](docs/UPSTREAM.md), [`LICENSE`](LICENSE) und

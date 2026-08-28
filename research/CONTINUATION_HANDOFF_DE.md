@@ -1,6 +1,19 @@
 # Übergabe- und Entscheidungsprotokoll für die fortlaufende Bot-Verbesserung
 
-Stand: 22.08.2026
+Stand: 28.08.2026
+
+## Aktueller Fortsetzungspunkt
+
+Die chronologische Langakte unten beginnt bei V12.12. Der aktive Stand ist
+inzwischen V12.33; maßgeblich sind zusätzlich
+`V12_33_FINAL_10_COIN_RESULTS_DE.md`,
+`V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md`,
+`V12_39_XRP_7D_MOMENTUM_DE.md` und
+`V12_40_SOL_DUAL_TREND_COMBINATION_DE.md`. V12.39 und V12.40 wurden
+verworfen, die aktive Strategy blieb V12.33. Der nächste GPT-/Codex-Lauf muss
+zuerst das Trial Ledger und die neue pair-lokale UI-Testakte lesen; identische
+Fingerabdrücke sowie bereits entschiedene Schwellenfamilien dürfen nicht
+erneut ausgeführt oder nach dem Ergebnis nachgetunt werden.
 
 ## Zweck
 
