@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "hixton-v4-ten-pair-250-dryrun",
+  "bot_name": "hixton-v5-ten-pair-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,
