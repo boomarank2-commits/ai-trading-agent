@@ -4,7 +4,6 @@ import importlib.util
 import json
 import math
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -12,18 +11,6 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_PATH = ROOT / "runtime" / "user_data" / "strategies" / "CompressionBreakout250.py"
 CONFIG_PATH = ROOT / "runtime" / "user_data" / "config.json"
-EXPECTED_TRIGGERS = {
-    "BTC/USDT": 0.0050,
-    "ETH/USDT": 0.0100,
-    "SOL/USDT": 0.0150,
-    "XRP/USDT": 0.0100,
-    "BNB/USDT": 0.0060,
-    "DOGE/USDT": 0.0150,
-    "LINK/USDT": 0.0150,
-    "TRX/USDT": 0.0050,
-    "LTC/USDT": 0.0100,
-    "BCH/USDT": 0.0125,
-}
 
 
 def _load_strategy_module():
@@ -60,6 +47,24 @@ def _synthetic_frame(rows: int, freq: str) -> pd.DataFrame:
             "low": close - 0.5,
             "close": close,
             "volume": np.full(rows, 100.0),
+        }
+    )
+
+
+def _route_frame(rows: int = 3) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "volume": np.full(rows, 100.0),
+            "hixton_flip_up": np.full(rows, True),
+            "hixton_flip_down": np.full(rows, False),
+            "close_1h": np.full(rows, 110.0),
+            "hixton_vidya_1h": np.full(rows, 100.0),
+            "hixton_vidya_rising_1h": np.full(rows, True),
+            "hixton_flip_up_1h": [False, True, True][:rows],
+            "hixton_flip_down_1h": [False, True, True][:rows],
+            "close_4h": np.full(rows, 120.0),
+            "hixton_vidya_4h": np.full(rows, 100.0),
+            "hixton_vidya_rising_4h": np.full(rows, True),
         }
     )
 
@@ -111,76 +116,70 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
     assert int(result["hixton_flip_down"].sum()) >= 1
 
 
-def test_native_hourly_guard_computes_slope_before_merge() -> None:
+def test_native_hourly_and_four_hour_guards_compute_slope_before_merge() -> None:
     module = _load_strategy_module()
     strategy = _strategy(module)
-    result = strategy.populate_indicators_1h(_synthetic_frame(700, "1h"), {})
-    assert "hixton_vidya_rising" in result.columns
-    expected = result["hixton_vidya"] >= result["hixton_vidya"].shift(1)
-    pd.testing.assert_series_equal(
-        result["hixton_vidya_rising"],
-        expected,
-        check_names=False,
-    )
+    for method, freq in (
+        (strategy.populate_indicators_1h, "1h"),
+        (strategy.populate_indicators_4h, "4h"),
+    ):
+        result = method(_synthetic_frame(700, freq), {})
+        assert "hixton_vidya_rising" in result.columns
+        expected = result["hixton_vidya"] >= result["hixton_vidya"].shift(1)
+        pd.testing.assert_series_equal(
+            result["hixton_vidya_rising"],
+            expected,
+            check_names=False,
+        )
 
 
-def test_eth_uses_bullish_guard_without_slope_while_other_pairs_keep_slope() -> None:
+def test_forward_filled_informative_event_fires_once() -> None:
+    module = _load_strategy_module()
+    series = pd.Series([False, True, True, True, False, False, True, True])
+    event = module._first_forward_filled_true(series)
+    assert event.tolist() == [False, True, False, False, False, False, True, False]
+
+
+def test_v3a_control_route_requires_native_one_hour_slope_and_no_four_hour_gate() -> None:
     module = _load_strategy_module()
     strategy = _strategy(module)
-    base = pd.DataFrame(
-        {
-            "volume": [100.0],
-            "hixton_flip_up": [True],
-            "close_1h": [110.0],
-            "hixton_vidya_1h": [100.0],
-            "hixton_vidya_rising_1h": [False],
-        }
-    )
+    frame = _route_frame(3)
+    frame["hixton_vidya_rising_4h"] = False
+    eth = strategy.populate_entry_trend(frame.copy(), {"pair": "ETH/USDT"})
+    assert eth["enter_long"].fillna(0).astype(int).tolist() == [1, 1, 1]
 
-    eth = strategy.populate_entry_trend(base.copy(), {"pair": "ETH/USDT"})
-    btc = strategy.populate_entry_trend(base.copy(), {"pair": "BTC/USDT"})
-
-    assert int(eth["enter_long"].fillna(0).iloc[0]) == 1
-    assert eth["enter_tag"].iloc[0] == "hixton_flip_up_1h_bullish"
-    assert "enter_long" not in btc.columns or int(btc["enter_long"].fillna(0).iloc[0]) == 0
+    frame["hixton_vidya_rising_1h"] = False
+    eth_blocked = strategy.populate_entry_trend(frame.copy(), {"pair": "ETH/USDT"})
+    assert "enter_long" not in eth_blocked.columns or not eth_blocked["enter_long"].fillna(0).any()
 
 
-def test_v4_pair_profit_floor_thresholds_and_fee_covering_stop() -> None:
+def test_btc_bnb_add_four_hour_guard() -> None:
     module = _load_strategy_module()
     strategy = _strategy(module)
-    assert strategy.PROFIT_FLOOR_TRIGGER == EXPECTED_TRIGGERS
-    assert strategy.use_custom_stoploss is True
+    frame = _route_frame(3)
+    frame["hixton_vidya_rising_4h"] = False
+    btc_blocked = strategy.populate_entry_trend(frame.copy(), {"pair": "BTC/USDT"})
+    assert "enter_long" not in btc_blocked.columns or not btc_blocked["enter_long"].fillna(0).any()
 
-    trade = SimpleNamespace(
-        is_short=False,
-        leverage=1.0,
-        open_rate=100.0,
-        fee_open=0.002,
-        fee_close=0.002,
-    )
-    below = strategy.custom_stoploss(
-        "BTC/USDT",
-        trade,
-        pd.Timestamp("2026-08-29T12:00:00Z").to_pydatetime(),
-        101.0,
-        0.0049,
-        False,
-    )
-    current_rate = 102.0
-    active = strategy.custom_stoploss(
-        "BTC/USDT",
-        trade,
-        pd.Timestamp("2026-08-29T12:00:00Z").to_pydatetime(),
-        current_rate,
-        0.0200,
-        False,
-    )
-    assert below is None
-    assert active is not None
-    assert 0.0 < active < 1.0
-    stop_rate = current_rate * (1.0 - active)
-    expected_fee_break_even = 100.0 * 1.002 / 0.998
-    assert math.isclose(stop_rate, expected_fee_break_even, rel_tol=0, abs_tol=1e-10)
+    frame["hixton_vidya_rising_4h"] = True
+    btc = strategy.populate_entry_trend(frame.copy(), {"pair": "BTC/USDT"})
+    assert btc["enter_long"].fillna(0).astype(int).tolist() == [1, 1, 1]
+    assert set(btc["enter_tag"].dropna()) == {"hixton_15m_flip_up_1h_4h_guard"}
+
+
+def test_ltc_bch_use_one_shot_one_hour_route_and_one_hour_exit() -> None:
+    module = _load_strategy_module()
+    strategy = _strategy(module)
+    frame = _route_frame(3)
+    ltc = strategy.populate_entry_trend(frame.copy(), {"pair": "LTC/USDT"})
+    assert ltc["enter_long"].fillna(0).astype(int).tolist() == [0, 1, 0]
+    assert ltc.loc[ltc["enter_long"].fillna(0).astype(bool), "enter_tag"].iloc[0] == "hixton_1h_flip_up_4h_guard"
+
+    exit_frame = frame.copy()
+    exit_frame["hixton_flip_down"] = False
+    ltc_exit = strategy.populate_exit_trend(exit_frame, {"pair": "LTC/USDT"})
+    assert ltc_exit["exit_long"].fillna(0).astype(int).tolist() == [0, 1, 0]
+    assert ltc_exit.loc[ltc_exit["exit_long"].fillna(0).astype(bool), "exit_tag"].iloc[0] == "hixton_1h_flip_down"
 
 
 def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
@@ -190,5 +189,6 @@ def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
     assert strategy.can_short is False
     assert strategy.position_adjustment_enable is False
     assert strategy.max_entry_position_adjustment == 0
-    assert strategy.STRATEGY_VERSION == "HIXTON-V4"
+    assert strategy.use_custom_stoploss is False
+    assert strategy.STRATEGY_VERSION == "HIXTON-V5"
     strategy.bot_start()
