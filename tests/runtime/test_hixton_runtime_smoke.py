@@ -21,6 +21,30 @@ def _load_strategy_module():
     return module
 
 
+def _synthetic_frame(rows: int, freq: str) -> pd.DataFrame:
+    dates = pd.date_range("2026-01-01", periods=rows, freq=freq, tz="UTC")
+    first = rows // 3
+    second = rows // 3
+    third = rows - first - second
+    close = np.concatenate(
+        [
+            np.linspace(100.0, 102.0, first),
+            np.linspace(102.0, 180.0, second),
+            np.linspace(180.0, 80.0, third),
+        ]
+    )
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": close,
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "volume": np.full(rows, 100.0),
+        }
+    )
+
+
 def test_pine_rma_seed_and_recursion() -> None:
     module = _load_strategy_module()
     source = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
@@ -48,26 +72,7 @@ def test_pine_sma_uses_latest_non_na_values() -> None:
 
 def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
     module = _load_strategy_module()
-    rows = 700
-    dates = pd.date_range("2026-01-01", periods=rows, freq="15min", tz="UTC")
-    close = np.concatenate(
-        [
-            np.linspace(100.0, 102.0, 300),
-            np.linspace(102.0, 180.0, 180),
-            np.linspace(180.0, 80.0, 220),
-        ]
-    )
-    frame = pd.DataFrame(
-        {
-            "date": dates,
-            "open": close,
-            "high": close + 0.5,
-            "low": close - 0.5,
-            "close": close,
-            "volume": np.full(rows, 100.0),
-        }
-    )
-    result = module._hixton_state(frame.copy())
+    result = module._hixton_state(_synthetic_frame(700, "15min"))
     for column in (
         "hixton_vidya",
         "hixton_atr",
@@ -76,9 +81,9 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
         "hixton_trend_up",
         "hixton_flip_up",
         "hixton_flip_down",
-        "hixton_midline_cross_down",
     ):
         assert column in result.columns
+    assert "hixton_midline_cross_down" not in result.columns
     assert result["hixton_atr"].iloc[250:].notna().all()
     assert not (result["hixton_flip_up"] & result["hixton_flip_down"]).any()
     assert result.loc[result["hixton_flip_up"], "hixton_trend_up"].all()
@@ -87,33 +92,19 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
     assert int(result["hixton_flip_down"].sum()) >= 1
 
 
-def test_midline_guard_is_only_emitted_while_hixton_is_green() -> None:
+def test_native_hourly_guard_computes_slope_before_merge() -> None:
     module = _load_strategy_module()
-    rows = 800
-    dates = pd.date_range("2026-01-01", periods=rows, freq="15min", tz="UTC")
-    close = np.concatenate(
-        [
-            np.linspace(100.0, 101.0, 300),
-            np.linspace(101.0, 160.0, 180),
-            np.linspace(160.0, 135.0, 80),
-            np.linspace(135.0, 175.0, 90),
-            np.linspace(175.0, 100.0, 150),
-        ]
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config["candle_type_def"] = "spot"
+    strategy = module.CompressionBreakout250(config=config)
+    result = strategy.populate_indicators_1h(_synthetic_frame(700, "1h"), {})
+    assert "hixton_vidya_rising" in result.columns
+    expected = result["hixton_vidya"] >= result["hixton_vidya"].shift(1)
+    pd.testing.assert_series_equal(
+        result["hixton_vidya_rising"],
+        expected,
+        check_names=False,
     )
-    frame = pd.DataFrame(
-        {
-            "date": dates,
-            "open": close,
-            "high": close + 0.8,
-            "low": close - 0.8,
-            "close": close,
-            "volume": np.full(rows, 100.0),
-        }
-    )
-    result = module._hixton_state(frame.copy())
-    guards = result["hixton_midline_cross_down"]
-    assert not guards.isna().any()
-    assert result.loc[guards, "hixton_trend_up"].all()
 
 
 def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
@@ -125,5 +116,5 @@ def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
     assert strategy.can_short is False
     assert strategy.position_adjustment_enable is False
     assert strategy.max_entry_position_adjustment == 0
-    assert strategy.STRATEGY_VERSION == "HIXTON-V2"
+    assert strategy.STRATEGY_VERSION == "HIXTON-V3A"
     strategy.bot_start()
