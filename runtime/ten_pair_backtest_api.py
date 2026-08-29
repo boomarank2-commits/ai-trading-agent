@@ -1,4 +1,4 @@
-"""Hixton V2 adapter for the locked Testbot backtest API.
+"""Hixton V3A adapter for the locked Testbot backtest API.
 
 This branch is intentionally isolated from V12.33 strategy research. A new
 clone starts without local market data/results, downloads and validates the
@@ -39,12 +39,12 @@ TEN_PAIR_UNIVERSE = (
     "LTC/USDT",
     "BCH/USDT",
 )
-ACTIVE_EXPERIMENT_ID = "HIXTON-V2-GUARDED-EXIT"
+ACTIVE_EXPERIMENT_ID = "HIXTON-V3A-CORRECTED-GUARD"
 
 # Re-point the generic locked engine to the isolated Hixton research records.
 base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE
 base.ALLOWED_TARGETS = (*TEN_PAIR_UNIVERSE, base.PORTFOLIO_TARGET)
-base.STRATEGY_VERSION = "HIXTON-V2"
+base.STRATEGY_VERSION = "HIXTON-V3A"
 base._TRIAL_LEDGER = base._REPO_ROOT / "research" / "hixton_trial_ledger.csv"
 base._EXECUTED_TEST_LEDGER = base._REPO_ROOT / "research" / "hixton_executed_test_fingerprints.csv"
 base._RESULTS_ROOT = base._USERDIR / "backtest_results" / "hixton"
@@ -252,7 +252,7 @@ def _new_batch(
         "batch_id": batch_id,
         "batch_fingerprint": fingerprint,
         "status": "running",
-        "stage": "Hixton V2 wird vorbereitet",
+        "stage": "Hixton V3A wird vorbereitet",
         "progress": 0,
         "years": years,
         "started_at_utc": _utc_now(),
