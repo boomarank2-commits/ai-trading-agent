@@ -12,10 +12,10 @@ makes only two evidence-driven refinements:
 1) ETH uses the completed 1h close-above-VIDYA guard without the rising-slope clause,
    because matched V1/V3 evidence showed the slope clause removed 67 ETH entries
    whose original Hixton exits summed to +13.24 USDT.
-2) Every pair gets a conservative break-even profit floor after its own rounded
-   peak-profit activation threshold. The threshold is based on the V3A loser-MFE
-   distribution, not on a grid search. Once activated, the stop can only tighten
-   to the open-price break-even level; it never trails the trend further.
+2) Every pair gets a conservative profit floor after its own rounded peak-profit
+   activation threshold. The threshold is based on the V3A loser-MFE distribution,
+   not on a grid search. Once activated, the stop can only tighten to the price that
+   covers the trade's entry and exit fees; it never trails the trend further.
 
 This is a preregistered research candidate, not a claim of profitability.
 """
@@ -28,7 +28,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IStrategy, informative, stoploss_from_open
+from freqtrade.strategy import IStrategy, informative, stoploss_from_absolute
 from pandas import DataFrame, Series
 
 
@@ -149,7 +149,7 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
 
 
 class CompressionBreakout250(IStrategy):
-    """Hixton V4: original trend exit plus pair-aware break-even protection."""
+    """Hixton V4: original trend exit plus pair-aware fee-covering floor."""
 
     INTERFACE_VERSION = 3
     STRATEGY_VERSION = "HIXTON-V4"
@@ -184,7 +184,6 @@ class CompressionBreakout250(IStrategy):
         "LTC/USDT": 0.0100,
         "BCH/USDT": 0.0125,
     }
-    PROFIT_FLOOR = 0.0
 
     @informative("1h")
     def populate_indicators_1h(
@@ -253,17 +252,27 @@ class CompressionBreakout250(IStrategy):
         after_fill: bool,
         **kwargs: Any,
     ) -> float | None:
-        del current_time, current_rate, after_fill, kwargs
+        del current_time, after_fill, kwargs
         trigger = self.PROFIT_FLOOR_TRIGGER.get(pair)
         if trigger is None or current_profit < trigger:
             return None
 
-        # Once the pair-specific profit threshold has been reached, the stop
-        # may only tighten to break-even relative to the original open price.
-        # Freqtrade never moves a custom stoploss downward again.
-        return stoploss_from_open(
-            self.PROFIT_FLOOR,
-            current_profit,
+        # Stopping at the raw open price would still lose both trading fees.
+        # For a long spot trade the fee-covering price is:
+        # open_rate * (1 + entry_fee) / (1 - exit_fee).
+        fee_open = float(trade.fee_open or 0.0)
+        fee_close = float(trade.fee_close if trade.fee_close is not None else fee_open)
+        if fee_close >= 1.0:
+            return None
+        fee_break_even_rate = float(trade.open_rate) * (1.0 + fee_open) / (1.0 - fee_close)
+        if current_rate <= fee_break_even_rate:
+            return None
+
+        # Once activated, the stop can tighten to this fee-covering floor but
+        # can never move downward again. Large trends are otherwise left alone.
+        return stoploss_from_absolute(
+            fee_break_even_rate,
+            current_rate,
             is_short=trade.is_short,
             leverage=trade.leverage,
         ) or 1
