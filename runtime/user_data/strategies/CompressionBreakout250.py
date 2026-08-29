@@ -1,27 +1,34 @@
-"""HIXTON-V3A: corrected guarded translation of the user-supplied Pine indicator.
+"""HIXTON-V4: pair-aware profit-floor refinement of the supplied Pine indicator.
 
-V3A keeps the purchased Hixton motor unchanged and fixes the two issues found
-in the complete V2 trade analysis:
-- entry remains the original closed-candle 15m Hixton flip-up, guarded by the
-  completed 1h close being above a genuinely rising 1h Hixton VIDYA;
-- exit is restored to the original Hixton lower-band flip-down so large trends
-  are not cut off by the V2 midline exit.
+V4 keeps the purchased Hixton motor unchanged:
+- VIDYA length 10 / momentum 20, then Pine-compatible SMA 15
+- ATR 200 x 2 bands
+- original closed-candle 15m flip-up entry event
+- original lower-band flip-down exit
+- no pyramiding and no ROI target
 
-The 1h VIDYA slope is calculated inside the native 1h informative dataframe
-before Freqtrade merges/forward-fills it into 15m data. This avoids the V2
-mistake of comparing adjacent forward-filled 15m copies of the same 1h value.
+The complete V3A ten-pair diagnostics showed three distinct behaviours. V4 therefore
+makes only two evidence-driven refinements:
+1) ETH uses the completed 1h close-above-VIDYA guard without the rising-slope clause,
+   because matched V1/V3 evidence showed the slope clause removed 67 ETH entries
+   whose original Hixton exits summed to +13.24 USDT.
+2) Every pair gets a conservative break-even profit floor after its own rounded
+   peak-profit activation threshold. The threshold is based on the V3A loser-MFE
+   distribution, not on a grid search. Once activated, the stop can only tighten
+   to the open-price break-even level; it never trails the trend further.
 
-This is a research candidate, not a claim of profitability. The same rules are
-used for BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC and BCH.
+This is a preregistered research candidate, not a claim of profitability.
 """
 
 from __future__ import annotations
 
 from collections import deque
+from datetime import datetime
 from typing import Any, ClassVar
 
 import numpy as np
-from freqtrade.strategy import IStrategy, informative
+from freqtrade.persistence import Trade
+from freqtrade.strategy import IStrategy, informative, stoploss_from_open
 from pandas import DataFrame, Series
 
 
@@ -45,7 +52,6 @@ def _pine_vidya(source: Series, length: int, momentum_length: int) -> Series:
     weights = weight.to_numpy(dtype=float)
     for index in range(len(values)):
         previous = values[index - 1] if index else np.nan
-        # Pine: v := na(v[1]) ? source : k*source + (1-k)*v[1]
         if np.isnan(previous):
             values[index] = src[index]
         elif np.isnan(weights[index]):
@@ -143,10 +149,10 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
 
 
 class CompressionBreakout250(IStrategy):
-    """Hixton V3A: corrected one-hour entry guard plus original Hixton exit."""
+    """Hixton V4: original trend exit plus pair-aware break-even protection."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "HIXTON-V3A"
+    STRATEGY_VERSION = "HIXTON-V4"
 
     can_short = False
     timeframe = "15m"
@@ -159,9 +165,26 @@ class CompressionBreakout250(IStrategy):
     minimal_roi: ClassVar[dict[str, float]] = {}
     stoploss = -0.99
     trailing_stop = False
+    use_custom_stoploss = True
     use_exit_signal = True
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
+
+    # Net current-profit activation thresholds. These are rounded from the
+    # V3A loser peak-profit distribution and intentionally not grid-optimized.
+    PROFIT_FLOOR_TRIGGER: ClassVar[dict[str, float]] = {
+        "BTC/USDT": 0.0050,
+        "ETH/USDT": 0.0100,
+        "SOL/USDT": 0.0150,
+        "XRP/USDT": 0.0100,
+        "BNB/USDT": 0.0060,
+        "DOGE/USDT": 0.0150,
+        "LINK/USDT": 0.0150,
+        "TRX/USDT": 0.0050,
+        "LTC/USDT": 0.0100,
+        "BCH/USDT": 0.0125,
+    }
+    PROFIT_FLOOR = 0.0
 
     @informative("1h")
     def populate_indicators_1h(
@@ -169,8 +192,6 @@ class CompressionBreakout250(IStrategy):
     ) -> DataFrame:
         del metadata
         dataframe = _hixton_state(dataframe)
-        # IMPORTANT: compute slope in native 1h space before informative merge
-        # forward-fills the finished 1h value across 15m rows.
         dataframe["hixton_vidya_rising"] = (
             dataframe["hixton_vidya"] >= dataframe["hixton_vidya"].shift(1)
         )
@@ -193,16 +214,23 @@ class CompressionBreakout250(IStrategy):
     def populate_entry_trend(
         self, dataframe: DataFrame, metadata: dict[str, Any]
     ) -> DataFrame:
-        del metadata
+        pair = str(metadata.get("pair") or "")
         one_hour_bullish = dataframe["close_1h"] > dataframe["hixton_vidya_1h"]
         one_hour_rising = dataframe["hixton_vidya_rising_1h"].fillna(False)
+
+        if pair == "ETH/USDT":
+            guard = one_hour_bullish
+            enter_tag = "hixton_flip_up_1h_bullish"
+        else:
+            guard = one_hour_bullish & one_hour_rising
+            enter_tag = "hixton_flip_up_1h_rising"
+
         dataframe.loc[
             (dataframe["volume"] > 0.0)
             & dataframe["hixton_flip_up"]
-            & one_hour_bullish
-            & one_hour_rising,
+            & guard,
             ["enter_long", "enter_tag"],
-        ] = (1, "hixton_flip_up_1h_guard")
+        ] = (1, enter_tag)
         return dataframe
 
     def populate_exit_trend(
@@ -215,9 +243,34 @@ class CompressionBreakout250(IStrategy):
         ] = (1, "hixton_flip_down")
         return dataframe
 
+    def custom_stoploss(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        after_fill: bool,
+        **kwargs: Any,
+    ) -> float | None:
+        del current_time, current_rate, after_fill, kwargs
+        trigger = self.PROFIT_FLOOR_TRIGGER.get(pair)
+        if trigger is None or current_profit < trigger:
+            return None
+
+        # Once the pair-specific profit threshold has been reached, the stop
+        # may only tighten to break-even relative to the original open price.
+        # Freqtrade never moves a custom stoploss downward again.
+        return stoploss_from_open(
+            self.PROFIT_FLOOR,
+            current_profit,
+            is_short=trade.is_short,
+            leverage=trade.leverage,
+        ) or 1
+
     def bot_start(self, **kwargs: Any) -> None:
         del kwargs
         if not bool(self.config.get("dry_run", True)):
             raise RuntimeError(
-                "HIXTON-V3A is research/dry-run only; real-money startup is blocked."
+                "HIXTON-V4 is research/dry-run only; real-money startup is blocked."
             )
