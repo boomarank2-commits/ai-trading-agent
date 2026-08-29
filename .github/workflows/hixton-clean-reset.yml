@@ -1,0 +1,36 @@
+name: hixton-clean-reset
+
+on:
+  push:
+    branches:
+      - agent/hixton-clean-reset
+  pull_request:
+    paths:
+      - "runtime/user_data/strategies/CompressionBreakout250.py"
+      - "runtime/user_data/config.json"
+      - "runtime/ten_pair_backtest_api.py"
+      - "runtime/testbot_backtest_api.py"
+      - "runtime/ui/testbot-backtest.js"
+      - "runtime/validate_dryrun_config.py"
+      - "research/hixton_trial_ledger.csv"
+      - "research/hixton_executed_test_fingerprints.csv"
+      - "tests/runtime/test_hixton_clean_reset.py"
+      - ".github/workflows/hixton-clean-reset.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify isolated Hixton reset contract
+        run: python tests/runtime/test_hixton_clean_reset.py
