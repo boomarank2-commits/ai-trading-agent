@@ -50,9 +50,6 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
     module = _load_strategy_module()
     rows = 700
     dates = pd.date_range("2026-01-01", periods=rows, freq="15min", tz="UTC")
-    # Quiet start, strong rise, then strong fall.  This is deliberately simple:
-    # it only proves the translated indicator can create both state transitions
-    # without future data or pair-specific helpers.
     close = np.concatenate(
         [
             np.linspace(100.0, 102.0, 300),
@@ -79,6 +76,7 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
         "hixton_trend_up",
         "hixton_flip_up",
         "hixton_flip_down",
+        "hixton_midline_cross_down",
     ):
         assert column in result.columns
     assert result["hixton_atr"].iloc[250:].notna().all()
@@ -89,17 +87,43 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
     assert int(result["hixton_flip_down"].sum()) >= 1
 
 
+def test_midline_guard_is_only_emitted_while_hixton_is_green() -> None:
+    module = _load_strategy_module()
+    rows = 800
+    dates = pd.date_range("2026-01-01", periods=rows, freq="15min", tz="UTC")
+    close = np.concatenate(
+        [
+            np.linspace(100.0, 101.0, 300),
+            np.linspace(101.0, 160.0, 180),
+            np.linspace(160.0, 135.0, 80),
+            np.linspace(135.0, 175.0, 90),
+            np.linspace(175.0, 100.0, 150),
+        ]
+    )
+    frame = pd.DataFrame(
+        {
+            "date": dates,
+            "open": close,
+            "high": close + 0.8,
+            "low": close - 0.8,
+            "close": close,
+            "volume": np.full(rows, 100.0),
+        }
+    )
+    result = module._hixton_state(frame.copy())
+    guards = result["hixton_midline_cross_down"]
+    assert not guards.isna().any()
+    assert result.loc[guards, "hixton_trend_up"].all()
+
+
 def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
     module = _load_strategy_module()
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    # Freqtrade's normal Config resolver injects this runtime field before the
-    # strategy is instantiated.  The smoke test loads the raw JSON directly,
-    # so mirror that resolved Spot value explicitly here.
     config["candle_type_def"] = "spot"
     strategy = module.CompressionBreakout250(config=config)
     assert strategy.timeframe == "15m"
     assert strategy.can_short is False
     assert strategy.position_adjustment_enable is False
     assert strategy.max_entry_position_adjustment == 0
-    assert strategy.STRATEGY_VERSION == "HIXTON-V1"
+    assert strategy.STRATEGY_VERSION == "HIXTON-V2"
     strategy.bot_start()
