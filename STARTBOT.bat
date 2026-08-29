@@ -14,7 +14,6 @@ echo Der gekaufte Motor bleibt unveraendert: VIDYA 10/20 + SMA 15, ATR 200 x 2.
 echo Long-Signal: originales Hixton-Flip-Up auf geschlossener 15m-Kerze,
 echo aber nur wenn der abgeschlossene 1h-Kontext ueber einer steigenden Hixton-VIDYA liegt.
 echo Exit: frueher bei Rueckfall unter die 15m-VIDYA; das originale rote
-
 echo Hixton-Flip-Down am unteren Band bleibt als harter Fallback erhalten.
 echo Es gibt keine alten V12.33 Coin-Sonderrouten und kein Pyramiding.
 echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
@@ -98,7 +97,8 @@ exit /b %BOT_EXIT_CODE%
 :ensure_ui_password
 set "FIRST_LOGIN_HELP=0"
 if not exist "%LOCAL_UI_PASSWORD_FILE%" goto :create_ui_password
-set "EXISTING_UI_PASSWORD="nset /p EXISTING_UI_PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
+set "EXISTING_UI_PASSWORD="
+set /p EXISTING_UI_PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
 if not defined EXISTING_UI_PASSWORD goto :create_ui_password
 if "%EXISTING_UI_PASSWORD%"=="AAAAAAAAAAAAAAAAAAAAAAAA" goto :create_ui_password
 exit /b 0
