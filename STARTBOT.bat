@@ -2,19 +2,20 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-title HIXTON-V2 Testbot - 250 USDT DRY-RUN
+title HIXTON-V3A Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   HIXTON-V2 GUARDED: ausschliesslich Forschung und Testgeld
+echo   HIXTON-V3A CORRECTED GUARD: ausschliesslich Forschung und Testgeld
 echo   250 virtuelle USDT ^| 10 Coins ^| maximal 3 x 80 USDT ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo Dieser Branch verwendet fuer alle zehn Coins dieselbe Hixton-V2-Logik.
+echo Dieser Branch verwendet fuer alle zehn Coins dieselbe Hixton-V3A-Logik.
 echo Der gekaufte Motor bleibt unveraendert: VIDYA 10/20 + SMA 15, ATR 200 x 2.
 echo Long-Signal: originales Hixton-Flip-Up auf geschlossener 15m-Kerze,
-echo aber nur wenn der abgeschlossene 1h-Kontext ueber einer steigenden Hixton-VIDYA liegt.
-echo Exit: frueher bei Rueckfall unter die 15m-VIDYA; das originale rote
-echo Hixton-Flip-Down am unteren Band bleibt als harter Fallback erhalten.
+echo aber nur wenn der letzte abgeschlossene 1h-Close ueber der 1h-Hixton-VIDYA liegt
+echo und diese VIDYA gegenueber der vorherigen echten 1h-Kerze nicht faellt.
+echo Exit: wieder ausschliesslich das originale rote Hixton-Flip-Down am unteren Band.
+echo Der V2-Midline-Exit wurde entfernt, damit grosse Trends weiterlaufen koennen.
 echo Es gibt keine alten V12.33 Coin-Sonderrouten und kein Pyramiding.
 echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
 echo Der Backtest-Bereich kann alle zehn Coins einzeln mit je 250-USDT-Testwallet pruefen
@@ -69,7 +70,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : HIXTON-V2 Guarded
+echo Bot Name : HIXTON-V3A Corrected Guard
 echo Benutzer : testbot
 echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
