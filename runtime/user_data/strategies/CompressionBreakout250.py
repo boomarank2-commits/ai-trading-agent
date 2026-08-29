@@ -1,15 +1,18 @@
-"""HIXTON-V2: guarded causal translation of the user-supplied Pine indicator.
+"""HIXTON-V3A: corrected guarded translation of the user-supplied Pine indicator.
 
-V2 keeps the purchased Hixton motor unchanged and applies the same two
-evidence-driven fixes to all ten coins:
-- entry is still the original closed-candle 15m Hixton flip-up, but only when
-  the completed 1h context is above a rising Hixton VIDYA;
-- exit is earlier when price crosses back below the 15m VIDYA, while the
-  original lower-band flip-down remains the hard fallback exit.
+V3A keeps the purchased Hixton motor unchanged and fixes the two issues found
+in the complete V2 trade analysis:
+- entry remains the original closed-candle 15m Hixton flip-up, guarded by the
+  completed 1h close being above a genuinely rising 1h Hixton VIDYA;
+- exit is restored to the original Hixton lower-band flip-down so large trends
+  are not cut off by the V2 midline exit.
 
-This is a research candidate, not a claim of profitability.  It is deliberately
-pair-agnostic so BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC and BCH are
-measured under the same rules before any coin-specific tuning is considered.
+The 1h VIDYA slope is calculated inside the native 1h informative dataframe
+before Freqtrade merges/forward-fills it into 15m data. This avoids the V2
+mistake of comparing adjacent forward-filled 15m copies of the same 1h value.
+
+This is a research candidate, not a claim of profitability. The same rules are
+used for BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC and BCH.
 """
 
 from __future__ import annotations
@@ -128,11 +131,6 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
 
     trend_series = Series(trend, index=dataframe.index, dtype=bool)
     prior_trend = trend_series.shift(1, fill_value=False)
-    midline_cross_down = (
-        (close < vidya)
-        & (close.shift(1) >= vidya.shift(1))
-        & trend_series
-    )
 
     dataframe["hixton_vidya"] = vidya
     dataframe["hixton_atr"] = atr
@@ -141,15 +139,14 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
     dataframe["hixton_trend_up"] = trend_series
     dataframe["hixton_flip_up"] = trend_series & ~prior_trend
     dataframe["hixton_flip_down"] = ~trend_series & prior_trend
-    dataframe["hixton_midline_cross_down"] = midline_cross_down
     return dataframe
 
 
 class CompressionBreakout250(IStrategy):
-    """Hixton V2: original motor plus one-hour entry guard and earlier exit."""
+    """Hixton V3A: corrected one-hour entry guard plus original Hixton exit."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "HIXTON-V2"
+    STRATEGY_VERSION = "HIXTON-V3A"
 
     can_short = False
     timeframe = "15m"
@@ -171,7 +168,13 @@ class CompressionBreakout250(IStrategy):
         self, dataframe: DataFrame, metadata: dict[str, Any]
     ) -> DataFrame:
         del metadata
-        return _hixton_state(dataframe)
+        dataframe = _hixton_state(dataframe)
+        # IMPORTANT: compute slope in native 1h space before informative merge
+        # forward-fills the finished 1h value across 15m rows.
+        dataframe["hixton_vidya_rising"] = (
+            dataframe["hixton_vidya"] >= dataframe["hixton_vidya"].shift(1)
+        )
+        return dataframe
 
     @informative("4h")
     def populate_indicators_4h(
@@ -192,10 +195,7 @@ class CompressionBreakout250(IStrategy):
     ) -> DataFrame:
         del metadata
         one_hour_bullish = dataframe["close_1h"] > dataframe["hixton_vidya_1h"]
-        one_hour_rising = (
-            dataframe["hixton_vidya_1h"]
-            >= dataframe["hixton_vidya_1h"].shift(1)
-        )
+        one_hour_rising = dataframe["hixton_vidya_rising_1h"].fillna(False)
         dataframe.loc[
             (dataframe["volume"] > 0.0)
             & dataframe["hixton_flip_up"]
@@ -213,16 +213,11 @@ class CompressionBreakout250(IStrategy):
             (dataframe["volume"] > 0.0) & dataframe["hixton_flip_down"],
             ["exit_long", "exit_tag"],
         ] = (1, "hixton_flip_down")
-        dataframe.loc[
-            (dataframe["volume"] > 0.0)
-            & dataframe["hixton_midline_cross_down"],
-            ["exit_long", "exit_tag"],
-        ] = (1, "hixton_midline_guard")
         return dataframe
 
     def bot_start(self, **kwargs: Any) -> None:
         del kwargs
         if not bool(self.config.get("dry_run", True)):
             raise RuntimeError(
-                "HIXTON-V2 is research/dry-run only; real-money startup is blocked."
+                "HIXTON-V3A is research/dry-run only; real-money startup is blocked."
             )
