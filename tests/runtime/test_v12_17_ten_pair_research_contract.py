@@ -142,6 +142,12 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     )[0]
     assert "clearInterval(pollTimer)" not in batch_start
     assert "setInterval(loadStatus, 1000)" in batch_start
+    assert "while (true)" not in batch_start
+    load_status = ui.split("async function loadStatus()", maxsplit=1)[1].split(
+        "async function startBacktest()", maxsplit=1
+    )[0]
+    assert "Promise.allSettled([" in load_status
+    assert "renderServerBatch(batchState, singleState)" in load_status
 
 
 def test_backtest_adapter_uses_active_strategy_config_and_exposes_real_portfolio() -> None:

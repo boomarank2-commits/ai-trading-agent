@@ -147,6 +147,25 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen" in source
 
 
+def test_backtest_ui_renders_only_one_status_view_per_poll() -> None:
+    source = UI_SCRIPT.read_text(encoding="utf-8")
+    load_status = source.split("async function loadStatus()", maxsplit=1)[1].split(
+        "async function startBacktest()", maxsplit=1
+    )[0]
+    batch_start = source.split("async function startAllBacktests()", maxsplit=1)[1].split(
+        "function showBacktest", maxsplit=1
+    )[0]
+
+    assert "Promise.allSettled([" in load_status
+    assert "renderState(await fetchStatus())" not in load_status
+    assert 'batchState.status === "running"' in load_status
+    assert "renderServerBatch(batchState, singleState)" in load_status
+    assert "aktueller Coin" in source
+    assert "currentPairProgress" in source
+    assert "while (true)" not in batch_start
+    assert "setInterval(loadStatus, 1000)" in batch_start
+
+
 def test_batch_state_is_persisted_below_an_ignored_history_directory() -> None:
     assert adapter._BATCH_ROOT.name == "_BATCHES"
     source = Path(adapter.__file__).read_text(encoding="utf-8")

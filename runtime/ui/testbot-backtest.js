@@ -21,6 +21,7 @@
   let singleRunning = false;
   let batchRunning = false;
   let batchResults = [];
+  let preferredStatusView = null;
 
   function syncControls() {
     const disabled = singleRunning || batchRunning;
@@ -429,7 +430,7 @@
     return response.json();
   }
 
-  function renderServerBatch(state) {
+  function renderServerBatch(state, singleState = null) {
     if (!state || state.status === "idle") return;
     batchRunning = state.status === "running";
     batchResults = (Array.isArray(state.cases) ? state.cases : [])
@@ -450,15 +451,29 @@
       state.current_pair ? pairLabel(state.current_pair) : ""
     );
     const status = document.getElementById("tb-status");
-    const progress = Math.max(0, Math.min(100, Number(state.progress || 0)));
+    const completedCases = Number(state.completed_cases || 0);
+    const batchProgress = Math.max(0, Math.min(100, Number(state.progress || 0)));
+    const singlePair = singleState ? String(singleState.pair || "") : "";
+    const currentPairMatches = !state.current_pair || !singlePair || singlePair === state.current_pair;
+    const currentPairProgress = batchRunning && singleState && singleState.status === "running" && currentPairMatches
+      ? Math.max(0, Math.min(100, Number(singleState.progress || 0)))
+      : null;
+    const progress = currentPairProgress === null
+      ? batchProgress
+      : Math.max(batchProgress, Math.min(100, ((completedCases + currentPairProgress / 100) / PAIRS.length) * 100));
     if (status) status.style.display = "block";
     document.getElementById("tb-stage").textContent = String(state.stage || "Zehner-Batch");
-    document.getElementById("tb-progress-text").textContent = `${Number(state.completed_cases || 0)}/${PAIRS.length} Coins · ${progress} %`;
+    document.getElementById("tb-progress-text").textContent = batchRunning && currentPairProgress !== null
+      ? `${completedCases}/${PAIRS.length} Coins · aktueller Coin ${currentPairProgress} % · Gesamt ${progress.toFixed(1)} %`
+      : `${completedCases}/${PAIRS.length} Coins · ${progress.toFixed(1)} %`;
     document.getElementById("tb-progress-bar").style.width = `${progress}%`;
     const activity = document.getElementById("tb-activity");
     if (activity) {
+      const currentStage = batchRunning && currentPairProgress !== null && singleState.stage
+        ? ` Aktuelle Stufe: ${String(singleState.stage)}.`
+        : "";
       activity.textContent = batchRunning
-        ? `Gesamtlauf aktiv${state.current_pair ? ` · ${pairLabel(state.current_pair)} wird gerade gerechnet` : ""}. Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht.`
+        ? `Gesamtlauf aktiv${state.current_pair ? ` · ${pairLabel(state.current_pair)} wird gerade gerechnet` : ""}.${currentStage} Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht.`
         : state.status === "completed"
           ? "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen."
           : "Der Zehnerlauf ist beendet, enthält aber mindestens einen Fehler.";
@@ -471,13 +486,49 @@
     syncControls();
   }
 
+  function statusTimestamp(state) {
+    if (!state) return 0;
+    const timestamp = Date.parse(String(
+      state.updated_at_utc || state.finished_at || state.started_at || state.started_at_utc || ""
+    ));
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
   async function loadStatus() {
-    try {
-      renderState(await fetchStatus());
-    } catch (_error) {}
-    try {
-      renderServerBatch(await fetchBatchStatus());
-    } catch (_error) {}
+    const [singleRequest, batchRequest] = await Promise.allSettled([
+      fetchStatus(),
+      fetchBatchStatus()
+    ]);
+    const singleState = singleRequest.status === "fulfilled" ? singleRequest.value : null;
+    const batchState = batchRequest.status === "fulfilled" ? batchRequest.value : null;
+
+    if (batchState && batchState.status === "running") {
+      preferredStatusView = "batch";
+      renderServerBatch(batchState, singleState);
+      return;
+    }
+    if (singleState && singleState.status === "running") {
+      preferredStatusView = "single";
+      renderState(singleState);
+      return;
+    }
+    if (preferredStatusView === "single" && singleState) {
+      renderState(singleState);
+      return;
+    }
+    if (preferredStatusView === "batch" && batchState && batchState.status !== "idle") {
+      renderServerBatch(batchState, singleState);
+      return;
+    }
+    if (batchState && batchState.status !== "idle" && statusTimestamp(batchState) >= statusTimestamp(singleState)) {
+      preferredStatusView = "batch";
+      renderServerBatch(batchState, singleState);
+      return;
+    }
+    if (singleState) {
+      preferredStatusView = "single";
+      renderState(singleState);
+    }
   }
 
   async function startBacktest() {
@@ -499,6 +550,7 @@
         error.isDuplicate = response.status === 409 && String(payload.detail || "").startsWith("Doppeltest blockiert:");
         throw error;
       }
+      preferredStatusView = "single";
       renderState(payload);
       if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
     } catch (error) {
@@ -528,6 +580,7 @@
 
     batchRunning = true;
     batchResults = [];
+    preferredStatusView = "batch";
     singleButton.disabled = true;
     matrixButton.disabled = true;
     pairSelect.disabled = true;
@@ -545,21 +598,11 @@
         throw new Error(payload.detail || "Zehner-Batch konnte nicht gestartet werden.");
       }
       renderServerBatch(payload);
-      while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const state = await fetchBatchStatus();
-        renderServerBatch(state);
-        if (state.status !== "running") break;
-      }
-    } catch (error) {
-      renderState({ status: "failed", stage: "Batch-Fehler", progress: 100, error: String(error.message || error) });
-    } finally {
-      batchRunning = false;
-      singleButton.disabled = false;
-      matrixButton.disabled = false;
-      pairSelect.disabled = false;
-      yearsSelect.disabled = false;
       if (!pollTimer) pollTimer = setInterval(loadStatus, 1000);
+    } catch (error) {
+      batchRunning = false;
+      renderState({ status: "failed", stage: "Batch-Fehler", progress: 100, error: String(error.message || error) });
+      syncControls();
     }
   }
 
