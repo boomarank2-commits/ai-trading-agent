@@ -8,12 +8,62 @@ Die chronologische Langakte unten beginnt bei V12.12. Der aktive Stand ist
 inzwischen V12.33; maßgeblich sind zusätzlich
 `V12_33_FINAL_10_COIN_RESULTS_DE.md`,
 `V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md`,
-`V12_39_XRP_7D_MOMENTUM_DE.md` und
-`V12_40_SOL_DUAL_TREND_COMBINATION_DE.md`. V12.39 und V12.40 wurden
-verworfen, die aktive Strategy blieb V12.33. Der nächste GPT-/Codex-Lauf muss
-zuerst das Trial Ledger und die neue pair-lokale UI-Testakte lesen; identische
-Fingerabdrücke sowie bereits entschiedene Schwellenfamilien dürfen nicht
-erneut ausgeführt oder nach dem Ergebnis nachgetunt werden.
+`V12_39_XRP_7D_MOMENTUM_DE.md` bis
+`V12_44_SOL_FIXED_ICHIMOKU_DE.md` sowie die vier `FIXED_*_SCREEN`-Akten vom
+28./29.08.2026. V12.39 bis V12.44 wurden verworfen, die aktive Strategy blieb
+byte-identisch V12.33. Der nächste GPT-/Codex-Lauf muss zuerst das Trial Ledger
+und die neue pair-lokale UI-Testakte lesen; identische Fingerabdrücke sowie
+bereits entschiedene Schwellenfamilien dürfen nicht erneut ausgeführt oder
+nach dem Ergebnis nachgetunt werden.
+
+## Neuester belastbarer Stand vom 29.08.2026
+
+Aktiver Paper-/Dry-run-Stand bleibt **V12.33** mit SHA-256
+`58d59413ef41b798c75c41bab0f98e377316ad3b289b6ba874876e841cdfb263`.
+Sein letzter exakter gemeinsamer Vergleich bleibt +421,9152 USDT, PF 2,4530,
+154 Trades und 12,1794 Prozent geschlossener Drawdown bei einem gemeinsamen
+250-USDT-Wallet und maximal drei 80-USDT-Slots. LTC ist mangels validierter
+Kante absichtlich `NO_TRADE`; das ist sicherer als eine historisch negative
+Pflichtaktivität.
+
+Seit V12.40 wurden vier exakte Kandidaten streng verworfen:
+
+- V12.41 BNB ohne frühen Failed-Breakout-Exit: +23,248 USDT, 12 Trades,
+  PF 1,90; Gewinn- und Mindesttradehürde verfehlt.
+- V12.42 fester TRX-Supertrend20×3: Paar +72,321 USDT, jüngstes Jahr und
+  Kostenstress positiv; gemeinsam +449,7203 USDT, aber PF 2,4328 unter dem
+  vorab fixierten Boden 2,4530.
+- V12.43 Kombination aus unverändertem TRX-Donchian und V12.42: +70,609
+  USDT, 41 Trades, PF 2,41, DD 6,75; alle vier strikten Verbesserungsgrenzen
+  knapp verfehlt.
+- V12.44 fester SOL-Ichimoku 9/26/52/26: +55,529 USDT, 41 Trades, PF 1,80,
+  DD 6,00; die vorab verlangten +75 USDT sowie jüngste Jahresstabilität nicht
+  erreicht.
+
+Zusätzlich wurden auf fünf älteren Jahresfalten ohne exakten Bot-Patch vier
+fest definierte Familien geprüft:
+
+- Supertrend20×3-Transfer: nur TRX bestand den Screen; die zugehörigen exakten
+  V12.42/V12.43-Systemhürden scheiterten später.
+- Ichimoku 9/26/52/26: nur SOL bestand den Screen; V12.44 scheiterte später
+  an der exakten Gewinnhürde.
+- Bollinger20×2 im festen Range-Regime: alle fünf schwachen Pairs negativ.
+- UTC-4h-Opening-Range-Retest: alle fünf schwachen Pairs deutlich negativ.
+
+Damit sind Donchian-Nachbarschaften, Supertrend, RSI-Trend-Pullback,
+ATR-Range-Reversion, Ichimoku, Bollinger-Range und UTC-ORB auf dem bekannten
+Fenster dokumentiert. Diese Familien jetzt pro Coin so lange nachzustimmen,
+bis +250 USDT erscheint, wäre Datenanpassung. Ein neuer zulässiger Schritt
+braucht entweder wirklich frische Paper-/Forward-Daten oder eine materiell
+andere, vor Ergebnisansicht fest definierte Familie. Der Bot darf bis dahin
+nicht wegen eines schönen isolierten Ergebnisses von V12.33 wegbewegt werden.
+
+Die UI-Historienlogik wurde gegen die erhaltenen Laptop-Artefakte geprüft: 80
+Versuche, 75 abgeschlossene, fünf unvollständige und drei materielle
+Doppelläufe werden erkannt. Die Drei-Jahres-Akten enthalten derzeit 21
+dokumentierte SOL-, sieben BNB-, sechs TRX- und acht LTC-Experimente. Die
+exakten V12.41–V12.44-Fingerabdrücke stehen zusätzlich im ausführbaren
+Doppeltest-Register.
 
 ## Zweck
 

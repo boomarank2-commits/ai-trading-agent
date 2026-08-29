@@ -29,6 +29,7 @@ Thumbs.db
 runtime/user_data/data/
 runtime/user_data/v12_public_cache/
 runtime/user_data/*_oos_*.json
+runtime/user_data/*_diagnostics_*.json
 runtime/user_data/v12_optimizer_report_*.json
 runtime/user_data/logs/
 runtime/user_data/backtest_results/
