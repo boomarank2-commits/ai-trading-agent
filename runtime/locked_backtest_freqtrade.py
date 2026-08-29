@@ -14,6 +14,7 @@ import json
 import os
 import sys
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
@@ -119,6 +120,99 @@ def _install_candle_load_audit(audit: _FileAccessAudit) -> None:
     ArrowDataHandler._load_ohlcv_dataframe = audited_load
 
 
+def _install_candle_cadenced_position_adjustment(strategy_type: type[Any]) -> bool:
+    """Skip detail-candle adjustment checks when the strategy explicitly opts in.
+
+    Freqtrade normally invokes the position-adjustment path for every 1m detail
+    candle.  This strategy derives additional entries exclusively from its 15m
+    ``enter_long`` dataframe, so fourteen of every fifteen invocations cannot
+    change a decision.  The opt-in is deliberately strategy-owned: a future
+    strategy that reacts to intra-candle prices must not inherit this shortcut.
+    Exit/stop processing remains on every 1m candle.
+    """
+
+    if not bool(
+        getattr(strategy_type, "position_adjustment_on_new_strategy_candle_only", False)
+    ):
+        return False
+
+    from freqtrade.optimize.backtesting import Backtesting
+
+    original = Backtesting._check_adjust_trade_for_candle
+
+    def candle_cadenced_adjustment(
+        backtesting: Any,
+        trade: Any,
+        row: tuple[Any, ...],
+        current_time: datetime,
+    ) -> Any:
+        timeframe_seconds = int(backtesting.timeframe_td.total_seconds())
+        if timeframe_seconds > 0 and int(current_time.timestamp()) % timeframe_seconds:
+            return trade
+        return original(backtesting, trade, row, current_time)
+
+    Backtesting._check_adjust_trade_for_candle = candle_cadenced_adjustment
+    return True
+
+
+def _install_readonly_trade_callback_fastpath(strategy_type: type[Any]) -> tuple[str, ...]:
+    """Avoid defensive trade deep-copies for explicitly read-only callbacks.
+
+    Freqtrade normally deep-copies the complete Trade object before every custom
+    callback.  With 1m detail and a multi-month trade this dominates runtime.
+    The authorized strategy opts in only callbacks whose source is covered by
+    tests that forbid assignments/mutating calls on ``trade``.  Exception
+    handling remains Freqtrade's own safe wrapper; only the redundant copy is
+    skipped inside this locked backtest process.
+    """
+
+    allowed = tuple(
+        str(name)
+        for name in getattr(strategy_type, "backtest_readonly_trade_callbacks", ())
+    )
+    if not allowed:
+        return ()
+
+    import freqtrade.strategy.interface as interface_module
+    import freqtrade.strategy.strategy_wrapper as wrapper_module
+
+    original = wrapper_module.strategy_safe_wrapper
+
+    def readonly_aware_wrapper(
+        callback: Any,
+        message: str = "",
+        default_retval: Any = None,
+        supress_error: bool = False,
+    ) -> Any:
+        owner = getattr(callback, "__self__", None)
+        name = str(getattr(callback, "__name__", ""))
+        if isinstance(owner, strategy_type) and name in allowed:
+            @wraps(callback)
+            def readonly_proxy(*args: Any, **kwargs: Any) -> Any:
+                return callback(*args, **kwargs)
+
+            # Freqtrade's wrapper deliberately skips deepcopy for callbacks
+            # whose qualname belongs to IStrategy.  The proxy retains all of
+            # its exception handling while selecting that existing fast path.
+            readonly_proxy.__qualname__ = f"IStrategy.{name}"
+            return original(
+                readonly_proxy,
+                message=message,
+                default_retval=default_retval,
+                supress_error=supress_error,
+            )
+        return original(
+            callback,
+            message=message,
+            default_retval=default_retval,
+            supress_error=supress_error,
+        )
+
+    wrapper_module.strategy_safe_wrapper = readonly_aware_wrapper
+    interface_module.strategy_safe_wrapper = readonly_aware_wrapper
+    return allowed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy-source", type=Path, required=True)
@@ -171,6 +265,13 @@ def main(argv: list[str] | None = None) -> int:
             args.strategy_class,
         )
         _install_exact_loader(strategy_type, source_text, args.strategy_class)
+        cadence_installed = _install_candle_cadenced_position_adjustment(strategy_type)
+        readonly_callbacks = _install_readonly_trade_callback_fastpath(strategy_type)
+        if audit is not None:
+            audit.context["position_adjustment_cadence"] = (
+                "strategy_candle" if cadence_installed else "every_detail_candle"
+            )
+            audit.context["readonly_trade_callback_fastpath"] = list(readonly_callbacks)
         if audit is not None:
             _install_candle_load_audit(audit)
         freqtrade_main(freqtrade_args)

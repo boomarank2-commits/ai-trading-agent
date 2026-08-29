@@ -1,35 +1,62 @@
 name: Testbot Backtest UI
 
-# Exact-strategy loading and candle/history integrity gate for main and the active V12 research branch.
+# Fast exact-strategy, candle/history and UI contract gate. Long financial
+# backtests are deliberately excluded here so an identical 1y/2y/3y test is not
+# rerun automatically on every source or documentation push.
 on:
   push:
     branches:
       - main
       - agent/v12-adaptive-league
+      - agent/v12-17-ten-pair-research-ui
     paths:
       - "runtime/testbot_backtest_api.py"
+      - "runtime/ten_pair_backtest_api.py"
+      - "runtime/backtest_history_analysis.py"
+      - "runtime/research_governance.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/scripts/cleanup-stale-testbot.ps1"
+      - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
+      - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
+      - "tests/runtime/test_backtest_history_analysis.py"
+      - "tests/runtime/test_runtime_contract.py"
+      - "tests/runtime/test_strategy_guards.py"
+      - "tests/research/test_research_governance.py"
+      - "research/trial_ledger.csv"
+      - "research/executed_test_fingerprints.csv"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   pull_request:
     paths:
       - "runtime/testbot_backtest_api.py"
+      - "runtime/ten_pair_backtest_api.py"
+      - "runtime/backtest_history_analysis.py"
+      - "runtime/research_governance.py"
       - "runtime/locked_backtest_freqtrade.py"
       - "runtime/locked_freqtrade.py"
       - "runtime/patch_frequi.py"
       - "runtime/ui/testbot-backtest.js"
       - "runtime/scripts/setup-venv.ps1"
+      - "runtime/scripts/cleanup-stale-testbot.ps1"
+      - "runtime/user_data/config.json"
       - "runtime/user_data/strategies/CompressionBreakout250.py"
       - "tests/test_testbot_backtest_api.py"
       - "tests/test_backtest_history_coverage.py"
       - "tests/test_backtest_candle_integrity.py"
+      - "tests/runtime/test_v12_17_ten_pair_research_contract.py"
+      - "tests/runtime/test_backtest_history_analysis.py"
+      - "tests/runtime/test_runtime_contract.py"
+      - "tests/runtime/test_strategy_guards.py"
+      - "tests/research/test_research_governance.py"
+      - "research/trial_ledger.csv"
+      - "research/executed_test_fingerprints.csv"
       - ".github/workflows/windows-backtest-ui-ci.yml"
   workflow_dispatch:
 
@@ -45,12 +72,39 @@ jobs:
         run: uv sync --frozen --all-extras --python 3.12
       - name: Unit tests
         shell: powershell
-        run: .\.venv\Scripts\python.exe -m pytest -q tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
+        run: >-
+          .\.venv\Scripts\python.exe -m pytest -q
+          tests\test_testbot_backtest_api.py
+          tests\test_backtest_history_coverage.py
+          tests\test_backtest_candle_integrity.py
+          tests\runtime\test_v12_17_ten_pair_research_contract.py
+          tests\runtime\test_backtest_history_analysis.py
+          tests\runtime\test_runtime_contract.py
+          tests\runtime\test_strategy_guards.py
+          tests\research\test_research_governance.py
       - name: Ruff runtime and tests
         shell: powershell
-        run: .\.venv\Scripts\ruff.exe check runtime\testbot_backtest_api.py runtime\locked_backtest_freqtrade.py runtime\locked_freqtrade.py runtime\patch_frequi.py tests\test_testbot_backtest_api.py tests\test_backtest_history_coverage.py tests\test_backtest_candle_integrity.py
-      - name: Ruff Freqtrade strategy
+        run: >-
+          .\.venv\Scripts\ruff.exe check
+          runtime\testbot_backtest_api.py
+          runtime\ten_pair_backtest_api.py
+          runtime\backtest_history_analysis.py
+          runtime\research_governance.py
+          runtime\locked_backtest_freqtrade.py
+          runtime\locked_freqtrade.py
+          runtime\patch_frequi.py
+          tests\test_testbot_backtest_api.py
+          tests\test_backtest_history_coverage.py
+          tests\test_backtest_candle_integrity.py
+          tests\runtime\test_v12_17_ten_pair_research_contract.py
+          tests\runtime\test_backtest_history_analysis.py
+          tests\runtime\test_runtime_contract.py
+          tests\runtime\test_strategy_guards.py
+      - name: Ruff active Freqtrade strategy
         shell: powershell
-        # Freqtrade strategies intentionally expose configuration as class attributes.
-        # RUF012 is therefore scoped out only for this strategy source; all other Ruff rules stay active.
-        run: .\.venv\Scripts\ruff.exe check --ignore RUF012 runtime\user_data\strategies\CompressionBreakout250.py
+        # RUF012 is intentional for Freqtrade class configuration. RUF036 and
+        # SIM300 concern type/comparison spelling only and do not change the
+        # locked strategy semantics checked by the contract tests.
+        run: >-
+          .\.venv\Scripts\ruff.exe check --ignore RUF012,RUF036,SIM300
+          runtime\user_data\strategies\CompressionBreakout250.py

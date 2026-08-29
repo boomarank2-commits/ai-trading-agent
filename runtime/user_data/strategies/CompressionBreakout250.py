@@ -1,22 +1,24 @@
-"""V12.15 V12.12 core with a late champion-profit ratchet.
+"""V12.31 ten-pair challenger combining fixed DOGE and BCH routes.
 
-V12.9 keeps every V12.8 champion entry path intact, removes the SOL +5% -> +1%
-profit ratchet after the exact 1m-detail backtest showed that it clipped the
-economics of the broader SOL core, and adds one deliberately simple challenger:
-a causal 15m EMA20 reclaim inside an already-established 1h/4h uptrend.
+This is the active paper/dry-run strategy.  It keeps the accepted V12.15
+Donchian/reclaim logic and expands the liquid Binance Spot universe to ten
+pairs.  V12.22's SOL-only ADX gate remains active.  DOGE keeps the accepted
+4h Supertrend(20, 3) flip above a rising EMA100.  BCH reuses the immutable,
+previously exact-tested V12.26 EMA30/EMA80 route above a rising EMA100; none of
+its viewed thresholds are retuned.
 
-The V12.12 pair universe, signal thresholds, BTC/ETH reclaim paths, exits and
-loss protections remain unchanged. The only decision change is a deliberately
-late profit ratchet for champion-Donchian trades: after at least +30% open
-profit, the stop may rise to +5% from entry. Reclaims do not use the ratchet.
-Before +30%, the original hard stop remains unchanged.
+Capital model:
+- one 250 USDT paper wallet
+- one entry chunk is at most 80 USDT
+- at most 240 USDT may be deployed at once
+- up to three chunks may therefore be active
+- a still-open pair may receive another 80 USDT only on a genuinely new entry
+  signal candle while the position is profitable and price is above every
+  earlier filled entry, up to three entries total in that pair
+- Spot, long-only, 1x, no loss averaging and no martingale sizing
 
-Research target: >1 USDT/day on a 250 USDT single-pair backtest account is a
-stretch objective, not an optimization constraint. No threshold is allowed to
-be changed merely to force that number on already-seen history.
-
-Safety: Binance Spot, long-only, 1x, max 80 USDT per position, max three
-positions / 240 USDT total exposure, hard stop -5.5%, no DCA.
+Backtests use this exact strategy as well.  A single-pair backtest therefore
+starts with its own 250 USDT wallet and simulates the same 80-USDT chunk logic.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
+import numpy as np
 import talib.abstract as ta
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (
@@ -36,29 +39,78 @@ from freqtrade.strategy import (
     informative,
     stoploss_from_open,
 )
-from pandas import DataFrame
+from pandas import DataFrame, Series
+
+
+def _supertrend_direction(
+    dataframe: DataFrame, period: int, multiplier: float
+) -> Series:
+    """Return a causal Supertrend direction using only completed 4h candles."""
+    atr = Series(ta.ATR(dataframe, timeperiod=period), index=dataframe.index)
+    midpoint = (dataframe["high"] + dataframe["low"]) / 2.0
+    upper = midpoint + multiplier * atr
+    lower = midpoint - multiplier * atr
+    final_upper = upper.copy()
+    final_lower = lower.copy()
+    direction = Series(0, index=dataframe.index, dtype="int8")
+
+    for pos in range(1, len(dataframe)):
+        previous = pos - 1
+        if np.isnan(atr.iat[pos]):
+            continue
+        if (
+            np.isnan(final_upper.iat[previous])
+            or dataframe["close"].iat[previous] > final_upper.iat[previous]
+        ):
+            final_upper.iat[pos] = upper.iat[pos]
+        else:
+            final_upper.iat[pos] = min(upper.iat[pos], final_upper.iat[previous])
+        if (
+            np.isnan(final_lower.iat[previous])
+            or dataframe["close"].iat[previous] < final_lower.iat[previous]
+        ):
+            final_lower.iat[pos] = lower.iat[pos]
+        else:
+            final_lower.iat[pos] = max(lower.iat[pos], final_lower.iat[previous])
+
+        previous_direction = int(direction.iat[previous])
+        if previous_direction <= 0 and dataframe["close"].iat[pos] > final_upper.iat[previous]:
+            direction.iat[pos] = 1
+        elif previous_direction >= 0 and dataframe["close"].iat[pos] < final_lower.iat[previous]:
+            direction.iat[pos] = -1
+        else:
+            direction.iat[pos] = previous_direction or -1
+    return direction
 
 
 class CompressionBreakout250(IStrategy):
-    """V12.15: V12.12 signals with a +30% to +5% champion ratchet."""
+    """V12.33: retain V12.31 and disable the negative-expectancy LTC route."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "V12.15"
+    STRATEGY_VERSION = "V12.33"
 
     can_short = False
     timeframe = "15m"
     process_only_new_candles = True
     startup_candle_count = 400
 
-    position_adjustment_enable = False
-    max_entry_position_adjustment = 0
+    position_adjustment_enable = True
+    max_entry_position_adjustment = 2
+    position_adjustment_on_new_strategy_candle_only = True
+    backtest_readonly_trade_callbacks: ClassVar[tuple[str, ...]] = (
+        "adjust_trade_position",
+        "custom_stoploss",
+        "custom_exit",
+    )
 
     MAX_STAKE_USDT = 80.0
     MAX_TOTAL_CAPITAL_USDT = 250.0
     MAX_TOTAL_EXPOSURE_USDT = 240.0
     MAX_OPEN_POSITIONS = 3
+    MAX_ENTRIES_PER_PAIR = 3
     MAX_DAILY_LOSS_USDT = 10.0
     MAX_DAILY_LOSS_USDT_PER_PAIR = MAX_DAILY_LOSS_USDT
+    POSITION_ADJUSTMENT_SIGNAL_MINUTES = 15
 
     ALLOWED_PAIRS: ClassVar[set[str]] = {
         "BTC/USDT",
@@ -67,12 +119,31 @@ class CompressionBreakout250(IStrategy):
         "XRP/USDT",
         "BNB/USDT",
         "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
+    }
+    # V12.18's complete ten-pair development matrix showed that later chunks
+    # preserved positive multi-entry expectancy only for these pairs.  The
+    # other six pairs keep their normal first entry but may not occupy another
+    # scarce 80-USDT block until a separately preregistered experiment provides
+    # new evidence.  This is a fixed eligibility decision, not dynamic sizing.
+    PYRAMIDING_PAIRS: ClassVar[set[str]] = {
+        "BTC/USDT",
+        "ETH/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
     }
     BROAD_CORE_PAIRS: ClassVar[set[str]] = {
         "SOL/USDT",
         "XRP/USDT",
         "BNB/USDT",
         "DOGE/USDT",
+        "LINK/USDT",
+        "TRX/USDT",
+        "LTC/USDT",
+        "BCH/USDT",
     }
 
     buy_momentum_30d = DecimalParameter(
@@ -94,6 +165,9 @@ class CompressionBreakout250(IStrategy):
         0.20, 1.00, default=0.50, decimals=2, space="buy", optimize=True, load=True
     )
 
+    # Kept from the accepted V12.15 source. BTC and ETH use special champion
+    # quality paths; the broader universe deliberately starts on one common
+    # route so each added pair can be diagnosed before pair-local tuning.
     PAIR_PROFILES: ClassVar[dict[str, dict[str, float | int]]] = {
         "BTC/USDT": {
             "adx_min": 16,
@@ -220,18 +294,20 @@ class CompressionBreakout250(IStrategy):
 
         invariants_hold = (
             self.can_short is False
-            and self.position_adjustment_enable is False
-            and self.max_entry_position_adjustment == 0
+            and self.position_adjustment_enable is True
+            and self.max_entry_position_adjustment == 2
             and self.timeframe == "15m"
             and self.config.get("strategy") == type(self).__name__
             and self.config.get("timeframe") == "15m"
             and str(self.config.get("trading_mode", "")).lower() == "spot"
             and not str(self.config.get("margin_mode", ""))
             and str(self.config.get("stake_currency", "")).upper() == "USDT"
+            and self.config.get("position_adjustment_enable") is True
+            and int(self.config.get("max_entry_position_adjustment", -1)) == 2
             and 0.0 < stake_amount <= self.MAX_STAKE_USDT
             and 0.0 < available_capital <= self.MAX_TOTAL_CAPITAL_USDT
             and 1 <= max_open_trades <= self.MAX_OPEN_POSITIONS
-            and stake_amount * max_open_trades <= self.MAX_TOTAL_EXPOSURE_USDT
+            and stake_amount * self.MAX_OPEN_POSITIONS <= self.MAX_TOTAL_EXPOSURE_USDT
             and math.isclose(float(self.stoploss), -0.055, abs_tol=1e-12)
             and order_types.get("entry") == "limit"
             and order_types.get("exit") == "limit"
@@ -255,7 +331,19 @@ class CompressionBreakout250(IStrategy):
                 "unit": "minutes",
             }
             and exchange.get("name") == "binance"
-            and bool(pairs)
+            and list(pairs)
+            == [
+                "BTC/USDT",
+                "ETH/USDT",
+                "SOL/USDT",
+                "XRP/USDT",
+                "BNB/USDT",
+                "DOGE/USDT",
+                "LINK/USDT",
+                "TRX/USDT",
+                "LTC/USDT",
+                "BCH/USDT",
+            ]
             and set(pairs).issubset(self.ALLOWED_PAIRS)
             and len(pairs) == len(set(pairs))
             and self.config.get("force_entry_enable") is False
@@ -338,6 +426,7 @@ class CompressionBreakout250(IStrategy):
     ) -> DataFrame:
         del metadata
         dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=50)
+        dataframe["ema_macro100"] = ta.EMA(dataframe, timeperiod=100)
         dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=200)
         dataframe["atr"] = ta.ATR(dataframe, timeperiod=14)
         dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
@@ -358,6 +447,19 @@ class CompressionBreakout250(IStrategy):
         dataframe["ema_fast_rising"] = (
             dataframe["ema_fast"] > dataframe["ema_fast"].shift(3)
         ).astype(int)
+        dataframe["ema_macro100_rising_12"] = (
+            dataframe["ema_macro100"] > dataframe["ema_macro100"].shift(12)
+        ).astype(int)
+        dataframe["bch_ema_fast"] = ta.EMA(dataframe, timeperiod=30)
+        dataframe["bch_ema_slow"] = ta.EMA(dataframe, timeperiod=80)
+        dataframe["bch_ema_macro"] = ta.EMA(dataframe, timeperiod=100)
+        dataframe["bch_ema_macro_rising_12"] = (
+            dataframe["bch_ema_macro"]
+            > dataframe["bch_ema_macro"].shift(12)
+        ).astype(int)
+        dataframe["doge_supertrend_direction"] = _supertrend_direction(
+            dataframe, period=20, multiplier=3.0
+        )
         for bars in (3, 4, 6):
             dataframe[f"trend_persist_{bars}"] = (
                 (dataframe["close"] > dataframe["ema_fast"])
@@ -406,7 +508,6 @@ class CompressionBreakout250(IStrategy):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        """Run unchanged champions plus one separately tagged reclaim challenger."""
         pair = str(metadata.get("pair", ""))
         dataframe["regime_state"] = self.REGIME_NO_TRADE
         dataframe["route_family"] = self.FAMILY_NO_TRADE
@@ -417,6 +518,62 @@ class CompressionBreakout250(IStrategy):
             return dataframe
 
         asset = pair.split("/")[0].lower()
+        if pair == "LTC/USDT":
+            # The exact V12.31 shared-wallet result assigned -18.831 USDT to
+            # LTC with seven losing trades.  V12.33 changes one decision only:
+            # LTC cannot open a position.  This keeps the scarce three global
+            # 80-USDT slots available until a separately registered LTC family
+            # demonstrates positive shared-wallet value.
+            dataframe["enter_long"] = 0
+            dataframe["no_trade_reason"] = "v12_33_ltc_no_validated_edge"
+            return dataframe
+
+        if pair == "DOGE/USDT":
+            doge_flip_long = (
+                (dataframe["doge_supertrend_direction_4h"] > 0)
+                & (
+                    dataframe["doge_supertrend_direction_4h"].shift(1).fillna(0)
+                    <= 0
+                )
+            )
+            doge_signal = (
+                doge_flip_long
+                & (dataframe["close_4h"] > dataframe["ema_macro100_4h"])
+                & (dataframe["ema_macro100_rising_12_4h"] > 0)
+                & (dataframe["volume"] > 0)
+            )
+            dataframe.loc[doge_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[doge_signal, "route_family"] = self.FAMILY_DONCHIAN
+            dataframe.loc[doge_signal, "no_trade_reason"] = ""
+            dataframe.loc[doge_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                "v12_30_doge_supertrend20x3",
+            )
+            return dataframe
+
+        if pair == "BCH/USDT":
+            bch_cross_long = (
+                (dataframe["bch_ema_fast_4h"] > dataframe["bch_ema_slow_4h"])
+                & (
+                    dataframe["bch_ema_fast_4h"].shift(1)
+                    <= dataframe["bch_ema_slow_4h"].shift(1)
+                )
+            )
+            bch_signal = (
+                bch_cross_long
+                & (dataframe["close_4h"] > dataframe["bch_ema_macro_4h"])
+                & (dataframe["bch_ema_macro_rising_12_4h"] > 0)
+                & (dataframe["adx_4h"] >= 24)
+                & (dataframe["volume"] > 0)
+            )
+            dataframe.loc[bch_signal, "regime_state"] = self.REGIME_TREND
+            dataframe.loc[bch_signal, "route_family"] = self.FAMILY_DONCHIAN
+            dataframe.loc[bch_signal, "no_trade_reason"] = ""
+            dataframe.loc[bch_signal, ["enter_long", "enter_tag"]] = (
+                1,
+                "v12_31_bch_ema30_80_trend",
+            )
+            return dataframe
 
         fresh_slow = (
             (dataframe["fresh_breakout_4h"] > 0)
@@ -468,9 +625,19 @@ class CompressionBreakout250(IStrategy):
                     <= float(profile["breakout_strength_max_atr"])
                 )
             )
+        elif pair == "SOL/USDT":
+            # V12.22 changes one decision only.  SOL's V12.20 winners all
+            # entered with 4h ADX above the previously registered pair-local
+            # floor, while directionless breakouts contributed repeated
+            # losses.  Do not restore the rejected V12.7 compound SOL profile:
+            # momentum, RSI, persistence, volume and strength remain exactly
+            # V12.20 here.
+            champion_quality = dataframe["adx_4h"] >= float(
+                self.PAIR_PROFILES[pair]["adx_min"]
+            )
         elif pair in self.BROAD_CORE_PAIRS:
             champion_quality = dataframe["volume"] > 0
-        else:  # Defensive: ALLOWED_PAIRS and routing must never drift apart.
+        else:
             dataframe["no_trade_reason"] = "missing_pair_route"
             return dataframe
 
@@ -483,7 +650,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[champion_signal, "no_trade_reason"] = ""
         dataframe.loc[champion_signal, ["enter_long", "enter_tag"]] = (
             1,
-            f"v12_15_{asset}_champion_donchian",
+            f"v12_17_{asset}_champion_donchian",
         )
 
         if pair in self.RECLAIM_PROFILES:
@@ -529,13 +696,35 @@ class CompressionBreakout250(IStrategy):
             dataframe.loc[reclaim_signal, "no_trade_reason"] = ""
             dataframe.loc[reclaim_signal, ["enter_long", "enter_tag"]] = (
                 1,
-                f"v12_15_{asset}_trend_reclaim",
+                f"v12_17_{asset}_trend_reclaim",
             )
 
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        del metadata
+        pair = str(metadata.get("pair", ""))
+        if pair == "DOGE/USDT":
+            doge_flip_short = (
+                (dataframe["doge_supertrend_direction_4h"] < 0)
+                & (
+                    dataframe["doge_supertrend_direction_4h"].shift(1).fillna(0)
+                    >= 0
+                )
+            )
+            dataframe.loc[
+                doge_flip_short & (dataframe["volume"] > 0),
+                ["exit_long", "exit_tag"],
+            ] = (1, "v12_30_doge_supertrend_exit")
+            return dataframe
+
+        if pair == "BCH/USDT":
+            dataframe.loc[
+                (dataframe["close_4h"] < dataframe["bch_ema_slow_4h"])
+                & (dataframe["volume"] > 0),
+                ["exit_long", "exit_tag"],
+            ] = (1, "v12_31_bch_ema30_80_exit")
+            return dataframe
+
         structure_exit = dataframe["close_4h"] < dataframe["donchian_exit_4h"]
         regime_exit = (
             (dataframe["close_4h"] < dataframe["ema_fast_4h"])
@@ -544,7 +733,7 @@ class CompressionBreakout250(IStrategy):
         dataframe.loc[
             (structure_exit | regime_exit) & (dataframe["volume"] > 0),
             ["exit_long", "exit_tag"],
-        ] = (1, "v12_15_slow_trend_exit")
+        ] = (1, "v12_17_slow_trend_exit")
         return dataframe
 
     def order_filled(
@@ -582,6 +771,116 @@ class CompressionBreakout250(IStrategy):
         except Exception:
             return
 
+    def adjust_trade_position(
+        self,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        min_stake: float | None,
+        max_stake: float,
+        current_entry_rate: float,
+        current_exit_rate: float,
+        current_entry_profit: float,
+        current_exit_profit: float,
+        **kwargs: Any,
+    ) -> tuple[float | None, str | None] | float | None:
+        """Use another 80-USDT chunk only when the same pair emits a new signal.
+
+        This is profit-only pyramiding, never loss averaging. A second/third
+        entry is allowed only on a later candle that independently satisfies
+        the normal entry strategy, while the existing position is profitable
+        and the new rate is above every earlier filled entry. Global deployed
+        stake remains capped at 240 USDT.
+        """
+
+        del (
+            current_rate,
+            current_exit_rate,
+            current_exit_profit,
+            kwargs,
+        )
+        try:
+            if trade.pair not in self.ALLOWED_PAIRS or self.dp is None:
+                return None
+            if trade.pair not in self.PYRAMIDING_PAIRS:
+                return None
+            # With 1m execution detail Freqtrade calls this callback once per
+            # minute while a trade is open.  The input signal dataframe changes
+            # only on the 15m strategy boundary, so the other fourteen calls
+            # cannot possibly create a new pyramid entry.  Skipping them keeps
+            # the exact signal/fill chronology while avoiding millions of
+            # redundant order/DP lookups in multi-year backtests.  Live/dry-run
+            # remains untouched and continues to evaluate on every bot loop.
+            if (
+                self._runmode_value(self.config) in {"backtest", "hyperopt"}
+                and current_time.minute % self.POSITION_ADJUSTMENT_SIGNAL_MINUTES != 0
+            ):
+                return None
+            if bool(getattr(trade, "has_open_orders", False)):
+                return None
+            if (
+                int(getattr(trade, "nr_of_successful_entries", 0))
+                >= self.MAX_ENTRIES_PER_PAIR
+            ):
+                return None
+            if max_stake < self.MAX_STAKE_USDT:
+                return None
+            if min_stake is not None and float(min_stake) > self.MAX_STAKE_USDT:
+                return None
+            if self._kill_switch_path().is_file():
+                return None
+            if current_profit <= 0.0 or current_entry_profit <= 0.0:
+                return None
+
+            filled_entries = trade.select_filled_orders(trade.entry_side)
+            filled_rates = [
+                float(order.safe_price)
+                for order in filled_entries
+                if getattr(order, "safe_price", None) is not None
+                and math.isfinite(float(order.safe_price))
+                and float(order.safe_price) > 0.0
+            ]
+            if not filled_rates or not math.isfinite(float(current_entry_rate)):
+                return None
+            if float(current_entry_rate) <= max(filled_rates):
+                return None
+
+            dataframe, _ = self.dp.get_analyzed_dataframe(trade.pair, self.timeframe)
+            if dataframe.empty:
+                return None
+            candle = dataframe.iloc[-1].squeeze()
+            if int(float(candle.get("enter_long", 0) or 0)) != 1:
+                return None
+
+            signal_time = candle.get("date")
+            if hasattr(signal_time, "to_pydatetime"):
+                signal_time = signal_time.to_pydatetime()
+            if not isinstance(signal_time, datetime):
+                return None
+            if signal_time.tzinfo is None:
+                signal_time = signal_time.replace(tzinfo=UTC)
+            signal_time = signal_time.astimezone(UTC)
+
+            last_filled = getattr(trade, "date_last_filled_utc", None)
+            if isinstance(last_filled, datetime):
+                if last_filled.tzinfo is None:
+                    last_filled = last_filled.replace(tzinfo=UTC)
+                if signal_time <= last_filled.astimezone(UTC):
+                    return None
+
+            open_stake = float(Trade.total_open_trades_stakes())
+            if (
+                open_stake + self.MAX_STAKE_USDT
+                > self.MAX_TOTAL_EXPOSURE_USDT + 1e-6
+            ):
+                return None
+
+            asset = trade.pair.split("/")[0].lower()
+            return self.MAX_STAKE_USDT, f"v12_20_{asset}_selective_pyramid_chunk"
+        except Exception:
+            return None
+
     def custom_stoploss(
         self,
         pair: str,
@@ -592,8 +891,6 @@ class CompressionBreakout250(IStrategy):
         after_fill: bool,
         **kwargs: Any,
     ) -> float | None:
-        """Lock one initial risk unit only after an exceptional champion move."""
-
         del pair, current_time, current_rate, after_fill, kwargs
         enter_tag = str(getattr(trade, "enter_tag", "") or "")
         if "_champion_donchian" not in enter_tag or current_profit < 0.30:
@@ -614,13 +911,18 @@ class CompressionBreakout250(IStrategy):
         current_profit: float,
         **kwargs: Any,
     ) -> str | None:
-        """Use distinct failure logic for champion and reclaim entries."""
         del kwargs
         try:
             age_hours = (
                 current_time - trade.open_date_utc
             ).total_seconds() / 3600.0
             enter_tag = str(getattr(trade, "enter_tag", "") or "")
+
+            if (
+                "_doge_supertrend20x3" in enter_tag
+                or "_bch_ema30_80_trend" in enter_tag
+            ):
+                return None
 
             if "_trend_reclaim" in enter_tag:
                 if current_profit >= 0:
@@ -636,9 +938,9 @@ class CompressionBreakout250(IStrategy):
                     and float(current_rate)
                     < float(ema_fast) - 0.50 * float(atr_15m)
                 ):
-                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_failed"
+                    return f"v12_17_{pair.split('/')[0].lower()}_reclaim_failed"
                 if age_hours >= 48.0:
-                    return f"v12_15_{pair.split('/')[0].lower()}_reclaim_time_stop"
+                    return f"v12_17_{pair.split('/')[0].lower()}_reclaim_time_stop"
                 return None
 
             if current_profit >= 0:
@@ -658,7 +960,7 @@ class CompressionBreakout250(IStrategy):
                 return None
             failure = float(level) - failure_atr * float(atr)
             if float(current_rate) < failure:
-                return f"v12_15_{pair.split('/')[0].lower()}_failed_breakout"
+                return f"v12_17_{pair.split('/')[0].lower()}_failed_breakout"
         except Exception:
             return None
         return None
@@ -719,7 +1021,9 @@ class CompressionBreakout250(IStrategy):
                 return False
             if order_type != "limit" or time_in_force != "GTC":
                 return False
-            if bool(self.config.get("position_adjustment_enable", False)):
+            if self.config.get("position_adjustment_enable") is not True:
+                return False
+            if int(self.config.get("max_entry_position_adjustment", -1)) != 2:
                 return False
             max_open = int(self.config.get("max_open_trades", -1))
             if not 1 <= max_open <= self.MAX_OPEN_POSITIONS:

@@ -5,18 +5,24 @@ cd /d "%~dp0"
 title DaviddTech Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.15: Binance-Marktdaten, aber ausschliesslich Testgeld
-echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE ^| KEIN ECHTGELD
+echo   TESTBOT V12.31: Binance-Marktdaten, aber ausschliesslich Testgeld
+echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.15 behaelt alle V12.12-Signale und sechs Pairs unveraendert.
+echo V12.31 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
 echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
-echo SOL/XRP/BNB/DOGE handeln ihre unveraenderten Donchian-Kerne.
+echo SOL/XRP/BNB/LINK/TRX/LTC/BCH handeln den Broad-Core-Donchian-Pfad.
+echo DOGE nutzt den kausal geprueften Supertrend-Ausbruch mit steigendem EMA100.
+echo BCH nutzt die feste EMA30/EMA80-Route ueber steigender EMA100 bei ADX 24.
+echo Nur SOL verlangt dabei zusaetzlich einen 4h-ADX von mindestens 21.
 echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
 echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitten.
 echo Nur Champion-Trades sichern nach mindestens +30%% einen +5%%-Gewinnboden.
-echo Forschungsziel: >1 USDT/Tag ist ein Stretch-Ziel, keine Backtest-Zwangsvorgabe.
 echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
+echo Insgesamt bleiben maximal drei 80-USDT-Bloecke bzw. 240 USDT gleichzeitig gebunden.
+echo Nur BTC/ETH/LINK/TRX duerfen weitere Bloecke erhalten, und nur im Gewinn
+echo sowie oberhalb aller frueheren Einstiegskurse. Die anderen sechs Coins
+echo handeln weiter normal mit ihrem ersten Block. Verlust-Nachkaeufe bleiben gesperrt.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -30,7 +36,7 @@ echo.
 call :ensure_uv
 if errorlevel 1 exit /b 1
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
 if errorlevel 1 (
     echo.
     echo SICHERHEITSSTOPP: Eine alte oder fremde Runtime konnte nicht sicher bereinigt werden.
@@ -41,21 +47,19 @@ if errorlevel 1 (
 
 set "LOCAL_UI_PASSWORD_FILE=%~dp0runtime\user_data\.testbot-ui-password"
 set "FREQTRADE__API_SERVER__USERNAME=testbot"
-set "FIRST_LOGIN_HELP=1"
-if not exist "%LOCAL_UI_PASSWORD_FILE%" (
-    set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
-    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) ^| Out-Null; [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
-    set "TESTBOT_PASSWORD_FILE="
-    if errorlevel 1 (
-        echo.
-        echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort konnte nicht erzeugt werden.
-        echo Der Testbot wird nicht gestartet.
-        pause
-        exit /b 1
-    )
-) else (
-    set "FIRST_LOGIN_HELP=0"
+call :ensure_ui_password
+if errorlevel 1 exit /b 1
+if "%FIRST_LOGIN_HELP%"=="1" (
+    echo.
+    echo ERSTE ANMELDUNG: Aus Sicherheitsgruenden wird das zufaellig erzeugte
+    echo Erstpasswort nicht im Fenster angezeigt.
+    echo Bitte jetzt PASSWORT_AENDERN.bat ausfuehren, ein eigenes lokales
+    echo Passwort setzen und STARTBOT.bat danach erneut starten.
+    start "" "%~dp0LOGIN_HILFE.html"
+    pause
+    exit /b 0
 )
+
 set /p FREQTRADE__API_SERVER__PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
 if not defined FREQTRADE__API_SERVER__PASSWORD (
     echo.
@@ -64,29 +68,21 @@ if not defined FREQTRADE__API_SERVER__PASSWORD (
     pause
     exit /b 1
 )
-set "FREQTRADE__API_SERVER__JWT_SECRET_KEY=%FREQTRADE__API_SERVER__PASSWORD%-jwt"
-set "FREQTRADE__API_SERVER__WS_TOKEN=%FREQTRADE__API_SERVER__PASSWORD%-ws"
+set "FREQTRADE__API_SERVER__JWT_SECRET_KEY=DaviddTech-Local-Testbot-JWT-Secret-%FREQTRADE__API_SERVER__PASSWORD%"
+set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%FREQTRADE__API_SERVER__PASSWORD%"
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.15
+echo Bot Name : Testbot V12.31
 echo Benutzer : testbot
-if "%FIRST_LOGIN_HELP%"=="1" (
-    echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%
-    echo.
-    echo ERSTE ANMELDUNG: Dieses zufaellig erzeugte Passwort gilt nur lokal.
-    echo Die Login-Hilfe wird zusaetzlich geoeffnet.
-    start "" "%~dp0LOGIN_HILFE.html"
-) else (
-    echo Passwort : eigenes lokales Passwort ist aktiv
-    echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
-)
+echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
+echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
 echo.
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\run-testbot-supervised.ps1"
 set "BOT_EXIT_CODE=%ERRORLEVEL%"
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
+powershell.exe -NoLogo -NoProfile -File "%~dp0runtime\scripts\cleanup-stale-testbot.ps1"
 if errorlevel 1 (
     echo SICHERHEITSWARNUNG: Nach dem Botende ist Port 8080 nicht sicher frei.
     set "BOT_EXIT_CODE=1"
@@ -101,6 +97,29 @@ if not "%BOT_EXIT_CODE%"=="0" (
 echo Dieses Fenster kann jetzt geschlossen werden.
 pause
 exit /b %BOT_EXIT_CODE%
+
+:ensure_ui_password
+set "FIRST_LOGIN_HELP=0"
+if not exist "%LOCAL_UI_PASSWORD_FILE%" goto :create_ui_password
+set "EXISTING_UI_PASSWORD="
+set /p EXISTING_UI_PASSWORD=<"%LOCAL_UI_PASSWORD_FILE%"
+if not defined EXISTING_UI_PASSWORD goto :create_ui_password
+if "%EXISTING_UI_PASSWORD%"=="AAAAAAAAAAAAAAAAAAAAAAAA" goto :create_ui_password
+exit /b 0
+
+:create_ui_password
+set "TESTBOT_PASSWORD_FILE=%LOCAL_UI_PASSWORD_FILE%"
+powershell.exe -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; $path=$env:TESTBOT_PASSWORD_FILE; $bytes=New-Object byte[] 18; $rng=[Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }; $value=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('='); [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)); [IO.File]::WriteAllText($path,$value,[Text.UTF8Encoding]::new($false))"
+set "TESTBOT_PASSWORD_FILE="
+if errorlevel 1 (
+    echo.
+    echo SICHERHEITSSTOPP: Das lokale FreqUI-Passwort konnte nicht erzeugt werden.
+    echo Der Testbot wird nicht gestartet.
+    pause
+    exit /b 1
+)
+set "FIRST_LOGIN_HELP=1"
+exit /b 0
 
 :ensure_uv
 where uv.exe >nul 2>nul

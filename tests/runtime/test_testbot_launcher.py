@@ -47,6 +47,8 @@ def test_startbot_creates_local_random_ui_password_without_repository_default() 
     assert "FREQTRADE__API_SERVER__PASSWORD" in start
     assert "FREQTRADE__API_SERVER__JWT_SECRET_KEY" in start
     assert "FREQTRADE__API_SERVER__WS_TOKEN" in start
+    assert "echo Passwort : %FREQTRADE__API_SERVER__PASSWORD%" not in start
+    assert "ExecutionPolicy Bypass" not in start
     assert {
         key: public_config["api_server"][key]
         for key in ("password", "jwt_secret_key", "ws_token")
@@ -61,6 +63,7 @@ def test_startbot_creates_local_random_ui_password_without_repository_default() 
 
 def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     source = (SCRIPTS / "start-testbot-24x7.ps1").read_text(encoding="utf-8")
+    supervisor = (SCRIPTS / "run-testbot-supervised.ps1").read_text(encoding="utf-8")
 
     assert 'FREQTRADE__DRY_RUN = "true"' in source
     assert 'FREQTRADE__INITIAL_STATE = "running"' in source
@@ -78,6 +81,18 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "show-config" in source
     assert "effectiveSettings.capital_usdt" in source
     assert "$environmentAllowlist" in source
+    allowlist_block = source.partition("$environmentAllowlist = @(")[2].partition(
+        "Get-ChildItem Env:"
+    )[0]
+    for local_api_key in (
+        "FREQTRADE__API_SERVER__USERNAME",
+        "FREQTRADE__API_SERVER__PASSWORD",
+        "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+        "FREQTRADE__API_SERVER__WS_TOKEN",
+    ):
+        assert f'"{local_api_key}"' in allowlist_block
+    assert "FREQTRADE__EXCHANGE__KEY" not in allowlist_block
+    assert "FREQTRADE__EXCHANGE__SECRET" not in allowlist_block
     assert '"PYTHONDONTWRITEBYTECODE"' in source
     assert '"PYTHONUTF8"' in source
     assert "$environmentWasMinimized = $true" in source
@@ -96,6 +111,8 @@ def test_supervisor_contract_is_fail_safe_and_persistent() -> None:
     assert "config-live" not in source
     assert "FREQTRADE__EXCHANGE__KEY" not in source
     assert "FREQTRADE__EXCHANGE__SECRET" not in source
+    assert '"DaviddTech\\AiTradingAgent\\browser-profile-v2"' in supervisor
+    assert "UI-Profil: frisches, dauerhaft isoliertes Testbot-Profil v2." in supervisor
 
 
 def test_launchers_disable_generated_python_bytecode_cache() -> None:

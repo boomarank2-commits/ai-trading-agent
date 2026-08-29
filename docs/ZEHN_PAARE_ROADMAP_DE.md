@@ -1,20 +1,45 @@
-# Zehn-Paare-Roadmap mit einem gemeinsamen 250-USDT-Wallet
+# Historische V12.17-Roadmap – durch V12.18 ersetzt
 
-Stand: 22.08.2026
+> **Nicht mehr als aktuelle Ausführungsanweisung verwenden.** Dieses Dokument
+> hält die ursprüngliche V12.17-Absicht und damit auch den später gefundenen
+> Fehler fest: „Alle 10“ waren zehn unabhängige 250-USDT-Läufe statt des vom
+> Paperbot gespiegelten gemeinsamen Portfolios; außerdem war das Aufstocken
+> nicht sicher auf Gewinner begrenzt. V12.18 korrigierte den Sicherheitsfehler;
+> V12.19 ergänzte die dauerhafte Lernakte und Laufzeitreparatur; V12.20
+> korrigierte die schädliche Zusatzblock-Verteilung; V12.22 ergänzte den
+> vorregistrierten SOL-ADX-Filter; V12.30 ergänzte die erfolgreich geprüfte
+> DOGE-Supertrend20×3-Route. V12.31 kombiniert damit die unveränderte, zuvor
+> separat geprüfte BCH-EMA30/EMA80-Route. Der aktuelle technische
+> Stand, Begründungen und nächste Prüfungen stehen in
+> [`../research/V12_20_SELECTIVE_PYRAMID_DE.md`](../research/V12_20_SELECTIVE_PYRAMID_DE.md)
+> und [`../research/V12_22_SOL_ADX21_DE.md`](../research/V12_22_SOL_ADX21_DE.md)
+> und [`../research/V12_30_DOGE_SUPERTREND_DE.md`](../research/V12_30_DOGE_SUPERTREND_DE.md)
+> und [`../research/V12_31_DOGE_BCH_COMBINATION_DE.md`](../research/V12_31_DOGE_BCH_COMBINATION_DE.md)
+> und [`../START_HERE_DE.md`](../START_HERE_DE.md). Die folgenden Abschnitte
+> bleiben ausschließlich als historische, nicht 1:1 zu wiederholende Evidenz
+> erhalten.
 
-Dieses Dokument ist die verbindliche Übergabe für die geplante Erweiterung auf
-zehn Spot-Paare. Es beschreibt den erreichten Stand, die gewünschte
-Kapitalverteilung, die getrennten Einzelpaar- und Portfoliotests und die
-Reihenfolge der nächsten Arbeiten. Es ist keine Echtgeldfreigabe und kein
-Gewinnversprechen.
+Stand: 23.08.2026
 
-## Bereits erreicht
+Dieses Dokument ist die verbindliche technische Übergabe für den aktuellen
+Zehn-Paare-Ausbau. Es ersetzt die frühere Annahme, dass die vier neuen Paare nur
+in einer separaten Research-Strategie laufen oder dass der normale Sammel-
+Backtest ein gemeinsames Portfolio simuliert.
 
-Der aktive Paper-/Dry-run-Kandidat ist V12.15 mit dem exakten Strategy-Hash:
+Wichtig: **Paperbot und Einzel-Backtests sind zwei verschiedene Bausteine.**
+Sie benutzen dieselbe Strategy-Logik, aber nicht dasselbe virtuelle Kapital-
+experiment.
+
+Es gibt weiterhin keine Echtgeldfreigabe und keine Gewinnzusage.
+
+## 1. Historische Referenz
+
+V12.15 bleibt als akzeptierte Sechs-Paare-Referenz erhalten. Der exakte frühere
+Strategy-Hash lautet:
 
 `3c5aaf823e16c1a2901c4861fcf6dbc21da4dd0f1314385d78be1f2de86c4a97`
 
-V12.15 verwendet bereits sechs Paare:
+V12.15 handelte:
 
 1. BTC/USDT
 2. ETH/USDT
@@ -23,281 +48,297 @@ V12.15 verwendet bereits sechs Paare:
 5. BNB/USDT
 6. DOGE/USDT
 
-BTC, ETH und SOL bilden den ursprünglichen Kern. XRP, BNB und DOGE sind bereits
-drei der gewünschten sieben Erweiterungen. Für das Ziel von insgesamt zehn
-aktiven Paaren fehlen deshalb noch **vier** erfolgreich geprüfte Paare.
+Der historische Drei-Jahres-Portfoliolauf von V12.15 startete mit einem
+250-USDT-Wallet und ergab 545,409 USDT Endkapital, +295,409 USDT Nettogewinn,
+122 Trades, Profit Factor 2,5554 und 8,19 % geschlossenen Max-Drawdown.
+Diese Werte bleiben historische Evidenz und werden nicht als V12.17-Ergebnis
+umetikettiert.
 
-Der bestandene V12.15-Drei-Jahres-Portfoliolauf ergab bei einem gemeinsamen
-250-USDT-Wallet:
+V12.16 testete ADA. ADA war isoliert positiv, verschlechterte aber durch
+Slot-Verdrängung die gemeinsame Portfolioqualität. ADA bleibt deshalb für den
+aktuellen Ausbau ausgeschlossen; der identische historische Versuch wird nicht
+wiederholt.
 
-| Kennzahl | V12.15 |
-|---|---:|
-| Endkapital | 545,409 USDT |
-| Nettogewinn | +295,409 USDT |
-| Trades | 122 |
-| Profit Factor | 2,5554 |
-| geschlossener Max-Drawdown | 8,19 % |
-| Kapitalzeit | 23,07 % |
-| Zeit vollständig ohne Position | 61,33 % |
+## 2. Aktueller Paper-/Dry-run-Kandidat: V12.17
 
-Alle sechs Paare waren in diesem Lauf positiv. Das ist historische Simulation,
-keine Garantie für zukünftige Ergebnisse.
+Die aktive Strategy bleibt unter demselben Freqtrade-Klassennamen und Pfad:
 
-Die bisherige Entwicklung ist vollständig im Trial Ledger und im
-Fortsetzungsdokument erhalten. Kurzfassung:
+`runtime/user_data/strategies/CompressionBreakout250.py`
 
-- V8 bleibt als eingefrorene, reproduzierbare Research-Baseline erhalten.
-- V12.9 kombinierte den Drei-Paare-Kern mit BTC-/ETH-Reclaim und
-  Verlustcluster-Kontrolle.
-- V12.10 und V12.11 prüften andere Continuation-/Regime-Ideen und wurden
-  verworfen.
-- V12.12 erweiterte den gemeinsamen Kern auf XRP, BNB und DOGE. Der finanzielle
-  Befund war stark, aber der erste formale Dateiaudit war technisch ungültig.
-- V12.13 entfernte den negativen ETH-Reclaim, verschlechterte jedoch das
-  Gesamtportfolio durch veränderte Slot-/Protection-Chronologie und wurde
-  verworfen.
-- V12.14 sperrte Paare bereits nach dem ersten Verlust. Das reduzierte einzelne
-  Verluste, verpasste aber gültige Folgetrends und wurde verworfen.
-- V12.15 ergänzte nur einen späten Champion-Gewinnboden: nach mindestens +30 %
-  laufendem Gewinn wird ein +5-%-Boden gesichert. Alle vorregistrierten Gates
-  bestanden; dieser exakte Stand ist der aktive Paper-/Dry-run-Kandidat.
-- V12.16 prüfte ADA als siebtes Paar und wurde trotz positiven ADA-Einzelbeitrags
-  wegen schlechterer Gesamtportfolioqualität abgelehnt.
-- Doppelte Backtest-Fingerabdrücke werden gesperrt; Annahmekriterien, gelesene
-  Dateien, Prozesse und Ergebnisse bleiben dokumentiert.
-- Alte benötigte Backtest-/Auditbelege bleiben erhalten, während Logs, Caches,
-  temporäre Ausgaben und automatisch erzeugte Laufzeitdateien aus Git entfernt
-  beziehungsweise in ignorierte Runtime-Verzeichnisse gelenkt wurden.
+Die Strategy-Version ist jetzt `V12.17`.
 
-Die Detailquellen sind `research/trial_ledger.csv`,
-`research/executed_test_fingerprints.csv` und
-`research/CONTINUATION_HANDOFF_DE.md`.
+Das aktive Paper-Universum besteht aus genau zehn Binance-Spot-Paaren:
 
-V12.16 testete ADA/USDT als siebtes Paar. ADA selbst erzielte +27,809 USDT,
-aber durch die gemeinsame Slot-Chronologie wurde SOL negativ, der bestehende
-Sechs-Paare-Kern verlor Leistung und der Drawdown stieg auf 11,84 %. V12.16
-wurde deshalb verworfen und V12.15 vollständig wiederhergestellt. Der identische
-ADA-Fingerabdruck darf auf demselben Zeitraum nicht erneut laufen.
+1. BTC/USDT
+2. ETH/USDT
+3. SOL/USDT
+4. XRP/USDT
+5. BNB/USDT
+6. DOGE/USDT
+7. LINK/USDT
+8. TRX/USDT
+9. LTC/USDT
+10. BCH/USDT
 
-Zusätzlich wurden Replay- und Paritätsprüfungen verschärft. Ein Replay darf
-nicht mehr eine aktuelle V12-Datei als eingefrorene V8-Evidenz ausgeben.
-Strategie-, Konfigurations- und Risk-Policy-Hashes müssen zwischen Paper und
-Replay zusammenpassen. Ein passender empirischer Paper-/Replay-Nachweis steht
-noch aus und bleibt ein Pflicht-Gate vor neuen Strategiefamilien.
+LINK, TRX, LTC und BCH wurden als langjährig etablierte, liquide Spot-Märkte mit
+ausreichender Historie für Ein-/Zwei-/Drei-Jahres-Diagnosen gewählt. Sie starten
+zunächst auf dem bereits existierenden Broad-Core-Donchian-Pfad. BTC und ETH
+behalten ihre speziellen V12.15-Champion-/Reclaim-Wege. Die neuen vier Paare
+werden erst nach ihren eigenen Backtests pair-spezifisch angepasst.
 
-## Unveränderlicher Kapitalvertrag
+## 3. Kapitalvertrag des laufenden Paperbots
 
-Der normale Paperbot und der maßgebliche Gesamtportfolio-Backtest verwenden
-auch mit zehn Paaren **kein zusätzliches Kapital**:
+Der Paperbot besitzt **ein einziges gemeinsames virtuelles Wallet**:
 
 | Vertrag | Wert |
 |---|---:|
-| gemeinsames Start-Wallet | 250 USDT |
-| Einsatz je Position/Slot | höchstens 80 USDT |
-| gleichzeitig offene Slots | höchstens 3 |
-| maximales Gesamtengagement | 240 USDT |
-| freie Reserve | mindestens ungefähr 10 USDT vor weiteren Reserven/Kosten |
+| gemeinsames Paper-Wallet | 250 USDT |
+| Größe eines Entry-Blocks | maximal 80 USDT |
+| maximale gebundene Summe | 240 USDT |
+| gleichzeitig verfügbare Kapitalblöcke | maximal 3 |
 | Markt | Binance Spot |
 | Richtung | long-only |
-| Hebel/Margin/Futures | verboten |
-| DCA/Martingale | deaktiviert |
+| Hebel / Margin / Futures | verboten |
+| Echtgeld | nicht freigegeben |
 
-Die zehn Paare erhalten **nicht jeweils 250 USDT im Gesamtportfolio**. Alle zehn
-konkurrieren chronologisch um dieselben drei Slots. Es dürfen also gleichzeitig
-zum Beispiel BTC, XRP und ein späteres zehntes Paar mit je 80 USDT offen sein.
-Wenn nur ein gültiges Signal vorhanden ist, bleibt der Rest als Cash liegen;
-Kapital wird nicht nur zur Erhöhung der Auslastung in einen schlechten Trade
-gezwungen.
+Die zehn Coins besitzen **keine getrennten Paper-Wallets**. Sie konkurrieren
+live im Dry-run um dieselben drei 80-USDT-Blöcke.
 
-## Zwei verschiedene Testarten
+Beispiele:
 
-### 1. Einzelpaar-Diagnose
+- BTC 80 + LINK 80 + SOL 80 = 240 USDT.
+- LINK 80 + LINK später erneut 80 + XRP 80 = 240 USDT.
+- BTC kann theoretisch drei 80-USDT-Blöcke halten, wenn drei zeitlich getrennte
+  gültige Entry-Situationen auftreten und vorher kein anderer Coin die Blöcke
+  belegt.
 
-Jedes der zehn Paare wird zusätzlich separat untersucht. Diese Läufe beantworten:
+Sobald gebundenes Kapital frei wird, kann ein neues gültiges Signal eines
+beliebigen der zehn Paare wieder einen 80-USDT-Block erhalten.
 
-- erzeugt die exakt aktuelle Botlogik auf diesem Paar überhaupt Trades?
-- sind Gewinn, Profit Factor, Drawdown, Verlustserien und Kosten tragbar?
-- welche Entry-/Exit-Familie erzeugt Gewinn oder Verlust?
-- wie sehen Kapitalzeit, Zeit ohne Position, MAE/MFE und Exit-Gründe aus?
-- bleibt das Ergebnis unter höheren Kosten und zeitlich getrennten Fenstern stabil?
+## 4. Mehrere 80er im selben Coin – aktueller technischer Stand
 
-Jeder Einzelpaarlauf startet zur Vergleichbarkeit mit 250 virtuellen USDT und
-behält 80 USDT je Position sowie maximal drei globale Slots in der Konfiguration.
-Da der aktuelle Bot mehrere parallele Trades **desselben Paares** nicht erlaubt,
-kann in einem reinen Einzelpaarlauf zurzeit höchstens eine Position gleichzeitig
-offen sein. Die übrigen 170 USDT sind dann Reserve. Dieser Lauf ist eine
-Attributions-/Qualitätsdiagnose und simuliert nicht zehn getrennte Live-Wallets.
+V12.17 aktiviert Freqtrades Position-Adjustment ausschließlich für den
+Paper-/Backtest-Kandidaten:
 
-Für jedes Paar werden mindestens folgende Fenster gespeichert:
+- `position_adjustment_enable = true`
+- `max_entry_position_adjustment = 2`
+- damit maximal drei erfolgreiche Entries innerhalb eines offenen Pairs;
+- jeder Zusatz-Entry bleibt auf höchstens 80 USDT begrenzt;
+- die Summe aller offenen Stakes wird zusätzlich gegen 240 USDT geprüft.
 
-- ein festes Ein-Jahres-Fenster für jüngeres Marktverhalten;
-- ein festes Drei-Jahres-Fenster als Hauptdiagnose;
-- Basiskosten 0,002 je Orderseite;
-- ein vorab festgelegter höherer Kostenstress;
-- exakt dieselbe Strategy-Datei, dieselben Parameter und derselbe Hash wie beim
-  zugehörigen Portfolio-Kandidaten.
+Ein zweiter oder dritter 80er wird **nicht** allein deshalb gekauft, weil der
+bestehende Trade im Minus liegt. Das wäre unerwünschtes blindes DCA/Martingale.
 
-Bei zehn Paaren entstehen damit mindestens 20 sichtbare Einzelpaar-Zellen:
-zehn Paare × ein Jahr und zehn Paare × drei Jahre. Ein Ergebnis darf nicht durch
-Summieren dieser Einzeltests als Portfolioergebnis ausgegeben werden.
+Ein Zusatzblock ist nur erlaubt, wenn:
 
-### 2. Gemeinsamer Zehn-Paare-Portfoliotest
+1. derselbe Coin auf einer späteren Candle erneut ein normales gültiges
+   `enter_long`-Signal erzeugt;
+2. die Signalcandle zeitlich nach dem zuletzt gefüllten Entry liegt;
+3. kein offener Entry-Orderkonflikt besteht;
+4. noch weniger als drei erfolgreiche Entries in diesem Pair vorhanden sind;
+5. der globale Exposure-Deckel von 240 USDT nach dem neuen 80er nicht
+   überschritten wird;
+6. Kill-Switch und übrige Sicherheitsregeln den Entry erlauben.
 
-Der entscheidende Test spielt alle zehn Paare in gemeinsamer chronologischer
-Reihenfolge ab:
+Freqtrade führt diese mehreren Entries derzeit innerhalb eines Freqtrade-Trades
+mit mehreren Entry-Orders. Falls später jeder 80-USDT-Block einen vollständig
+eigenen Trade-Lifecycle und eigenen unabhängigen Stop erhalten soll, ist das ein
+separater Execution-Ausbau. Für den jetzigen Paper-Test reicht die
+signal-gesteuerte Mehrfach-Entry-Logik aus, um das gewünschte Kapitalverhalten
+zu messen.
 
-- genau ein gemeinsames 250-USDT-Wallet;
-- höchstens drei offene 80-USDT-Positionen insgesamt;
-- Gebühren, Stops, ROI, Custom Exits, Pair-Pausen und Protections wie im Bot;
-- deterministische Reihenfolge bei gleichzeitigen Signalen;
-- freier Slot wird nur durch ein tatsächlich gültiges Signal belegt;
-- Verlust- und Protection-Zustände wirken auf dieselbe gemeinsame Historie;
-- Ergebnis enthält auch verpasste Signale wegen belegter Slots.
+## 5. Backtest – vollständig getrennt vom Paper-Wallet
 
-Nur dieser Lauf zeigt, ob ein einzeln positives neues Paar das Gesamtportfolio
-wirklich verbessert. V12.16/ADA hat bereits gezeigt, dass ein positives Paar
-trotzdem schlechter sein kann, wenn es wertvollere BTC-, SOL- oder XRP-Signale
-verdrängt.
+Der normale Backtest beantwortet eine andere Frage:
 
-## Wunsch: drei Slots im selben Paar
+> Wie hätte die **aktuelle V12.17-Strategy auf genau diesem einen Coin** über den
+> gewählten historischen Zeitraum funktioniert, wenn dieser Coin ein eigenes
+> virtuelles Startwallet von 250 USDT gehabt hätte?
 
-Der Wunsch, bei besonders guten Signalen notfalls alle drei 80-USDT-Slots im
-selben Paar zu verwenden, ist hier ausdrücklich festgehalten. Er ist jedoch
-**noch nicht Bestandteil von V12.15**.
+Jeder Einzeltest startet deshalb neu mit:
 
-Freqtrade führt in der aktuellen Konfiguration nur einen offenen Trade je Paar.
-`position_adjustment_enable` ist aus Sicherheitsgründen deaktiviert; es gibt
-kein DCA und kein Nachkaufen in Verlierer. Drei unabhängige Positionen desselben
-Paares würden deshalb eine neue Portfolio-/Execution-Funktion benötigen.
+- **250 USDT eigenem virtuellen Startwert**;
+- derselben aktiven Strategy-Datei;
+- derselben 80-USDT-Entry-Blockgröße;
+- derselben Stop-/Exit-/Protection-Logik;
+- denselben Binance-Spot-Candles;
+- 1m Detaildaten und 15m/1h/4h Strategy-Daten;
+- userseitig wählbaren **1, 2 oder 3 Jahren**.
 
-Falls dieser Wunsch später umgesetzt wird, gilt er als eigener vorregistrierter
-Challenger und nicht als kleine Konfigurationsänderung. Vor einer Übernahme muss
-mindestens geprüft werden:
+Weil der Einzeltest den aktuellen Bot simuliert, darf auch ein einzelner Coin
+bei späteren neuen gültigen Signalen innerhalb dieses einen Backtests einen
+zweiten oder dritten 80er erhalten. Dadurch kann er in seiner eigenen
+250-USDT-Simulation bis zu 240 USDT gleichzeitig binden.
 
-- drei getrennte, nachvollziehbare Einstiegssignale statt blindem Aufstocken;
-- jede Teilposition höchstens 80 USDT und eigener Stop/Entry-Zeitpunkt;
-- Gesamtengagement weiterhin höchstens 240 USDT;
-- keine Umgehung des DCA-/Martingale-Verbots;
-- Konzentrations- und Korrelationsrisiko gegenüber drei verschiedenen Paaren;
-- gleicher Candle-Zeitpunkt darf nicht versehentlich dreifach dupliziert werden;
-- Restart-, Order-, Stop- und Reconciliation-Verhalten mit mehreren
-  Teilpositionen desselben Paares;
-- separater Ein-/Drei-Jahres-, Kostenstress- und Gesamtportfoliotest.
+Das bedeutet ausdrücklich **nicht**, dass der reale Paperbot jedem Coin 250 USDT
+zuweist.
 
-Bis dieses Experiment bestanden ist, lautet der sichere produktive Vertrag:
-**höchstens eine offene Position je Paar und höchstens drei verschiedene offene
-Paare gleichzeitig.**
+## 6. Button „Alle 10 nacheinander“
 
-## Auswahl und Aufnahme der vier fehlenden Paare
+Die Backtest-UI enthält einen Sammelknopf:
 
-Die vier noch fehlenden Paare sind noch nicht festgelegt. Sie werden nicht nach
-einem bereits gesehenen Backtestergebnis ausgewählt. Vor dem ersten Test wird
-für jeden Kandidaten dokumentiert:
+`Alle 10 nacheinander`
 
-- Experiment-ID und Kandidatenversion;
-- Auswahlgrund, insbesondere ausreichende Spot-Liquidität und Datenhistorie;
-- exaktes Paar und alle benötigten 1m-/15m-/1h-/4h-Datensätze;
-- unveränderte oder bewusst neue Signalzuordnung;
-- Strategy-, Config- und Datenhash;
-- feste Ein-/Drei-Jahres-Zeiträume;
-- feste Annahme- und Ablehnungskriterien;
-- Kosten- und Lag-Stress;
-- erwartete Zahl der Candle-Dateien;
-- eindeutiger Fingerabdruck gegen doppelte Läufe.
+Er übernimmt den gerade ausgewählten Zeitraum.
 
-Stablecoins gegeneinander, gehebelte Token, Futures/Perpetuals, sehr junge
-Hype-Paare und Märkte mit unzureichender Historie werden nicht verwendet.
+Beispiele:
 
-Die Erweiterung erfolgt schrittweise:
+- Auswahl `1 Jahr` → zehn getrennte Ein-Jahres-Backtests.
+- Auswahl `2 Jahre` → zehn getrennte Zwei-Jahres-Backtests.
+- Auswahl `3 Jahre` → zehn getrennte Drei-Jahres-Backtests.
 
-1. V12.15 mit sechs Paaren bleibt die unveränderte Referenz.
-2. Ein siebter Kandidat wird vorregistriert und einzeln über ein und drei Jahre
-   diagnostiziert.
-3. Danach läuft genau ein gemeinsamer Sieben-Paare-Portfoliotest.
-4. Nur bei bestandenen Gates wird der Kandidat übernommen.
-5. Dasselbe Verfahren wird nacheinander für Paar acht, neun und zehn wiederholt.
-6. Nach jeder Übernahme wird der neue Gesamtstand zum festen Vergleichsmaßstab.
+Jeder der zehn Läufe beginnt erneut mit 250 USDT. Man kann daher nominell von
+10 × 250 = 2.500 USDT Startwert über die zehn **unabhängigen Simulationen**
+sprechen. Diese 2.500 USDT sind aber **kein gemeinsames Portfolio und keine
+zusammenhängende Kapitalkurve**.
 
-Es werden nicht vier unbekannte Paare gleichzeitig ergänzt. Sonst wäre bei
-einem besseren oder schlechteren Ergebnis nicht erkennbar, welches Paar die
-Ursache war.
+Die Einzelresultate dürfen nicht einfach zu einem Portfolioergebnis addiert
+werden.
 
-## Mindestinhalt jeder Entscheidung
+## 7. Späterer Gesamt-Systembacktest
 
-Vor jedem Lauf werden die konkreten Zahlen festgeschrieben. Als Ausgangspunkt
-dienen die V12.15-Werte; Grenzen dürfen nicht erst nach Sicht auf das Ergebnis
-gelockert werden. Der Bericht muss mindestens enthalten:
+Zusätzlich bleibt intern ein Portfolio-Backtestpfad erhalten. Dieser gehört
+**nicht** zum normalen Coin-Dropdown und **nicht** zum Button „Alle 10
+nacheinander“.
 
-- Endkapital und Nettogewinn nach Kosten;
-- Tradezahl, Gewinne, Verluste und längste Verlustserie;
+Dieser spätere finale Systemtest soll genau den Paperbot als Ganzes simulieren:
+
+- ein gemeinsames 250-USDT-Wallet;
+- zehn beobachtete Paare;
+- maximal drei 80-USDT-Blöcke insgesamt;
+- Zusatz-80er im selben Pair nur auf einem späteren neuen Signal;
+- chronologische Konkurrenz aller Signale;
+- echte Slot-/Kapital-Verdrängung;
+- dieselben Gebühren, Stops, Exits und Protections.
+
+Er beantwortet die Portfoliofrage. Die normalen Einzeltests beantworten dagegen
+die Pair-Diagnosefrage. Diese beiden Ergebnisse dürfen nicht vermischt werden.
+
+## 8. Strategie der vier neuen Paare
+
+Die erste V12.17-Version optimiert LINK/TRX/LTC/BCH noch nicht auf bereits
+angesehene Backtestergebnisse. Sie verwenden zunächst einen existierenden,
+kausalen Broad-Core-Donchian-Pfad.
+
+Das ist absichtlich konservativ. Der nächste Schritt ist nicht, wahllos
+Parameter zu verändern, sondern zuerst für jeden Coin zu messen:
+
+- Nettogewinn / Verlust;
 - Profit Factor;
-- geschlossener und markierter Wallet-Drawdown;
-- Kapitalzeit und Zeit vollständig ohne Position;
-- Ergebnis jedes einzelnen Paares;
-- Ergebnis des bisherigen Kernportfolios ohne den neuen Kandidaten;
-- Entry-/Exit-Familien und Exit-Gründe;
-- Slot-Verdrängung: welche Signale wegen drei belegter Slots ausfielen;
-- Gebühren- und Stresskosten;
-- Datenlücken, unerwartete Dateizugriffe und Kindprozesse;
-- Development-/Validation-/Holdout- beziehungsweise Walk-Forward-Auswertung;
-- PBO, Deflated Sharpe, Parameterplateau und PnL-Konzentration, sobald die
-  erforderlichen vergleichbaren Return-Serien vorliegen;
-- klare Entscheidung `ACCEPT`, `REJECT` oder `BLOCKED` mit Begründung.
+- Drawdown;
+- Trefferquote;
+- Zahl und Häufigkeit der Trades;
+- größte Gewinner und Verlierer;
+- Exit-Gründe;
+- Champion-/Reclaim-/Broad-Core-Beitrag;
+- Gebührenempfindlichkeit;
+- Verlustserien;
+- Kapitalnutzung;
+- Verhalten bei einem zweiten/dritten signal-gesteuerten 80er.
 
-Ein neues Paar wird nicht nur deshalb übernommen, weil sein Einzeltest positiv
-ist oder die Gesamt-Endsumme geringfügig steigt. Profit Factor, Drawdown,
-Kernschutz, Kostenstabilität und Slot-Verdrängung bleiben gleich wichtig.
+Danach darf LINK anders parametriert werden als TRX, LTC oder BCH, wenn eine
+vorregistrierte, kausal begründete Änderung nötig ist. Die bereits bewährten
+BTC-/ETH-/SOL-/XRP-/BNB-/DOGE-Wege werden dabei nicht unnötig verändert.
 
-## Parität zwischen Bot und Backtest
+## 9. UI und Charts
 
-Der historische Test muss immer den zugehörigen Botstand spiegeln:
+Die aktive `config.json` enthält alle zehn Paare in der statischen Binance-
+Whitelist. Dadurch kennt der laufende Dry-run alle zehn Märkte; FreqUI kann deren
+Marktdaten/Charts über denselben Binance-Spot-Datenpfad anzeigen.
 
-- exakt dieselbe Strategy-Quelldatei und derselbe Hash;
-- dieselben Pair-Profile, Entry-/Exit-Regeln und Protections;
-- dasselbe 250/80/3-Kapitalmodell;
-- dieselben Stoploss-, ROI- und Custom-Stop-Regeln;
-- Spot, long-only, kein Hebel und kein DCA;
-- nur kausal verfügbare, geschlossene Candles;
-- klarer Unterschied nur dort, wo der Einzelpaarlauf absichtlich seine
-  Pair-Whitelist auf genau ein Diagnosepaar reduziert.
+Die repo-eigene Backtest-Oberfläche enthält ebenfalls alle zehn Paare als
+Einzelauswahl:
 
-Eine zweite vereinfachte „Backteststrategie“ neben dem laufenden Bot ist
-verboten. Jede Ergebnisdatei nennt Version, Hash, Zeitraum, Paare, Kosten,
-Wallet, Stake, Slots und verwendete Candle-Dateien.
+- Bitcoin
+- Ethereum
+- Solana
+- XRP
+- BNB
+- Dogecoin
+- Chainlink
+- TRON
+- Litecoin
+- Bitcoin Cash
 
-## Was als Nächstes passieren soll
+Die Backtest-Oberfläche lädt für den ausgewählten Coin die benötigten Binance-
+Candles bis zum aktuellen Stand nach und prüft Datenabdeckung, Lücken,
+Duplikate sowie die tatsächlich gelesenen Candle-Dateien.
 
-1. V12.15 unverändert im Paper-/Dry-run belassen; keine Echtgeldfreigabe.
-2. Einen frischen, hashgleichen Paper-Zeitraum sammeln und das offene
-   Paper-/Replay-Paritäts-Gate schließen, ohne eine laufende Nutzerinstanz
-   ungefragt anzufassen.
-3. Full-History-, Fee-Stress-, Diagnose- und offene Walk-Forward-/PBO-/DSR-/
-   Plateau-Gates abschließen.
-4. Die Backtest-Oberfläche/den Runner auf eine dynamische Zehn-Paare-Matrix
-   vorbereiten: je Paar ein und drei Jahre plus gemeinsames Portfolio.
-5. Vier neue Kandidaten anhand vorab dokumentierter Liquiditäts-, Historien- und
-   Sicherheitskriterien auswählen.
-6. Kandidaten einzeln und nacheinander testen; nach jeder bestandenen Aufnahme
-   den gemeinsamen Portfolio-Benchmark aktualisieren.
-7. Erst nach zehn bestandenen Paaren einen finalen gemeinsamen Ein- und
-   Drei-Jahres-Portfoliolauf mit 250 USDT, 3 × 80 USDT und allen zehn Paaren
-   ausführen.
-8. Den Wunsch nach bis zu drei Slots im selben Paar erst als separates
-   Konzentrations-/Execution-Experiment bearbeiten; bis dahin bleibt eine
-   Position je Paar die verbindliche Sicherheitsregel.
+## 10. Sicherheitsgrenzen
 
-## Definition „fertig“
+V12.17 ist aktuell **Paper-/Dry-run only**.
 
-Das Zehn-Paare-Ziel ist erst erreicht, wenn:
+Der Real-Money-Overlay wird absichtlich noch nicht auf die neue
+Position-Adjustment-Logik promoviert. Dadurch kann V12.17 mit dem alten
+Live-Overlay nicht unbemerkt als Echtgeldbot starten. Erst nach Paperbetrieb,
+Einzeltests, Kosten-/Robustheitsprüfungen und finalem Systemtest darf über eine
+separate Live-Promotion entschieden werden.
 
-- genau zehn namentlich festgelegte Spot-Paare in Strategy, Config, UI und
-  Testmatrix übereinstimmen;
-- für alle zehn vollständige Ein-/Drei-Jahres-Einzelberichte vorliegen;
-- der gemeinsame Ein-/Drei-Jahres-Portfoliotest exakt 250 USDT, höchstens drei
-  80-USDT-Slots und dieselbe aktive Botlogik verwendet;
-- sämtliche Läufe eindeutig fingerprinted und im Trial Ledger dokumentiert sind;
-- keine unerwarteten Daten-/Datei-/Prozesspfade verwendet wurden;
-- die vorab festgelegten Portfolio-, Drawdown-, Kosten-, Kernschutz- und
-  Statistik-Gates bestanden sind;
-- der exakte bestandene Stand anschließend unverändert im Paper-/Dry-run läuft;
-- eine manuelle Entscheidung vor jeder späteren Echtgeldfreigabe erfolgt.
+Weiterhin gelten:
+
+- kein Short;
+- kein Futures-/Margin-Handel;
+- kein Hebel;
+- kein blindes DCA/Martingale;
+- pro Entry höchstens 80 USDT;
+- insgesamt höchstens 240 USDT offen;
+- lokaler Kill-Switch;
+- pair-lokale Verlust-/Protection-Regeln;
+- exakte Strategy-Quelle wird vor Start gehasht und gesperrt;
+- Backtest-Dateizugriffe und Candle-Dateien werden auditiert;
+- identische materielle Backtest-Fingerabdrücke werden nicht beliebig
+  wiederholt.
+
+## 11. Historische Research-Governance bleibt erhalten
+
+V8 bleibt als eingefrorene Drei-Paare-Research-Baseline erhalten. Der alte
+Replay wird nicht auf zehn Coins umgeschrieben. Er darf aber den heutigen
+Zehn-Paare-Dry-run-Vertrag als aktuellen Runtime-Zustand erkennen, solange seine
+historischen V8-Paare BTC/ETH/SOL darin weiterhin enthalten sind.
+
+V12.15 bleibt als Sechs-Paare-Referenz dokumentiert. V12.16/ADA bleibt als
+abgelehnter Versuch dokumentiert. Frühere verworfene Strategiefamilien wie
+FAST_DONCHIAN_TREND, ORB_RETEST, ICHIMOKU_TREND und BOLLINGER_MR werden durch
+V12.17 nicht wieder eingeführt.
+
+## 12. Nächste Arbeitsreihenfolge
+
+1. V12.17 technisch vollständig durch CI/Runtime-/Backtest-/Replay-Verträge
+   bringen.
+2. Paper-/Dry-run mit allen zehn Paaren starten und echte simulierte
+   Entscheidungen/Entries aufzeichnen.
+3. Für LINK, TRX, LTC und BCH zunächst unabhängige 1-/2-/3-Jahres-Diagnosen
+   durchführen; bestehende Coins können mit derselben UI ebenfalls neu gemessen
+   werden, sofern der Fingerprint einen materiell neuen V12.17-Test erlaubt.
+4. Ergebnisse pro Pair bewerten und nur mit vorregistrierter Begründung
+   pair-spezifisch anpassen.
+5. Nach stabilen Einzelpaar-Ergebnissen den separaten finalen
+   Zehn-Paare-Systembacktest mit einem gemeinsamen 250-USDT-Wallet und 3×80
+   durchführen.
+6. Paper-/Replay-/Execution-Parität und Kostenstress abschließen.
+7. Erst danach über eine Echtgeld-Promotion oder spätere Erhöhung von Stake und
+   Slotzahl entscheiden.
+
+## 13. Was ausdrücklich nicht getan werden soll
+
+- Einzelpair-Backtests zu einem künstlichen 2.500-USDT-Portfolio addieren.
+- Den Sammelknopf „Alle 10“ als gemeinsamen Portfoliotest interpretieren.
+- Jedem Coin im laufenden Paperbot 250 USDT geben.
+- Zusatz-80er nur wegen fallender Kurse einsetzen.
+- Bereits abgelehnte ADA-/Strategieexperimente identisch wiederholen.
+- Die Echtgeld-Konfiguration automatisch mit der Paper-Konfiguration
+  gleichsetzen.
+- Die vier neuen Coins nachträglich auf dieselben historischen Daten so lange
+  optimieren, bis irgendein gewünschter Gewinn erscheint.
+
+Die maßgebliche Zielarchitektur lautet damit:
+
+**Paperbot:** zehn Coins → ein gemeinsames 250-USDT-Wallet → maximal drei
+80-USDT-Blöcke → dieselben oder verschiedene Coins je nach neuen gültigen
+Signalen.
+
+**Backtest:** ein ausgewählter Coin → eigenes 250-USDT-Testwallet → 1/2/3 Jahre;
+„Alle 10“ → zehn solcher unabhängigen Läufe nacheinander.
+
+**Späterer Systemtest:** alle zehn Coins gemeinsam → exakt das reale Paper-
+Kapitalmodell 250 / 3×80.

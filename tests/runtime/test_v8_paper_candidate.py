@@ -10,6 +10,18 @@ STRATEGY = USER_DATA / "strategies" / "CompressionBreakout250.py"
 V8_BASELINE = REPO_ROOT / "research" / "baselines" / "V8" / "CompressionBreakout250.py"
 CONFIG = USER_DATA / "config.json"
 EXPECTED_V8_LF_SHA256 = "9717526bac022404c0352f8d3681b76d8d793328303bcabe88db82aca4a10280"
+TEN_PAIRS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+    "LINK/USDT",
+    "TRX/USDT",
+    "LTC/USDT",
+    "BCH/USDT",
+]
 
 
 def _lf_sha256(path: Path) -> str:
@@ -17,15 +29,14 @@ def _lf_sha256(path: Path) -> str:
     return hashlib.sha256(source).hexdigest()
 
 
-def test_v8_baseline_is_preserved_and_v12_15_is_active_candidate() -> None:
+def test_v8_baseline_is_preserved_and_v12_22_is_active_paper_candidate() -> None:
     assert _lf_sha256(V8_BASELINE) == EXPECTED_V8_LF_SHA256
 
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.15"' in text
+    assert 'STRATEGY_VERSION = "V12.33"' in text
     assert "PAIR_PROFILES" in text
     assert "RECLAIM_PROFILES" in text
     assert 'REGIME_TREND = "TREND/BREAKOUT"' in text
-    assert 'REGIME_NO_TRADE = "NO_TRADE"' in text
     assert 'FAMILY_DONCHIAN = "DONCHIAN_TREND"' in text
     assert 'FAMILY_RECLAIM = "TREND_RECLAIM"' in text
     assert "FAST_DONCHIAN_TREND" not in text
@@ -36,32 +47,27 @@ def test_v8_baseline_is_preserved_and_v12_15_is_active_candidate() -> None:
     assert '"method": "LowProfitPairs"' in text
     assert "use_custom_stoploss = True" in text
     assert "stoploss_from_open" in text
-    assert "v12_15_" in text
-    assert "populate_indicators_btc_4h" not in text
-    assert "btc_market_up" not in text
+    assert "v12_17_" in text
+    assert "def adjust_trade_position(" in text
+    assert "selective_pyramid_chunk" in text
+    assert "current_profit <= 0.0" in text
     assert '"only_per_pair": True' in text
-    assert "_closed_profit_since(day_start_utc, pair)" in text
 
 
-def test_paper_configuration_keeps_validated_execution_contract() -> None:
+def test_paper_configuration_keeps_250_80_three_chunk_contract_on_ten_pairs() -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
     assert config["dry_run"] is True
     assert config["dry_run_wallet"] == 250
     assert config["available_capital"] == 250
     assert config["stake_amount"] == 80
     assert config["max_open_trades"] == 3
+    assert config["position_adjustment_enable"] is True
+    assert config["max_entry_position_adjustment"] == 2
     assert config["minimal_roi"] == {"0": 0.50}
     assert config["stoploss"] == -0.055
     assert config["trailing_stop"] is False
     assert config["trading_mode"] == "spot"
-    assert config["exchange"]["pair_whitelist"] == [
-        "BTC/USDT",
-        "ETH/USDT",
-        "SOL/USDT",
-        "XRP/USDT",
-        "BNB/USDT",
-        "DOGE/USDT",
-    ]
+    assert config["exchange"]["pair_whitelist"] == TEN_PAIRS
     assert config["db_url"] == "sqlite:///user_data/tradesv8.dryrun.sqlite"
 
 

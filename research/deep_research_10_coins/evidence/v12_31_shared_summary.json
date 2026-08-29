@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-08-24",
+  "strategy": "CompressionBreakout250",
+  "strategy_version": "V12.31",
+  "strategy_sha256": "e13a324560a4941350edd30b53e69ed6286eeb77f2b31673a859c3144e8965d5",
+  "mode": "historical_backtest_not_live",
+  "wallet_start_usdt": 250.0,
+  "wallet_end_usdt": 669.8571,
+  "profit_usdt": 419.8571,
+  "trades": 155,
+  "profit_factor": 2.4358,
+  "closed_drawdown_pct": 12.5447,
+  "period_days": 1095,
+  "fee_per_side": 0.002,
+  "stake_per_entry_usdt": 80.0,
+  "max_open_blocks": 3,
+  "max_exposure_usdt": 240.0,
+  "pair_contributions_usdt": {
+    "BTC/USDT": 80.81060115,
+    "ETH/USDT": 9.18573934,
+    "SOL/USDT": -39.90971668,
+    "XRP/USDT": 108.38781422,
+    "BNB/USDT": 34.75648604,
+    "DOGE/USDT": 120.68701044,
+    "LINK/USDT": 90.2639065,
+    "TRX/USDT": 12.35207934,
+    "LTC/USDT": -18.83099862,
+    "BCH/USDT": 22.1541488
+  },
+  "warning": "Historical simulation only. Individual-wallet profits are not additive and this is not a profit guarantee or real-money approval."
+}

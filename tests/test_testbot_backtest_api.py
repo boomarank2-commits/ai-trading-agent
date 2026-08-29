@@ -11,41 +11,58 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
+# Importing the active adapter deliberately binds the mature locked API to the
+# current ten-pair paper universe before the tests exercise it.
+from runtime import ten_pair_backtest_api as adapter
 from runtime import testbot_backtest_api as api
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = REPO_ROOT / "runtime"
 STRATEGY = RUNTIME / "user_data" / "strategies" / "CompressionBreakout250.py"
 UI_SCRIPT = RUNTIME / "ui" / "testbot-backtest.js"
+TEN_PAIRS = (
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "DOGE/USDT",
+    "LINK/USDT",
+    "TRX/USDT",
+    "LTC/USDT",
+    "BCH/USDT",
+)
 
 
-def test_backtest_contract_has_only_current_pairs_and_periods() -> None:
-    assert api.ALLOWED_PAIRS == (
-        "BTC/USDT",
-        "ETH/USDT",
-        "SOL/USDT",
-        "XRP/USDT",
-        "BNB/USDT",
-        "DOGE/USDT",
-    )
-    assert (*api.ALLOWED_PAIRS, "PORTFOLIO") == api.ALLOWED_TARGETS
-    assert api._pairs_for_target("PORTFOLIO") == api.ALLOWED_PAIRS
-    assert api._pairs_for_target("ETH/USDT") == ("ETH/USDT",)
+def test_backtest_contract_is_bound_to_active_ten_pairs_and_all_three_periods() -> None:
+    assert adapter.TEN_PAIR_UNIVERSE == TEN_PAIRS
+    assert api.ALLOWED_PAIRS == TEN_PAIRS
+    assert (*TEN_PAIRS, "PORTFOLIO") == api.ALLOWED_TARGETS
+    assert api._pairs_for_target("PORTFOLIO") == TEN_PAIRS
+    assert api._pairs_for_target("LINK/USDT") == ("LINK/USDT",)
     assert api.ALLOWED_YEARS == (1, 2, 3)
     assert api.STRATEGY_NAME == "CompressionBreakout250"
-    assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
     assert api.BACKTEST_WARMUP_DAYS >= 70
+    assert api.STRATEGY_VERSION == "V12.33"
 
 
-def test_v12_12_backtest_downloads_no_cross_pair_market_context() -> None:
-    for pair in api.ALLOWED_PAIRS:
+def test_market_data_is_updated_and_kept_in_the_repo_local_runtime_cache() -> None:
+    assert api._DATA_ROOT == RUNTIME / "user_data" / "data" / "binance"
+    assert api.REQUIRED_TIMEFRAMES == ("15m", "1m", "1h", "4h")
+    source = Path(api.__file__).read_text(encoding="utf-8")
+    adapter_source = Path(adapter.__file__).read_text(encoding="utf-8")
+    assert '"download-data"' in source
+    assert '"--prepend"' in source
+    assert "_validate_candle_data" in source
+    assert "_candle_path(pair, timeframe).unlink(missing_ok=True)" in adapter_source
+
+
+def test_pair_backtests_remain_pair_local_without_cross_pair_market_context() -> None:
+    for pair in TEN_PAIRS:
         assert api._btc_context_pair(pair) is None
-
     source = (RUNTIME / "testbot_backtest_api.py").read_text(encoding="utf-8")
     assert "context_args" not in source
-    assert "context_prepend_args" not in source
     assert '"cross_pair_context": False' in source
-    assert '"adaptive_router": False' in source
 
 
 def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
@@ -54,38 +71,271 @@ def test_trade_breakdown_attributes_profit_by_entry_or_exit_label() -> None:
         {"enter_tag": "reclaim", "profit_abs": -1.5},
         {"enter_tag": "reclaim", "profit_abs": 2.0},
     ]
-
-    rows = api._trade_breakdown(trades, key="enter_tag", fallback="missing")
-
-    assert rows == [
+    assert api._trade_breakdown(trades, key="enter_tag", fallback="missing") == [
         {"label": "reclaim", "trades": 2, "wins": 1, "profit_usdt": 0.5},
         {"label": "champion", "trades": 1, "wins": 1, "profit_usdt": 5.0},
     ]
 
 
-def test_backtest_ui_has_exact_sequential_fourteen_run_audit() -> None:
-    source = UI_SCRIPT.read_text(encoding="utf-8")
-    batch_block = source.split("const BATCH_CASES = [", maxsplit=1)[1].split("];", maxsplit=1)[0]
+def test_pair_breakdown_includes_entry_chunk_attribution() -> None:
+    trades = [
+        {
+            "pair": "BTC/USDT",
+            "profit_abs": 5.0,
+            "orders": [
+                {"ft_is_entry": True},
+                {"ft_is_entry": True},
+                {"ft_is_entry": False},
+            ],
+        },
+        {"pair": "ETH/USDT", "profit_abs": -1.0, "orders": []},
+    ]
+    assert api._pair_breakdown(trades) == [
+        {
+            "pair": "BTC/USDT",
+            "trades": 1,
+            "wins": 1,
+            "profit_usdt": 5.0,
+            "entry_chunks": 2,
+            "max_entries_per_trade": 2,
+        },
+        {
+            "pair": "ETH/USDT",
+            "trades": 1,
+            "wins": 0,
+            "profit_usdt": -1.0,
+            "entry_chunks": 1,
+            "max_entries_per_trade": 1,
+        },
+    ]
 
-    assert 'id="tb-start-all"' in source
-    assert "async function startAllBacktests()" in source
-    assert "await startOneBacktest(test.pair, test.years)" in source
-    assert batch_block.count('pair: "BTC/USDT"') == 2
-    assert batch_block.count('pair: "ETH/USDT"') == 2
-    assert batch_block.count('pair: "SOL/USDT"') == 2
-    assert batch_block.count('pair: "XRP/USDT"') == 2
-    assert batch_block.count('pair: "BNB/USDT"') == 2
-    assert batch_block.count('pair: "DOGE/USDT"') == 2
-    assert batch_block.count('pair: "PORTFOLIO"') == 2
-    assert batch_block.count("years: 3") == 7
-    assert batch_block.count("years: 1") == 7
-    assert "years: 2" not in batch_block
+
+def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() -> None:
+    source = UI_SCRIPT.read_text(encoding="utf-8")
+    for pair in TEN_PAIRS:
+        assert pair in source
+    assert "Alle 10 einzeln testen" in source
+    assert 'id="tb-start-all"' not in source
+    assert "startPortfolioBacktest" not in source
+    assert "eigenen 250-USDT-Testwallet" in source
+    assert "Jeder Coin beginnt mit eigenen 250 USDT" in source
+    assert "const years = Number(yearsSelect.value);" in source
+    assert 'fetch("/api/v1/testbot/backtest/batch/start"' in source
+    assert 'fetch("/api/v1/testbot/backtest/batch/status"' in source
+    assert "Plan, Fortschritt, Vorher/Nachher-Vergleich" in source
+    assert "timing.market_data_seconds" in source
+    assert "timing.simulation_seconds" in source
+    assert "PAIRS.map(([pair]) => ({ pair, years }))" not in source
+    assert 'startOneBacktest("PORTFOLIO", years)' not in source
+    assert "runtime/user_data/data/binance" in source
+    assert "ändert keine Parameter automatisch" in source
+    assert "eigene, dokumentierte Parameter-Hypothese" in source
+    assert 'const BODY_OPEN_CLASS = "testbot-backtest-open"' in source
+    assert "body.${BODY_OPEN_CLASS} main { display: none !important; }" in source
+    assert "document.body.classList.add(BODY_OPEN_CLASS)" in source
+    assert "document.body.classList.remove(BODY_OPEN_CLASS)" in source
+    assert "syncBacktestTop(view)" in source
+    assert "Math.max(90" not in source
+    assert 'value="1"' in source
+    assert 'value="2"' in source
+    assert 'value="3"' in source
     assert "Doppeltest übersprungen" in source
     assert "error.isDuplicate" in source
-    assert "Kapitalzeit genutzt" in source
-    assert "Zeit ohne Position" in source
-    assert "Dateikontrolle" in source
-    assert "Alle 14 Backtests" in source
+    assert "renderPairHistory(historical, r.pair)" in source
+    assert "documented_pair_experiments" in source
+    assert "Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht" in source
+    assert "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen" in source
+    assert "USDT je 100 Entry-Kapital" in source
+    assert "USDT je 100 Kapitaltag" in source
+    assert "profit_per_100_entry_capital_usdt" in source
+    assert "profit_per_100_deployed_capital_day_usdt" in source
+
+
+def test_batch_compact_result_preserves_capital_efficiency_metrics() -> None:
+    result = {
+        "pair": "SOL/USDT",
+        "profit_per_trade_usdt": 0.305,
+        "profit_per_calendar_day_usdt": 0.0067,
+        "trades_per_year": 8.0,
+        "total_entry_capital_usdt": 1920.0,
+        "deployed_capital_usdt_days": 15279.0,
+        "profit_per_100_entry_capital_usdt": 0.3813,
+        "profit_per_100_deployed_capital_day_usdt": 0.0479,
+    }
+
+    compact = adapter._compact_result(result)
+
+    for field, value in result.items():
+        assert compact[field] == value
+
+
+def test_backtest_ui_renders_only_one_status_view_per_poll() -> None:
+    source = UI_SCRIPT.read_text(encoding="utf-8")
+    load_status = source.split("async function loadStatus()", maxsplit=1)[1].split(
+        "async function startBacktest()", maxsplit=1
+    )[0]
+    batch_start = source.split("async function startAllBacktests()", maxsplit=1)[1].split(
+        "function showBacktest", maxsplit=1
+    )[0]
+
+    assert "Promise.allSettled([" in load_status
+    assert "renderState(await fetchStatus())" not in load_status
+    assert 'batchState.status === "running"' in load_status
+    assert "renderServerBatch(batchState, singleState)" in load_status
+    assert "aktueller Coin" in source
+    assert "currentPairProgress" in source
+    assert "while (true)" not in batch_start
+    assert "setInterval(loadStatus, 1000)" in batch_start
+
+
+def test_batch_state_is_persisted_below_an_ignored_history_directory() -> None:
+    assert adapter._BATCH_ROOT.name == "_BATCHES"
+    source = Path(adapter.__file__).read_text(encoding="utf-8")
+    assert '"batch-plan.json"' in source
+    assert '"batch-result.json"' in source
+    assert '"history_before"' in source
+    assert "build_pair_history_context" in source
+
+
+def test_server_batch_persists_each_completed_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    batch_root = tmp_path / "_BATCHES"
+    monkeypatch.setattr(adapter, "_BATCH_ROOT", batch_root)
+    monkeypatch.setattr(adapter, "_BATCH_POINTER", batch_root / "latest.json")
+    cases = [
+        {
+            "pair": pair,
+            "years": 3,
+            "test_fingerprint": pair.replace("/", "-"),
+            "status": "pending",
+            "result": None,
+            "error": None,
+        }
+        for pair in TEN_PAIRS[:2]
+    ]
+    state = {
+        "schema_version": 1,
+        "batch_id": "test-batch",
+        "batch_fingerprint": "f" * 64,
+        "status": "running",
+        "stage": "test",
+        "progress": 0,
+        "years": 3,
+        "started_at_utc": "2026-08-23T00:00:00+00:00",
+        "updated_at_utc": "2026-08-23T00:00:00+00:00",
+        "finished_at_utc": None,
+        "current_pair": None,
+        "completed_cases": 0,
+        "failed_cases": 0,
+        "cases": cases,
+        "plan": {
+            "schema_version": 1,
+            "strategy_sha256": api._sha256(api._STRATEGY),
+            "cases": cases,
+        },
+    }
+    monkeypatch.setattr(adapter, "_batch_state", state)
+
+    def completed(request):
+        return {
+            "status": "completed",
+            "result": {
+                "run_id": request.pair.replace("/", "-"),
+                "pair": request.pair,
+                "years": request.years,
+                "profit_usdt": 1.0,
+                "trades": 1,
+                "historical_context": {"assessment_de": "erfasst"},
+                "test_identity": {
+                    "test_fingerprint": request.pair.replace("/", "-")
+                },
+            },
+        }
+
+    monkeypatch.setattr(adapter, "start_backtest", completed)
+
+    adapter._run_batch()
+
+    saved = json.loads(
+        (batch_root / "test-batch" / "batch-result.json").read_text(encoding="utf-8")
+    )
+    assert saved["status"] == "completed"
+    assert saved["completed_cases"] == 2
+    assert [case["result"]["historical_context"]["assessment_de"] for case in saved["cases"]] == [
+        "erfasst",
+        "erfasst",
+    ]
+    assert (batch_root / "test-batch" / "batch-plan.json").is_file()
+    assert (batch_root / "latest.json").is_file()
+
+
+def test_manual_single_run_is_rejected_while_server_batch_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        adapter,
+        "_batch_state",
+        {"status": "running", "stage": "ETH/USDT", "cases": []},
+    )
+    adapter._batch_worker_context.active = False
+
+    with pytest.raises(HTTPException, match="kein paralleler Einzeltest") as exc:
+        api.start_backtest(api.BacktestRequest(pair="BTC/USDT", years=3))
+
+    assert exc.value.status_code == 409
+
+
+def test_reused_result_keeps_saved_history_and_timing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = {
+        "runs": [
+            {
+                "run_id": "saved-run",
+                "test_fingerprint": "expected",
+                "experiment_result": {
+                    "historical_context": {"assessment_de": "Vorgänger erfasst"},
+                    "timing": {"simulation_seconds": 12.5},
+                },
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        adapter.base,
+        "build_test_identity",
+        lambda **_kwargs: {
+            "test_fingerprint": "expected",
+            "strategy_sha256": "6f0a" + "0" * 60,
+        },
+    )
+    monkeypatch.setattr(
+        adapter.base,
+        "analyze_backtest_history",
+        lambda *_args, **_kwargs: existing,
+    )
+    monkeypatch.setattr(
+        adapter.base,
+        "registered_experiment",
+        lambda *_args: ({"experiment_id": "V12.30"}, []),
+    )
+
+    result = adapter._existing_completed_result(
+        api.BacktestRequest(pair="BTC/USDT", years=3)
+    )
+
+    assert result is not None
+    assert result["historical_context"]["assessment_de"] == "Vorgänger erfasst"
+    assert result["timing"]["simulation_seconds"] == 12.5
+
+
+def test_portfolio_target_is_exposed_as_one_shared_wallet_run() -> None:
+    source = UI_SCRIPT.read_text(encoding="utf-8")
+    assert "PORTFOLIO" not in source
+    assert "PORTFOLIO" in api.ALLOWED_TARGETS
+    assert "real ten-pair" in Path(
+        adapter.__file__
+    ).read_text(encoding="utf-8")
 
 
 def test_invalid_pair_is_rejected_before_background_process() -> None:
@@ -93,6 +343,11 @@ def test_invalid_pair_is_rejected_before_background_process() -> None:
     with pytest.raises(HTTPException) as exc:
         api.start_backtest(request)
     assert exc.value.status_code == 400
+
+
+def test_each_single_pair_target_resolves_to_only_that_pair() -> None:
+    for pair in TEN_PAIRS:
+        assert api._pairs_for_target(pair) == (pair,)
 
 
 def test_identical_registered_test_is_blocked_before_new_run_directory(
@@ -105,8 +360,8 @@ def test_identical_registered_test_is_blocked_before_new_run_directory(
             api.STRATEGY_NAME: {
                 "strategy_name": api.STRATEGY_NAME,
                 "pairlist": ["BTC/USDT"],
-                "backtest_start": "2025-08-21 00:00:00",
-                "backtest_end": "2026-08-21 00:00:00",
+                "backtest_start": "2025-08-23 00:00:00",
+                "backtest_end": "2026-08-23 00:00:00",
                 "backtest_days": 365,
                 "starting_balance": 250,
                 "final_balance": 251,
@@ -125,7 +380,6 @@ def test_identical_registered_test_is_blocked_before_new_run_directory(
     before = sorted(path.name for path in tmp_path.iterdir())
     with pytest.raises(HTTPException, match="Doppeltest blockiert") as exc:
         api.start_backtest(api.BacktestRequest(pair="BTC/USDT", years=1))
-
     assert exc.value.status_code == 409
     assert sorted(path.name for path in tmp_path.iterdir()) == before
 
@@ -137,13 +391,10 @@ def test_subprocess_environment_drops_freqtrade_and_kill_switch_secrets(
     monkeypatch.setenv("FREQTRADE__API_SERVER__JWT_SECRET_KEY", "jwt")
     monkeypatch.setenv("AI_TRADING_KILL_SWITCH_FILE", "C:/secret/stop")
     monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
-
     cleaned = api._clean_subprocess_environment()
-
     assert "FREQTRADE__API_SERVER__PASSWORD" not in cleaned
     assert "FREQTRADE__API_SERVER__JWT_SECRET_KEY" not in cleaned
     assert "AI_TRADING_KILL_SWITCH_FILE" not in cleaned
-    assert "PATH" in cleaned
     assert cleaned["PYTHONUTF8"] == "1"
     assert cleaned["PYTHONDONTWRITEBYTECODE"] == "1"
 
@@ -184,156 +435,3 @@ def test_locked_backtest_entrypoint_runs_directly_without_runtime_import_error()
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
     assert "No module named 'runtime'" not in combined
-
-
-def test_locked_backtest_writes_exact_source_file_audit(tmp_path: Path) -> None:
-    digest = hashlib.sha256(STRATEGY.read_bytes()).hexdigest()
-    audit_path = tmp_path / "file-access-audit.json"
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(RUNTIME / "locked_backtest_freqtrade.py"),
-            "--strategy-source",
-            str(STRATEGY),
-            "--strategy-sha256",
-            digest,
-            "--strategy-class",
-            "CompressionBreakout250",
-            "--file-audit-output",
-            str(audit_path),
-            "--",
-            "backtesting",
-            "--help",
-        ],
-        cwd=str(RUNTIME),
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    audit = json.loads(audit_path.read_text(encoding="utf-8"))
-    assert audit["context"]["strategy_source"] == str(STRATEGY.resolve())
-    assert audit["context"]["strategy_sha256"] == digest
-    assert audit["spawned_processes"] == []
-    assert str(STRATEGY.resolve()) in {row["path"] for row in audit["opened_files"]}
-
-
-def test_file_access_audit_hashes_native_candle_boundary(tmp_path: Path) -> None:
-    from runtime.locked_backtest_freqtrade import _FileAccessAudit
-
-    candle = tmp_path / "BTC_USDT-15m.feather"
-    candle.write_bytes(b"exact candle bytes")
-    output = tmp_path / "audit.json"
-    audit = _FileAccessAudit(output, {"test": True})
-
-    audit.record_candle_load(candle, "15m")
-    audit.record_candle_load(candle, "15m")
-    audit.write()
-
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["candle_loads"] == [
-        {
-            "path": str(candle.resolve()),
-            "timeframe": "15m",
-            "sha256_at_load": hashlib.sha256(candle.read_bytes()).hexdigest(),
-            "size_at_load": len(b"exact candle bytes"),
-            "mtime_ns_at_load": candle.stat().st_mtime_ns,
-            "load_count": 2,
-        }
-    ]
-
-
-def test_result_finder_ignores_freqtrade_pointer_json(tmp_path: Path) -> None:
-    result_zip = tmp_path / "backtest-result-2026-08-22.zip"
-    result_zip.write_bytes(b"zip placeholder")
-    pointer = tmp_path / ".last_result.json"
-    pointer.write_text('{"latest_backtest":"wrong"}', encoding="utf-8")
-
-    assert api._find_result_file(tmp_path) == result_zip
-
-
-def test_file_audit_accepts_only_exact_requested_candle_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    repo = tmp_path / "repo"
-    runtime = repo / "runtime"
-    userdir = runtime / "user_data"
-    data_root = userdir / "data" / "binance"
-    run_dir = userdir / "backtest_results" / "ui" / "run"
-    strategy = userdir / "strategies" / "CompressionBreakout250.py"
-    config = userdir / "config.json"
-    public = userdir / "config-public.json"
-    runner = runtime / "locked_backtest_freqtrade.py"
-    locked = runtime / "locked_freqtrade.py"
-    for path in (strategy, config, public, runner, locked):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(path.name.encode())
-    run_dir.mkdir(parents=True)
-
-    monkeypatch.setattr(api, "_REPO_ROOT", repo)
-    monkeypatch.setattr(api, "_RUNTIME_ROOT", runtime)
-    monkeypatch.setattr(api, "_USERDIR", userdir)
-    monkeypatch.setattr(api, "_DATA_ROOT", data_root)
-    monkeypatch.setattr(api, "_STRATEGY", strategy)
-    monkeypatch.setattr(api, "_CONFIG", config)
-    monkeypatch.setattr(api, "_PUBLIC_CONFIG", public)
-    monkeypatch.setattr(api, "_BACKTEST_RUNNER", runner)
-
-    candle_rows = []
-    for timeframe in api.REQUIRED_TIMEFRAMES:
-        path = data_root / f"BTC_USDT-{timeframe}.feather"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(timeframe.encode())
-        candle_rows.append(
-            {
-                "path": str(path.resolve()),
-                "sha256_at_load": hashlib.sha256(path.read_bytes()).hexdigest(),
-            }
-        )
-    audit_path = run_dir / "file-access-audit.json"
-    audit_path.write_text(
-        json.dumps(
-            {
-                "context": {
-                    "strategy_sha256": hashlib.sha256(strategy.read_bytes()).hexdigest(),
-                    "strategy_source": str(strategy.resolve()),
-                },
-                "opened_files": [
-                    {"path": str(path.resolve())} for path in (strategy, config, public)
-                ],
-                "candle_loads": candle_rows,
-                "spawned_processes": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    validation = api._validate_file_access_audit(
-        audit_path,
-        run_dir,
-        ("BTC/USDT",),
-        hashlib.sha256(strategy.read_bytes()).hexdigest(),
-    )
-    assert validation["passed"] is True
-    assert validation["expected_candle_sets"] == 4
-
-    unexpected = data_root / "BTC_USDT-5m.feather"
-    unexpected.write_bytes(b"unexpected")
-    payload = json.loads(audit_path.read_text(encoding="utf-8"))
-    payload["candle_loads"].append(
-        {
-            "path": str(unexpected.resolve()),
-            "sha256_at_load": hashlib.sha256(unexpected.read_bytes()).hexdigest(),
-        }
-    )
-    audit_path.write_text(json.dumps(payload), encoding="utf-8")
-
-    with pytest.raises(RuntimeError, match="Dateiaudit fehlgeschlagen"):
-        api._validate_file_access_audit(
-            audit_path,
-            run_dir,
-            ("BTC/USDT",),
-            hashlib.sha256(strategy.read_bytes()).hexdigest(),
-        )

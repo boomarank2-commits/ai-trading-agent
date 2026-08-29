@@ -23,7 +23,28 @@ Diese Abweichung wird **nicht stillschweigend aufgelöst**. ORB-Retest und Ichim
 
 Neue Ideen dürfen V8 nicht nachträglich so verändern, bis ein schöner Backtest entsteht. Neue Hypothesen werden als getrennte Challenger oder als reine Diagnose-/Telemetrie-/Infrastrukturänderungen umgesetzt. Ein negativer Versuch bleibt im Trial Ledger erhalten.
 
-Aktueller Sicherheitsvertrag:
+Klarstellung zum aktuellen Repository-Stand vom 24.08.2026: „Champion“ bezeichnet
+hier die unveränderte Forschungsreferenz unter `research/baselines/V8/`, nicht
+die gerade von `STARTBOT.bat` geladene Datei. Der aktive, separat registrierte
+Paper-/Dry-run-Kandidat ist V12.31. Er behält V12.22 einschließlich des
+SOL-Filters `adx_4h >= 21`, DOGEs vorregistrierten 4h-Supertrend(20, 3)
+oberhalb einer steigenden EMA100 und kombiniert die unveränderte, bereits exakt
+geprüfte BCH-EMA30/EMA80-Route oberhalb steigender EMA100 bei ADX 24. Sein
+genauer technischer Stand, seine Vorgängerkette und die offenen Prüfungen stehen in
+`research/V12_20_SELECTIVE_PYRAMID_DE.md` und
+`research/V12_22_SOL_ADX21_DE.md` sowie
+`research/V12_30_DOGE_SUPERTREND_DE.md` sowie
+`research/V12_31_DOGE_BCH_COMBINATION_DE.md`. V12.31 ist nicht als neuer Champion
+und nicht für Echtgeld promoviert.
+
+Die unveränderte V12.23-LTC-Route wurde danach einmalig als V12.32 mit V12.31
+kombiniert und verworfen: LTC blieb im gemeinsamen Wallet negativ, der Gewinn
+fiel um 50,035 USDT, der Profit-Faktor sank und der Drawdown stieg. Der genaue
+Nachweis steht in `research/V12_32_LTC_ROUTE_COMBINATION_DE.md`. Diese Route,
+ihre benachbarten Schwellen und weitere aus den gesehenen Slotfolgen abgeleitete
+LTC-Regeln dürfen auf demselben Fenster nicht erneut optimiert werden.
+
+Sicherheitsvertrag der eingefrorenen V8-Referenz:
 
 - Strategie: `CompressionBreakout250` / V8
 - Binance Spot / USDT

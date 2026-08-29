@@ -19,6 +19,24 @@ The current rule is deliberately conservative:
 - The long-term strategy state model is `TREND/BREAKOUT`, `RANGE/MEAN_REVERSION`, or `NO_TRADE`.
 - `NO_TRADE` is the default when data quality, regime, signal or risk approval is uncertain.
 
+Runtime clarification (2026-08-25): V8 is the frozen research champion stored
+under `research/baselines/V8/`; it is not the file currently loaded by
+`STARTBOT.bat`. The active, separately registered paper/dry-run candidate is
+`CompressionBreakout250` V12.33. Read
+`research/V12_20_SELECTIVE_PYRAMID_DE.md` and
+`research/V12_22_SOL_ADX21_DE.md` plus
+`research/V12_30_DOGE_SUPERTREND_DE.md` and
+`research/V12_31_DOGE_BCH_COMBINATION_DE.md` and
+`research/V12_33_LTC_NO_TRADE_DE.md` before modifying it. Before any
+new LTC work, also read the rejected immutable-combination record
+`research/V12_32_LTC_ROUTE_COMBINATION_DE.md`; do not retune that route or its
+slot rules on the viewed window. V12.33
+retains V12.30 and combines the immutable V12.26 BCH EMA30/EMA80 route above a
+rising EMA100 at ADX24, and disables LTC entries after two negative shared-
+wallet route tests. It is not a real-money promotion. Its exact shared ten-pair
+test ended at 671.915 USDT from 250 USDT with PF 2.4530 and 12.1794 percent
+closed drawdown; fresh paper-forward evidence is still required.
+
 ## Preserve provenance and used upstream roles
 
 Treat these paths as read-only source/provenance material unless the human

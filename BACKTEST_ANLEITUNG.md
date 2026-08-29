@@ -8,34 +8,57 @@ Der UI-Backtest verwendet **keine separate Backtest-Strategie**. Für jeden Lauf
 
 neu gehasht und über den gesperrten Freqtrade-Backtestpfad geladen.
 
-Auf dem Branch `agent/v12-adaptive-league` ist diese aktive Strategy-Quelle der
-**V12.15-Dry-run-Kandidat**. Die eingefrorene V8-Baseline unter
+Auf dem Branch `agent/v12-17-ten-pair-research-ui` repräsentiert diese aktive
+Strategy-Quelle den **V12.33-Paper-/Dry-run-Kandidaten** des Bots. Die eingefrorene
+V8-Baseline unter
 `research/baselines/V8/` bleibt davon getrennte Replay-/Audit-Evidenz.
 
 ## Auswahl
 
-Im UI können einzeln getestet werden:
+Im UI können getestet werden:
 
-- Gesamtportfolio BTC + ETH + SOL + XRP + BNB + DOGE mit einem gemeinsamen 250-USDT-Konto
 - BTC/USDT
 - ETH/USDT
 - SOL/USDT
 - XRP/USDT
 - BNB/USDT
 - DOGE/USDT
+- LINK/USDT
+- TRX/USDT
+- LTC/USDT
+- BCH/USDT
 - 1, 2 oder 3 Jahre
 
-Der Gesamtportfolio-Modus ist die maßgebliche Sicht auf die Nutzung der echten
-250 USDT: alle sechs Märkte konkurrieren gemeinsam um höchstens drei Positionen
-zu je 80 USDT. Die Einzelpaar-Läufe sind nur für Attribution und Diagnose; ihre
-Gewinne dürfen nicht als sechs getrennte 250-USDT-Konten addiert werden.
+Die normale Oberfläche hat bewusst nur zwei Startaktionen:
 
-Alle Signale bleiben **pair-lokal**. V12.15 injiziert kein BTC-Regime in andere
-Pairs. Die separat markierten Trend-Reclaims sind wie in V12.12 für BTC und ETH
-aktiv; SOL, XRP, BNB und DOGE handeln ausschließlich ihre unveränderten
-Donchian-Kerne. Die ursprüngliche 72-Stunden-Pairpause nach zwei unprofitablen
-Trades bleibt bestehen. Die einzige neue Entscheidung ist ein +5-%-Stopboden
-für Champion-Trades, nachdem sie mindestens +30 % erreicht haben.
+- `Gewählten Coin testen`: ein ausgewählter Coin mit eigenem 250-USDT-Testwallet.
+- `Alle 10 einzeln testen`: zehn automatische Läufe nacheinander, jeder Coin mit
+  einem neuen eigenen 250-USDT-Testwallet.
+
+Die zehn Ergebnisse bleiben getrennt und dürfen nicht als gemeinsames Konto
+addiert werden. Der gemeinsame Portfolio-Lauf mit einem einzigen 250-USDT-Wallet
+bleibt als interner Replay-/Audit-Pfad erhalten, ist aber kein normaler UI-Knopf.
+
+`Alle 10 einzeln testen` ist ein dauerhaft gespeicherter Server-Batch. Nach
+jedem Coin werden Batchplan und Zwischenresultat unter
+`runtime/user_data/backtest_results/ui/_BATCHES/` aktualisiert. Ein Schließen
+oder Neuladen der Backtest-Seite stoppt den Batch nicht. Nach einem Bot-Neustart
+kann ein unvollständiger Batch fortgesetzt werden; bereits fertige identische
+Zellen werden aus der erhaltenen Evidenz geladen und nicht neu berechnet.
+
+Alle Signale bleiben **pair-lokal**. V12.33 injiziert kein BTC-Regime in andere
+Pairs. BTC und ETH behalten ihre markierten Trend-Reclaims; SOL behält
+`adx_4h >= 21`. DOGE verwendet den eigenen 4h-Supertrend(20, 3)-Wechsel
+oberhalb einer steigenden EMA100. BCH verwendet die feste EMA30/EMA80-Route
+oberhalb einer steigenden EMA100 bei ADX mindestens 24. LTC bleibt auswählbar,
+eröffnet jedoch bis zu neuer Evidenz keinen Trade; die übrigen fünf Paare
+behalten ihre V12.22-Routen. Die 72-Stunden-Pairpause nach zwei
+unprofitablen Trades und der +5-%-Stopboden nach mindestens +30 % bei
+Champion-Trades bleiben erhalten. Ein zweiter oder dritter Block im selben
+Trade ist nur für BTC, ETH, LINK und TRX bei einem neuen Signal, positivem Trade
+und einem Kurs über allen früheren Entry-Fills erlaubt. SOL, XRP, BNB, DOGE,
+und BCH behalten normale erste Entries, aber keine Zusatzblöcke.
+Verlust-Nachkauf bleibt gesperrt.
 
 ## Benötigte Daten
 
@@ -48,7 +71,53 @@ Für das ausgewählte Pair werden benötigt:
 
 Vor dem Lauf werden Daten aktualisiert und fehlende ältere Bereiche mit dem Freqtrade-Prepend-Pfad ergänzt.
 
+Die Kerzen werden dauerhaft im lokalen, von Git ausgeschlossenen Botpfad
+
+`runtime/user_data/data/binance/`
+
+gespeichert. Ein späterer Lauf verwendet den vorhandenen Bestand weiter und
+lädt nur fehlende ältere beziehungsweise neue Kerzen nach. Schlägt die
+Integritätsprüfung wegen einer unterbrochenen, lückenhaften oder beschädigten
+Datei fehl, wird ausschließlich der betroffene Coin-Datensatz neu aufgebaut.
+Backtests, Paper-Datenbank und Strategy-Quelle werden dabei nicht gelöscht.
+
+V12.33 verarbeitet Stop-Loss und Exit weiterhin auf jeder 1-Minuten-Detailkerze.
+Nur die Prüfung eines zusätzlichen Entry-Blocks wird im Backtest auf die neue
+15-Minuten-Strategiekerze begrenzt, weil sich das dafür verwendete
+`enter_long`-Signal dazwischen nicht ändern kann. Zusätzlich entfallen defensive
+Trade-Kopien ausschließlich für drei getestete, schreibgeschützte Callbacks.
+Der Paper-/Dry-run-Ablauf bleibt davon unberührt.
+
 Der Lauf bricht fail-closed ab, wenn Daten fehlen, Zeitstempel nicht monoton sind, Duplikate/Lücken vorhanden sind oder das benötigte Fenster nicht vollständig abgedeckt ist.
+
+## Vom Einzeltest zur pair-spezifischen Verbesserung
+
+Das Ziel der Einzeltests ist, jeden der zehn Coins unabhängig zu beurteilen und
+später nur dort eigene Parameter zu verwenden, wo belastbare Daten eine
+Verbesserung zeigen. Der normale UI-Backtest ist dafür die Messung des **aktuell
+laufenden Bots**; er ist absichtlich kein selbstverändernder Optimierer.
+
+Der verbindliche Verbesserungszyklus lautet:
+
+1. Aktuelle Strategy für einen Coin über einen ausgewählten, noch nicht
+   identisch ausgeführten Zeitraum von ein, zwei oder drei Jahren messen.
+2. Tradezahl, Verlustcluster, Profit Factor, Drawdown, Kapitalnutzung,
+   Entry-/Exit-Familien und Gebührenempfindlichkeit auswerten.
+3. Genau eine begründete pair-spezifische Änderung als neue, im Trial Ledger
+   registrierte Strategy-Version erstellen. Die aktive Datei wird nicht während
+   eines laufenden Bots verändert.
+4. Entwicklung, Validierung und unangesehenen Holdout beziehungsweise
+   Walk-Forward trennen; Kostenstress und Datei-/Kerzen-Audit ausführen.
+5. Nur einen nach diesen Prüfungen besseren Kandidaten ausdrücklich in den
+   Paperbot übernehmen.
+6. Danach den gemeinsamen Zehn-Paare-Systemtest ausführen. Dort konkurrieren die
+   zehn verbesserten Pair-Routen um dasselbe reale Modell mit 250 USDT und
+   höchstens drei 80-USDT-Blöcken.
+
+Damit kann beispielsweise LINK andere Parameter als TRX erhalten, ohne aus zehn
+Einzelwallets fälschlich ein 2.500-USDT-Portfolio zu bilden. Ein schöner
+In-Sample-Lauf allein gilt nicht als „optimal“ und ändert den Bot niemals
+automatisch.
 
 ## Backtestparameter
 
@@ -75,8 +144,8 @@ Ergebnisordners blockiert. Das gilt auch, wenn eine abgeschlossene Simulation
 erst an einem technischen Audit-Gate scheiterte. Die Fingerabdrücke werden
 zusätzlich in `research/executed_test_fingerprints.csv` versioniert, damit die
 Sperre nach einem Git-Pull erhalten bleibt. Änderungen nur an Versionsnummer, Kommentar oder
-Beschreibung umgehen die Sperre nicht. In „Alle 14 Backtests“ werden bestehende
-Zellen als „Doppeltest übersprungen“ angezeigt.
+Beschreibung umgehen die Sperre nicht. Im Zehner-Batch werden bestehende Zellen
+als „Vorhanden“ angezeigt und ohne erneute Simulation in die Matrix übernommen.
 
 Eine neue Strategy muss zuerst genau einmal in `research/trial_ledger.csv`
 registriert sein. Für jeden gestarteten neuen Lauf werden automatisch diese
@@ -108,6 +177,13 @@ Rohdaten. `TESTBOT_AUSWERTUNG.bat`
 erzeugt dieselbe Auswertung jederzeit erneut. Überlappende Ein- und
 Dreijahreszeiträume werden nicht zu einer künstlichen Kapitalkurve addiert.
 
+Zusätzlich entstehen unter `_PAIR_HISTORIEN/` je Coin und Zeitraum eine JSON-
+und Markdown-Akte. Sie enthält alle erhaltenen Läufe, den letzten materiell
+anderen Vorgänger, die Änderungen bei Gewinn, Tradezahl, Profit Factor,
+Drawdown und Kapitalnutzung sowie die verbindliche Regel gegen 1:1-Doppelläufe.
+Jeder einzelne Ergebnisordner erhält dieselbe Historie und getrennte Zeitmessung
+für Datenpflege, Simulation und Auswertung.
+
 Angezeigt werden unter anderem:
 
 - Netto-USDT-Gewinn/-Verlust
@@ -120,8 +196,35 @@ Angezeigt werden unter anderem:
 - Anteil der verfügbaren Kapitalzeit, in der Kapital eingesetzt war
 - Anteil des Testfensters ganz ohne offene Position
 - durchschnittliche und maximale Zahl gleichzeitig offener Positionen
+- gesamte und zusätzliche Entry-Blöcke
+- maximale gleichzeitig aktive Entry-Blöcke und maximal gebundenes Kapital
+- tatsächlich gefülltes Entry-Kapital über alle Trades
+- gebundenes Kapital in USDT-Tagen
+- Gewinn je Trade und je Kalendertag
+- Gewinn je 100 USDT tatsächlich gefülltem Entry-Kapital
+- Gewinn je 100 USDT gebundenem Kapitaltag
+- Paarbeitrag im gemeinsamen Portfolio
 - tatsächlicher Backtestzeitraum
 - Candle-Integritätsstatus
+
+### Was „1 USDT je 100 USDT Einsatz“ in der Auswertung bedeutet
+
+Die Oberfläche zeigt zwei getrennte Werte, damit Einsatz und Zeit nicht
+verwechselt werden:
+
+- **USDT / 100 Entry:** Nettogewinn geteilt durch das gesamte tatsächlich
+  gefüllte Entry-Kapital. Ein Coin erreicht die Marke `1,00`, wenn alle
+  historischen Entry-Fills zusammen je 100 USDT mindestens 1 USDT netto
+  erwirtschaftet haben.
+- **USDT / 100 Kapitaltag:** Nettogewinn geteilt durch die gebundenen
+  USDT-Tage. Ein 80-USDT-Block, der zehn Tage offen bleibt, zählt als 800
+  USDT-Tage. Damit werden lange Slot-Blockaden sichtbar.
+
+Beide Werte sind historische Diagnosewerte nach den im Test modellierten
+Gebühren. Sie sind weder eine Tagesrendite noch eine Gewinnzusage. Für den
+Paperbot entscheidet zusätzlich der gemeinsame PORTFOLIO-Test: alle zehn
+Signalquellen konkurrieren dort chronologisch um dasselbe 250-USDT-Wallet und
+höchstens drei gleichzeitig aktive 80-USDT-Blöcke.
 
 ## Was ein Backtest nicht beweist
 

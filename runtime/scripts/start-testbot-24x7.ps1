@@ -339,7 +339,8 @@ public static class DaviddTechTestBotPower {
     Write-Host " Virtuelle Wallet  : 250 USDT"
     Write-Host " Position          : maximal 80 USDT"
     Write-Host " Gleichzeitig      : maximal 3 Positionen"
-    Write-Host " Paare             : BTC, ETH, SOL, XRP, BNB, DOGE / USDT"
+    Write-Host " Paare             : BTC, ETH, SOL, XRP, BNB, DOGE, LINK, TRX, LTC, BCH / USDT"
+    Write-Host " Mehrfacheinstieg  : nur Gewinn-Pyramiding, niemals Verlust-Nachkauf"
     Write-Host " Datenbank         : $databasePath"
     Write-Host " Sitzung           : $sessionPath"
     if ($manifest.database.continued_existing_database) {
@@ -364,10 +365,16 @@ public static class DaviddTechTestBotPower {
     Write-Host ""
 
     # Generated strategy code runs inside Freqtrade.  Give that child only the
-    # Windows runtime variables it needs, not unrelated cloud/API credentials
-    # inherited from the shell.  Dry-run needs no exchange secret at all.
+    # Windows runtime variables it needs, plus the four localhost-only FreqUI
+    # values supplied by STARTBOT.  Never pass exchange or unrelated cloud/API
+    # credentials.  Removing the local FreqUI values here makes Freqtrade fall
+    # back to the public config markers and leaves Dashboard/Chart unauthenticated.
     $environmentAllowlist = @(
         "ALLUSERSPROFILE", "APPDATA", "COMSPEC", "HOMEDRIVE", "HOMEPATH",
+        "FREQTRADE__API_SERVER__JWT_SECRET_KEY",
+        "FREQTRADE__API_SERVER__PASSWORD",
+        "FREQTRADE__API_SERVER__USERNAME",
+        "FREQTRADE__API_SERVER__WS_TOKEN",
         "LOCALAPPDATA", "NUMBER_OF_PROCESSORS", "OS", "PATH", "PATHEXT",
         "PROCESSOR_ARCHITECTURE", "PROGRAMDATA", "PROGRAMFILES",
         "PROGRAMFILES(X86)", "PYTHONDONTWRITEBYTECODE", "PYTHONUTF8", "SYSTEMDRIVE",

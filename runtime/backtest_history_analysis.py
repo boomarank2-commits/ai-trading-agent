@@ -40,6 +40,23 @@ _DEFAULT_RESULTS_ROOT = _RUNTIME_ROOT / "user_data" / "backtest_results" / "ui"
 _DEFAULT_STRATEGY = _RUNTIME_ROOT / "user_data" / "strategies" / f"{STRATEGY_NAME}.py"
 _DEFAULT_LEDGER = _RUNTIME_ROOT.parent / "research" / "trial_ledger.csv"
 _VERSION_PATTERN = re.compile(r"\bV(?:ersion\s*)?(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_EXPLICIT_STRATEGY_VERSION_PATTERN = re.compile(
+    r"^\s*STRATEGY_VERSION\s*=\s*['\"]V?(\d+(?:\.\d+)*)['\"]",
+    re.IGNORECASE | re.MULTILINE,
+)
+_COMPARISON_METRICS = (
+    "profit_usdt",
+    "profit_pct",
+    "trades",
+    "winrate_pct",
+    "profit_factor",
+    "max_drawdown_pct",
+    "capital_time_utilization_pct",
+    "no_position_time_pct",
+    "profit_per_trade_usdt",
+    "profit_per_100_entry_capital_usdt",
+    "profit_per_100_deployed_capital_day_usdt",
+)
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -91,6 +108,9 @@ def _entry_name(names: list[str], suffix: str, *, excluded: tuple[str, ...] = ()
 
 def _strategy_version(source: bytes, digest: str) -> str:
     text = source.decode("utf-8", errors="replace")
+    explicit = _EXPLICIT_STRATEGY_VERSION_PATTERN.search(text[:12000])
+    if explicit:
+        return f"V{explicit.group(1)}"
     match = _VERSION_PATTERN.search(text[:12000])
     if match:
         return f"V{match.group(1)}"
@@ -141,7 +161,13 @@ def capital_utilization_metrics(
     *,
     available_capital: float = 250.0,
 ) -> dict[str, float | int]:
-    """Measure actual position time and deployed capital across one portfolio run."""
+    """Measure position time and the time of each actually filled entry chunk.
+
+    Older implementations applied a trade's final aggregated ``stake_amount``
+    from its original open time.  That overstates capital use when a second or
+    third entry was filled days later.  Freqtrade exports every filled entry
+    order, so position-adjusted runs can be measured at their real fill times.
+    """
 
     start = _parse_utc(backtest_start)
     end = _parse_utc(backtest_end)
@@ -152,18 +178,67 @@ def capital_utilization_metrics(
             "no_position_time_pct": 100.0,
             "average_open_positions": 0.0,
             "max_simultaneous_positions": 0,
+            "total_entry_chunks": 0,
+            "additional_entry_chunks": 0,
+            "trades_with_multiple_entries": 0,
+            "max_entries_per_trade": 0,
+            "max_active_entry_chunks": 0,
+            "max_deployed_capital_usdt": 0.0,
+            "total_entry_capital_usdt": 0.0,
+            "deployed_capital_usdt_days": 0.0,
         }
 
-    events: list[tuple[datetime, int, float]] = []
+    events: list[tuple[datetime, int, float, int]] = []
+    total_entry_chunks = 0
+    total_entry_capital = 0.0
+    trades_with_multiple_entries = 0
+    max_entries_per_trade = 0
+    measured_trades = 0
     for trade in trades:
         try:
             opened = _parse_utc(trade.get("open_date"))
             closed = _parse_utc(trade.get("close_date"))
         except (TypeError, ValueError):
             continue
-        stake = max(0.0, _number(trade.get("stake_amount")))
-        events.append((opened, 1, stake))
-        events.append((closed, -1, -stake))
+
+        entry_fills: list[tuple[datetime, float]] = []
+        orders = trade.get("orders")
+        entry_fee = max(0.0, _number(trade.get("fee_open")))
+        if isinstance(orders, list):
+            for order in orders:
+                if not isinstance(order, dict) or order.get("ft_is_entry") is not True:
+                    continue
+                timestamp = _number(order.get("order_filled_timestamp"), -1.0)
+                gross_cost = max(0.0, _number(order.get("cost")))
+                stake_cost = gross_cost / (1.0 + entry_fee)
+                if timestamp <= 0.0 or stake_cost <= 0.0:
+                    continue
+                # Freqtrade exports milliseconds; accepting seconds keeps the
+                # history reader compatible with older preserved fixtures.
+                seconds = timestamp / 1000.0 if timestamp >= 100_000_000_000 else timestamp
+                try:
+                    filled_at = datetime.fromtimestamp(seconds, tz=UTC)
+                except (OSError, OverflowError, ValueError):
+                    continue
+                entry_fills.append((filled_at, stake_cost))
+
+        if not entry_fills:
+            fallback_stake = max(0.0, _number(trade.get("stake_amount")))
+            if fallback_stake > 0.0:
+                entry_fills = [(opened, fallback_stake)]
+
+        entry_count = len(entry_fills)
+        measured_trades += 1
+        total_entry_chunks += entry_count
+        total_entry_capital += sum(cost for _filled_at, cost in entry_fills)
+        trades_with_multiple_entries += int(entry_count > 1)
+        max_entries_per_trade = max(max_entries_per_trade, entry_count)
+        deployed_for_trade = sum(cost for _filled_at, cost in entry_fills)
+
+        events.append((opened, 1, 0.0, 0))
+        for filled_at, cost in entry_fills:
+            events.append((filled_at, 0, cost, 1))
+        events.append((closed, -1, -deployed_for_trade, -entry_count))
 
     last = start
     open_positions = 0
@@ -172,11 +247,17 @@ def capital_utilization_metrics(
     position_hours = 0.0
     no_position_hours = 0.0
     max_positions = 0
-    for event_time, position_delta, capital_delta in sorted(events):
+    active_entry_chunks = 0
+    max_active_entry_chunks = 0
+    max_deployed_capital = 0.0
+    for event_time, position_delta, capital_delta, chunk_delta in sorted(events):
         if event_time <= start:
             open_positions += position_delta
             deployed_capital += capital_delta
+            active_entry_chunks += chunk_delta
             max_positions = max(max_positions, open_positions)
+            max_active_entry_chunks = max(max_active_entry_chunks, active_entry_chunks)
+            max_deployed_capital = max(max_deployed_capital, deployed_capital)
             continue
         if event_time >= end:
             break
@@ -187,7 +268,10 @@ def capital_utilization_metrics(
             no_position_hours += elapsed_hours
         open_positions += position_delta
         deployed_capital += capital_delta
+        active_entry_chunks += chunk_delta
         max_positions = max(max_positions, open_positions)
+        max_active_entry_chunks = max(max_active_entry_chunks, active_entry_chunks)
+        max_deployed_capital = max(max_deployed_capital, deployed_capital)
         last = event_time
 
     elapsed_hours = (end - last).total_seconds() / 3600.0
@@ -203,6 +287,51 @@ def capital_utilization_metrics(
         "no_position_time_pct": round(100.0 * no_position_hours / total_hours, 2),
         "average_open_positions": round(position_hours / total_hours, 3),
         "max_simultaneous_positions": max_positions,
+        "total_entry_chunks": total_entry_chunks,
+        "additional_entry_chunks": max(0, total_entry_chunks - measured_trades),
+        "trades_with_multiple_entries": trades_with_multiple_entries,
+        "max_entries_per_trade": max_entries_per_trade,
+        "max_active_entry_chunks": max_active_entry_chunks,
+        "max_deployed_capital_usdt": round(max_deployed_capital, 4),
+        "total_entry_capital_usdt": round(total_entry_capital, 4),
+        "deployed_capital_usdt_days": round(capital_hours / 24.0, 4),
+    }
+
+
+def capital_efficiency_metrics(
+    *,
+    profit_usdt: float,
+    trades: int,
+    backtest_days: int,
+    total_entry_capital_usdt: float,
+    deployed_capital_usdt_days: float,
+) -> dict[str, float]:
+    """Normalize profit by completed trades, entries, time and bound capital.
+
+    ``profit_per_100_entry_capital_usdt`` answers how much net historical P/L
+    was produced per 100 USDT actually filled across all entries.  The capital-
+    day metric additionally charges long holding periods: one 80-USDT position
+    held for ten days contributes 800 USDT-days to its denominator.
+    """
+
+    return {
+        "profit_per_trade_usdt": round(profit_usdt / trades, 4) if trades > 0 else 0.0,
+        "profit_per_calendar_day_usdt": (
+            round(profit_usdt / backtest_days, 4) if backtest_days > 0 else 0.0
+        ),
+        "trades_per_year": (
+            round(trades * 365.25 / backtest_days, 4) if backtest_days > 0 else 0.0
+        ),
+        "profit_per_100_entry_capital_usdt": (
+            round(100.0 * profit_usdt / total_entry_capital_usdt, 4)
+            if total_entry_capital_usdt > 0.0
+            else 0.0
+        ),
+        "profit_per_100_deployed_capital_day_usdt": (
+            round(100.0 * profit_usdt / deployed_capital_usdt_days, 4)
+            if deployed_capital_usdt_days > 0.0
+            else 0.0
+        ),
     }
 
 
@@ -295,6 +424,13 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
         strategy.get("backtest_end"),
         available_capital=starting_balance,
     )
+    efficiency = capital_efficiency_metrics(
+        profit_usdt=profit_usdt,
+        trades=total_trades,
+        backtest_days=days,
+        total_entry_capital_usdt=_number(utilization["total_entry_capital_usdt"]),
+        deployed_capital_usdt_days=_number(utilization["deployed_capital_usdt_days"]),
+    )
 
     return {
         "status": "completed",
@@ -327,6 +463,7 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
         "sortino": _rounded(strategy.get("sortino")),
         "calmar": _rounded(strategy.get("calmar")),
         **utilization,
+        **efficiency,
         "entry_tag_breakdown": _breakdown(trades, "enter_tag", "ohne_entry_tag"),
         "exit_reason_breakdown": _breakdown(trades, "exit_reason", "ohne_exit_reason"),
     }
@@ -389,6 +526,7 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     legacy_pairs = ("BTC/USDT", "ETH/USDT", "SOL/USDT")
     v12_12_pairs = (*legacy_pairs, "XRP/USDT", "BNB/USDT", "DOGE/USDT")
     v12_16_pairs = (*v12_12_pairs, "ADA/USDT")
+    v12_17_pairs = (*v12_12_pairs, "LINK/USDT", "TRX/USDT", "LTC/USDT", "BCH/USDT")
     by_hash: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for run in completed:
         by_hash[(run["strategy_sha256"], run["strategy_version"])].append(run)
@@ -411,6 +549,25 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         if version == "V12.16":
             matrix_pairs = v12_16_pairs
+        elif version in {
+            "V12.17",
+            "V12.18",
+            "V12.19",
+            "V12.20",
+            "V12.21",
+            "V12.22",
+            "V12.23",
+            "V12.24",
+            "V12.25",
+            "V12.26",
+            "V12.27",
+            "V12.28",
+            "V12.29",
+            "V12.30",
+            "V12.31",
+            "V12.33",
+        }:
+            matrix_pairs = v12_17_pairs
         elif version in {"V12.12", "V12.13", "V12.14", "V12.15"}:
             matrix_pairs = v12_12_pairs
         else:
@@ -433,6 +590,9 @@ def _matrix_summaries(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ),
                 "current_twelve_cell_matrix": (
                     complete and matrix_pairs == v12_12_pairs and periods == [1, 3]
+                ),
+                "current_ten_pair_matrix": (
+                    complete and matrix_pairs == v12_17_pairs
                 ),
                 "positive_cells": sum(run["profit_usdt"] > 0 for run in selected),
                 "independent_profit_sum_usdt": round(
@@ -458,8 +618,9 @@ def _load_experiments(path: Path | None) -> list[dict[str, str]]:
         return []
     with path.open("r", encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
+        fields = list(reader.fieldnames or DETAILED_EXPERIMENT_FIELDS)
         return [
-            {field: str(row.get(field) or "").strip() for field in DETAILED_EXPERIMENT_FIELDS}
+            {field: str(row.get(field) or "").strip() for field in fields}
             for row in reader
         ]
 
@@ -471,9 +632,17 @@ def _annotate_experiments(
     for run in completed:
         experiment = by_hash.get(run["strategy_sha256"], {})
         run["experiment_id"] = experiment.get("experiment_id", "historisch-nicht-registriert")
-        run["parent_experiment_id"] = experiment.get("parent_experiment_id", "")
-        run["change_summary"] = experiment.get("change_summary", "")
-        run["decision"] = experiment.get("decision", "")
+        for field in (
+            "parent_experiment_id",
+            "hypothesis",
+            "change_summary",
+            "acceptance_criteria",
+            "result_summary",
+            "decision",
+            "lessons",
+            "next_experiment",
+        ):
+            run[field] = experiment.get(field, "")
 
 
 def _duplicate_groups(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -502,6 +671,213 @@ def _duplicate_groups(completed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(duplicates, key=lambda row: row["canonical_run_id"])
 
 
+def _history_run_summary(run: dict[str, Any]) -> dict[str, Any]:
+    fields = (
+        "run_id",
+        "experiment_id",
+        "parent_experiment_id",
+        "strategy_version",
+        "strategy_sha256",
+        "strategy_logic_sha256",
+        "test_fingerprint",
+        "pair",
+        "period_years",
+        "backtest_start",
+        "backtest_end",
+        "profit_usdt",
+        "profit_pct",
+        "trades",
+        "wins",
+        "losses",
+        "winrate_pct",
+        "profit_factor",
+        "max_drawdown_pct",
+        "capital_time_utilization_pct",
+        "no_position_time_pct",
+        "total_entry_chunks",
+        "additional_entry_chunks",
+        "max_active_entry_chunks",
+        "max_deployed_capital_usdt",
+        "hypothesis",
+        "change_summary",
+        "acceptance_criteria",
+        "result_summary",
+        "decision",
+        "lessons",
+        "next_experiment",
+    )
+    return {field: run.get(field) for field in fields}
+
+
+def _documented_pair_experiments(
+    report: dict[str, Any], pair: str, preserved_runs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return pair-local ledger attempts which have no preserved UI result.
+
+    Some gated research attempts stop after an isolated exact run and are
+    recorded only in the immutable trial ledger.  Keeping those attempts in
+    the coin dossier prevents the UI runner (or a later researcher) from
+    proposing the same rejected family again.
+    """
+
+    represented_ids = {
+        str(run.get("experiment_id") or "") for run in preserved_runs
+    }
+    fields = (
+        "experiment_id",
+        "parent_experiment_id",
+        "strategy_version",
+        "strategy_hash",
+        "parameter_hash",
+        "status",
+        "date_decided",
+        "development_window",
+        "validation_window",
+        "holdout_window",
+        "pairs",
+        "fees",
+        "trade_count",
+        "net_return",
+        "profit_factor",
+        "sharpe",
+        "max_drawdown",
+        "reason_accepted_or_rejected",
+        "notes",
+        "hypothesis",
+        "change_summary",
+        "acceptance_criteria",
+        "result_summary",
+        "decision",
+        "lessons",
+        "next_experiment",
+    )
+    relevant = []
+    for experiment in report.get("experiment_ledger", []):
+        targets = {
+            item.strip()
+            for item in str(experiment.get("pairs") or "").split(";")
+            if item.strip()
+        }
+        experiment_id = str(experiment.get("experiment_id") or "")
+        if pair not in targets or experiment_id in represented_ids:
+            continue
+        if len(targets) > 1:
+            asset = pair.split("/", maxsplit=1)[0]
+            target_assets = {target.split("/", maxsplit=1)[0] for target in targets}
+            id_tokens = re.split(r"[^A-Z0-9]+", experiment_id.upper())
+            named_assets = {
+                candidate
+                for candidate in target_assets
+                if any(token.startswith(candidate) for token in id_tokens)
+            }
+            # Pair-named experiments are local to those names. An experiment
+            # without any target asset in its ID is a genuinely global change
+            # and remains relevant to every listed pair.
+            if named_assets and asset not in named_assets:
+                continue
+        relevant.append({field: experiment.get(field) for field in fields})
+    return list(reversed(relevant))
+
+
+def build_pair_history_context(
+    report: dict[str, Any],
+    *,
+    pair: str,
+    years: int,
+    current_run_id: str | None = None,
+) -> dict[str, Any]:
+    """Return the immutable same-pair/same-period learning history for one run."""
+
+    candidates = [
+        run
+        for run in report.get("runs", [])
+        if run.get("pair") == pair and run.get("period_years") == years
+    ]
+    candidates.sort(key=lambda row: (row.get("backtest_end", ""), row.get("run_id", "")))
+    current = next(
+        (run for run in candidates if run.get("run_id") == current_run_id),
+        candidates[-1] if candidates else None,
+    )
+    previous = None
+    if current is not None:
+        for candidate in reversed(candidates):
+            if candidate.get("run_id") == current.get("run_id"):
+                continue
+            if candidate.get("test_fingerprint") == current.get("test_fingerprint"):
+                continue
+            previous = candidate
+            break
+
+    deltas = None
+    if current is not None and previous is not None:
+        deltas = {
+            metric: round(_number(current.get(metric)) - _number(previous.get(metric)), 4)
+            for metric in _COMPARISON_METRICS
+        }
+
+    if current is None:
+        assessment = "Für diese Paar-/Zeitraumzelle liegt noch kein vollständiger Lauf vor."
+    elif previous is None:
+        assessment = "Erster erhaltener Vergleichslauf für diese Paar-/Zeitraumzelle."
+    else:
+        profit_delta = _number(deltas.get("profit_usdt") if deltas else 0.0)
+        drawdown_delta = _number(deltas.get("max_drawdown_pct") if deltas else 0.0)
+        profit_assessment = (
+            "verbessert"
+            if profit_delta > 0
+            else "verschlechtert"
+            if profit_delta < 0
+            else "unverändert"
+        )
+        drawdown_assessment = (
+            "gesunken"
+            if drawdown_delta < 0
+            else "gestiegen"
+            if drawdown_delta > 0
+            else "unverändert"
+        )
+        assessment = (
+            f"Gewinn {profit_assessment} "
+            f"um {profit_delta:+.2f} USDT; Drawdown "
+            f"{drawdown_assessment} "
+            f"um {abs(drawdown_delta):.2f} Prozentpunkte."
+        )
+
+    preserved_runs = [_history_run_summary(run) for run in reversed(candidates)]
+    return {
+        "schema_version": 1,
+        "pair": pair,
+        "years": years,
+        "comparison_scope": "same_pair_same_period_previous_material_strategy",
+        "current": _history_run_summary(current) if current is not None else None,
+        "previous": _history_run_summary(previous) if previous is not None else None,
+        "delta_vs_previous": deltas,
+        "assessment_de": assessment,
+        "all_preserved_runs": preserved_runs,
+        "documented_pair_experiments": _documented_pair_experiments(
+            report, pair, preserved_runs
+        ),
+        "duplicate_execution_allowed": False,
+    }
+
+
+def _pair_histories(
+    completed: list[dict[str, Any]], experiments: list[dict[str, str]]
+) -> list[dict[str, Any]]:
+    shell = {"runs": completed, "experiment_ledger": experiments}
+    cells = sorted(
+        {
+            (str(run["pair"]), int(run["period_years"]))
+            for run in completed
+            if run.get("pair") != "PORTFOLIO" and run.get("period_years") is not None
+        }
+    )
+    return [
+        build_pair_history_context(shell, pair=pair, years=years)
+        for pair, years in cells
+    ]
+
+
 def analyze_backtest_history(
     results_root: Path,
     *,
@@ -511,7 +887,11 @@ def analyze_backtest_history(
     results_root = results_root.resolve()
     records: list[dict[str, Any]] = []
     if results_root.is_dir():
-        for run_dir in sorted(path for path in results_root.iterdir() if path.is_dir()):
+        for run_dir in sorted(
+            path
+            for path in results_root.iterdir()
+            if path.is_dir() and not path.name.startswith("_")
+        ):
             archives = sorted(run_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime_ns)
             if not archives:
                 records.append(_incomplete_run(run_dir, "Kein Backtest-ZIP vorhanden"))
@@ -578,6 +958,7 @@ def analyze_backtest_history(
         "duplicate_test_groups": duplicate_groups,
         "strategy_matrices": _matrix_summaries(completed),
         "repeat_groups": _group_summaries(completed),
+        "pair_histories": _pair_histories(completed, experiments),
         "runs": sorted(
             completed,
             key=lambda row: (row["backtest_end"], row["run_id"]),
@@ -733,8 +1114,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             "## Alle erfolgreichen Läufe",
             "",
             "| Lauf | Experiment | Version | Paar | Jahre | Zeitraum | P/L | P/L % | Trades | "
-            "Treffer | PF | Max DD | Kapitalzeit | Ohne Position |",
-            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "Treffer | PF | Max DD | USDT/Trade | USDT/100 Entry | USDT/100 Kapitaltag | "
+            "Kapitalzeit | Ohne Position |",
+            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for run in report["runs"]:
@@ -742,6 +1124,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             "| `{run}` | {experiment} | {version} | {pair} | {years} | {period} | {profit} | "
             "{profit_pct}% | {trades} | {winrate}% | {pf} | {drawdown}% | "
+            "{profit_trade} | {profit_entry} | {profit_capital_day} | "
             "{capital_time}% | {no_position}% |".format(
                 run=run["run_id"],
                 experiment=run["experiment_id"]
@@ -756,6 +1139,11 @@ def render_markdown(report: dict[str, Any]) -> str:
                 winrate=_fmt(run["winrate_pct"]),
                 pf=_fmt(run["profit_factor"]),
                 drawdown=_fmt(run["max_drawdown_pct"]),
+                profit_trade=_fmt(run["profit_per_trade_usdt"]),
+                profit_entry=_fmt(run["profit_per_100_entry_capital_usdt"]),
+                profit_capital_day=_fmt(
+                    run["profit_per_100_deployed_capital_day_usdt"]
+                ),
                 capital_time=_fmt(run["capital_time_utilization_pct"]),
                 no_position=_fmt(run["no_position_time_pct"]),
             )
@@ -789,6 +1177,119 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_pair_history_markdown(history: dict[str, Any]) -> str:
+    pair = str(history["pair"])
+    years = int(history["years"])
+    lines = [
+        f"# Backtest-Historie {pair} · {years} Jahr{'e' if years != 1 else ''}",
+        "",
+        "Diese Akte vergleicht ausschließlich dasselbe Pair und dieselbe Laufzeit. ",
+        "Unterschiedliche Strategie-Hashes bleiben getrennte Versuche; identische ",
+        "Fingerabdrücke dürfen nicht erneut ausgeführt werden.",
+        "",
+        f"Aktuelle Bewertung: **{history['assessment_de']}**",
+        "",
+        "| Lauf | Experiment | Version | Zeitraum | P/L | Trades | PF | Max DD | "
+        "USDT/Trade | USDT/100 Entry | USDT/100 Kapitaltag | Kapitalzeit |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for run in history["all_preserved_runs"]:
+        start = str(run.get("backtest_start") or "")[:10]
+        end = str(run.get("backtest_end") or "")[:10]
+        period = f"{start} bis {end}"
+        lines.append(
+            "| `{run}` | {experiment} | {version} | {period} | {profit:+.2f} USDT | "
+            "{trades} | {pf:.2f} | {dd:.2f}% | {profit_trade:.2f} | "
+            "{profit_entry:.2f} | {profit_capital_day:.3f} | {capital:.2f}% |".format(
+                run=run.get("run_id") or "?",
+                experiment=run.get("experiment_id") or "historisch-nicht-registriert",
+                version=run.get("strategy_version") or "?",
+                period=period,
+                profit=_number(run.get("profit_usdt")),
+                trades=_integer(run.get("trades")),
+                pf=_number(run.get("profit_factor")),
+                dd=_number(run.get("max_drawdown_pct")),
+                profit_trade=_number(run.get("profit_per_trade_usdt")),
+                profit_entry=_number(run.get("profit_per_100_entry_capital_usdt")),
+                profit_capital_day=_number(
+                    run.get("profit_per_100_deployed_capital_day_usdt")
+                ),
+                capital=_number(run.get("capital_time_utilization_pct")),
+            )
+        )
+    documented = history.get("documented_pair_experiments") or []
+    if documented:
+        lines.extend(
+            [
+                "",
+                "## Weitere pair-lokale Versuche aus dem Forschungsledger",
+                "",
+                "Diese Versuche besitzen keinen regulären UI-Ergebnisordner, sind aber "
+                "bereits entschieden und dürfen nicht stillschweigend wiederholt werden.",
+                "",
+            ]
+        )
+        for experiment in documented:
+            result_text = (
+                experiment.get("result_summary")
+                or experiment.get("notes")
+                or "keine Finanzmessung"
+            )
+            lines.extend(
+                [
+                    f"### {experiment.get('experiment_id') or '?'}",
+                    "",
+                    f"- Version: {experiment.get('strategy_version') or '?'}",
+                    "- Status/Entscheidung: "
+                    f"{experiment.get('decision') or experiment.get('status') or '?'}",
+                    f"- Hypothese: {experiment.get('hypothesis') or 'nicht dokumentiert'}",
+                    f"- Änderung: {experiment.get('change_summary') or 'nicht dokumentiert'}",
+                    f"- Ergebnis: {result_text}",
+                    f"- Erkenntnis: {experiment.get('lessons') or 'nicht dokumentiert'}",
+                    f"- Nächster Versuch: {experiment.get('next_experiment') or 'noch offen'}",
+                    "",
+                ]
+            )
+    current = history.get("current") or {}
+    previous = history.get("previous") or {}
+    delta = history.get("delta_vs_previous") or {}
+    lines.extend(["", "## Letzte Änderung gegenüber dem Vorgänger", ""])
+    if previous:
+        lines.extend(
+            [
+                f"- Vorgänger: `{previous.get('run_id')}` / {previous.get('strategy_version')}",
+                f"- Aktuell: `{current.get('run_id')}` / {current.get('strategy_version')}",
+                f"- Gewinnänderung: {_number(delta.get('profit_usdt')):+.2f} USDT",
+                f"- Tradeänderung: {_integer(delta.get('trades')):+d}",
+                f"- Profit-Faktor-Änderung: {_number(delta.get('profit_factor')):+.2f}",
+                f"- Drawdown-Änderung: {_number(delta.get('max_drawdown_pct')):+.2f} Prozentpunkte",
+                f"- Vorgänger-Änderung: {previous.get('change_summary') or 'nicht dokumentiert'}",
+                f"- Vorgänger-Ergebnis: {previous.get('result_summary') or 'nicht dokumentiert'}",
+                f"- Aktuelle Hypothese: {current.get('hypothesis') or 'nicht dokumentiert'}",
+                f"- Aktuelle Änderung: {current.get('change_summary') or 'nicht dokumentiert'}",
+                f"- Erfolgskriterium: {current.get('acceptance_criteria') or 'nicht dokumentiert'}",
+                f"- Ergebnis: {current.get('result_summary') or 'noch nicht im Ledger bewertet'}",
+                f"- Entscheidung: {current.get('decision') or 'noch offen'}",
+                f"- Erkenntnis: {current.get('lessons') or 'noch offen'}",
+                f"- Nächster Versuch: {current.get('next_experiment') or 'noch offen'}",
+            ]
+        )
+    else:
+        lines.append("Kein älterer materiell unterschiedlicher Vergleichslauf vorhanden.")
+    lines.extend(
+        [
+            "",
+            "## Forschungsregel",
+            "",
+            "Ein weiterer Lauf dieser Zelle benötigt eine echte, vorab dokumentierte Änderung ",
+            "der Bot-/Strategielogik oder des fest definierten Testprotokolls. Der Backtest ",
+            "selbst optimiert keine Parameter.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def write_history_reports(
     results_root: Path,
     *,
@@ -811,6 +1312,18 @@ def write_history_reports(
         encoding="utf-8",
     )
     output_markdown.write_text(render_markdown(report), encoding="utf-8")
+    pair_report_root = results_root / "_PAIR_HISTORIEN"
+    pair_report_root.mkdir(parents=True, exist_ok=True)
+    for history in report["pair_histories"]:
+        stem = f"{str(history['pair']).replace('/', '_')}-{history['years']}J"
+        (pair_report_root / f"{stem}.json").write_text(
+            json.dumps(history, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (pair_report_root / f"{stem}.md").write_text(
+            render_pair_history_markdown(history),
+            encoding="utf-8",
+        )
     return report
 
 

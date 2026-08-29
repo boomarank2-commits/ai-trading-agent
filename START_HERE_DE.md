@@ -1,92 +1,231 @@
-# Start hier: V12.15-Testbot, V8-Baseline und Deep-Research-System
+# Start hier: V12.33-Zehn-Paare-Testbot und Research-System
+
+Stand: 28.08.2026
 
 ## Aktueller Stand
 
-Der eingefrorene Research-Champion bleibt `CompressionBreakout250` / V8. Die
-aktuell vom Dry-run-Testbot geladene Kandidatendatei ist jedoch
-`CompressionBreakout250` / **V12.15** auf `agent/v12-adaptive-league`.
+Die eingefrorene historische Research-Baseline bleibt `CompressionBreakout250` /
+V8 unter `research/baselines/V8/`.
 
-V12.15 läuft ausschließlich im simulierten Paper-/Dry-run-Betrieb mit:
+Der aktuelle Paper-/Dry-run-Kandidat ist jedoch
+`runtime/user_data/strategies/CompressionBreakout250.py` / **V12.33** auf dem
+Arbeitsbranch `agent/v12-17-ten-pair-research-ui`.
 
-- Binance Spot / USDT
-- BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, BNB/USDT, DOGE/USDT
-- long-only, 1x
-- 250 virtuelle USDT
-- maximal 80 USDT je Position
-- maximal drei Positionen / 240 USDT Gesamtengagement
+V12.33 läuft ausschließlich mit virtuellem Geld und beobachtet zehn Binance-
+Spot-Paare:
 
-V8 bleibt unter `research/baselines/V8/` unverändert für Replay, Reproduktion
-und Research-Governance erhalten. V12.15 verändert diese Baseline nicht.
+- BTC/USDT
+- ETH/USDT
+- SOL/USDT
+- XRP/USDT
+- BNB/USDT
+- DOGE/USDT
+- LINK/USDT
+- TRX/USDT
+- LTC/USDT
+- BCH/USDT
 
-Status: **V12.15 BESTANDENER PAPER-/DRY-RUN-KANDIDAT – NOT READY FOR REAL MONEY.**
+Der Paperbot besitzt **ein einziges gemeinsames 250-USDT-Wallet**. Ein Entry-
+Block ist maximal 80 USDT groß. Insgesamt dürfen höchstens 240 USDT bzw. drei
+80-USDT-Blöcke gleichzeitig gebunden sein.
 
-V12.15 verwendet wieder die vollständige V12.12-Signallogik und deren
-pair-lokale Pause nach zwei Verlusten. Die einzige Strategieänderung ist ein
-später Gewinn-Ratchet nur für Champion-Donchian-Trades: erst ab +30 % laufendem
-Gewinn wird ein +5-%-Boden gesetzt. Sechs Pairs, alle normalen Exits und die
-250/80/3-Kapitalgrenzen bleiben unverändert. V12.16 mit ADA wurde nach dem
-vorab registrierten Drei-Jahres-Test verworfen und technisch zurückgebaut.
+BTC, ETH, LINK und TRX dürfen in einem bereits offenen Trade einen zweiten oder
+dritten 80-USDT-Block erhalten, aber nur wenn auf einer späteren Candle erneut
+ein vollständiges normales Entry-Signal entsteht, der Trade im Gewinn liegt
+und der neue Preis über allen früheren Entry-Fills liegt. Fünf weitere Coins
+behalten normale erste Entries, aber keine Zusatzblöcke. LTC bleibt im
+Universum und in der Datenpflege sichtbar, eröffnet in V12.33 jedoch keinen
+Trade. Verlust-Nachkauf und Martingale sind gesperrt.
 
-Der einzige V12.12-Drei-Jahres-Lauf lieferte eine starke diagnostische
-Verbesserung, scheiterte aber formal am ersten nativen Candle-Dateiaudit. Der
-Fehler lag in der Audit-Instrumentierung, nicht in der Simulation; der Lauf wird
-trotzdem nicht als vollständig bestanden ausgegeben und sein identischer
-Fingerabdruck darf nicht erneut getestet werden. Details und alle Kennzahlen:
-[`research/V12_12_LIQUID_UNIVERSE_DE.md`](research/V12_12_LIQUID_UNIVERSE_DE.md).
+V12.33 behält den V12.22-SOL-Filter `adx_4h >= 21` und DOGEs kausal
+ausgewählten 4h-Supertrend(20, 3) oberhalb einer steigenden EMA100. Zusätzlich
+verwendet BCH die unveränderte, zuvor separat geprüfte EMA30/EMA80-Route
+oberhalb einer steigenden EMA100 bei ADX mindestens 24. Sämtliche Stopps,
+Kapitalgrenzen und Pyramiding-Regeln bleiben unverändert. Der exakte gemeinsame
+Drei-Jahres-Diagnoselauf endete bei 671,915 USDT aus 250 USDT, PF 2,4530 und
+12,1794 Prozent geschlossenem Drawdown. Das ist historische Simulation und
+keine Garantie für künftige Gewinne.
 
-Der verbindliche Weiterentwicklungsplan steht in [`RESEARCH_MASTERPLAN_DE.md`](RESEARCH_MASTERPLAN_DE.md). Ältere Codex-Phasen sind keine aktive Sollvorgabe mehr.
+Status:
 
-Der konkrete Soll/Ist-Abgleich gegen die aktuellen Deep-Research-Berichte steht in [`docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`](docs/DEEP_RESEARCH_GAP_AUDIT_DE.md). Dort werden vorhandene, teilweise vorhandene und noch fehlende Teile ausdrücklich getrennt. Ein vorhandenes Grundgerüst darf nicht als fertige Umsetzung ausgegeben werden.
+**V12.33 PAPER-/DRY-RUN-KANDIDAT – NICHT FÜR ECHTGELD FREIGEGEBEN.**
 
-Das neue Zielbild mit zehn Paaren, getrennten Ein-/Drei-Jahres-Einzeltests und
-einem gemeinsamen 250-USDT-Portfolio steht in
-[`docs/ZEHN_PAARE_ROADMAP_DE.md`](docs/ZEHN_PAARE_ROADMAP_DE.md). Aktuell sind
-sechs Paare aktiv; vier weitere müssen einzeln und schrittweise validiert werden.
+Der Live-Overlay bleibt absichtlich noch auf dem alten, nicht promovierten
+Position-Adjustment-Vertrag. Dadurch darf V12.33 nicht versehentlich als
+Echtgeldbot starten.
 
-## Zielbild
+Ein neuer vollständiger V12.31-Laptopbatch vom 28.08.2026 ist als historische
+Pair-Evidenz dokumentiert. Er lief 10/10 ohne technischen Fehler, verwendete
+aber den älteren Laptop-Commit und ersetzt V12.33 nicht. Die danach exakt
+geprüften V12.39-XRP- und V12.40-SOL-Kandidaten scheiterten an ihren vorab
+festgelegten Finanz-/Zeitfensterhürden. V12.33 blieb deshalb unverändert.
 
-Langfristig entsteht kein einzelner ständig handelnder Bot, sondern eine deterministische Multi-Strategy Execution Engine mit separater AI Research Plane.
+## Wichtige historische Referenzen
+
+V12.15 bleibt die akzeptierte Sechs-Paare-Referenz vor dem Zehner-Ausbau. Der
+historische Drei-Jahres-Portfoliolauf von V12.15 startete mit 250 USDT und
+lieferte 545,409 USDT Endkapital, +295,409 USDT Nettogewinn, 122 Trades, Profit
+Factor 2,5554 und 8,19 % geschlossenen Max-Drawdown.
+
+V12.16 testete ADA. ADA war einzeln positiv, verschlechterte aber die gemeinsame
+Portfolioqualität durch Slot-Verdrängung und wurde verworfen. ADA gehört deshalb
+nicht zum aktuellen Zehner-Universum.
+
+Die ausführliche Historie bleibt in:
+
+- `research/CONTINUATION_HANDOFF_DE.md`
+- `research/trial_ledger.csv`
+- `research/executed_test_fingerprints.csv`
+- den einzelnen V12.xx-Research-Dokumenten.
+
+Die aktuelle V12.18-Reparaturübergabe steht in:
+
+`research/V12_18_REPAIR_HANDOFF_DE.md`
+
+Die darauf aufbauende V12.19-Laufzeit-/Lernübergabe steht in:
+
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
+
+Die V12.20-Elternentscheidung, der V12.22-SOL-Schritt, der V12.30-DOGE-Schritt
+und die von V12.33 geerbte V12.31-Kombination stehen in:
+
+`research/V12_20_SELECTIVE_PYRAMID_DE.md`
+
+`research/V12_22_SOL_ADX21_DE.md`
+
+`research/V12_30_DOGE_SUPERTREND_DE.md`
+
+`research/V12_31_DOGE_BCH_COMBINATION_DE.md`
+
+Die aktive LTC-NO-TRADE-Entscheidung und die vollständigen neuen Ergebnisse
+stehen in:
+
+`research/V12_33_LTC_NO_TRADE_DE.md`
+
+`research/V12_33_FINAL_10_COIN_RESULTS_DE.md`
+
+Der frische V12.31-Batch und die anschließend verworfenen pair-lokalen
+Versuche stehen in:
+
+`research/V12_31_FRESH_TEN_PAIR_MATRIX_20260828_DE.md`
+
+`research/V12_39_XRP_7D_MOMENTUM_DE.md`
+
+`research/V12_40_SOL_DUAL_TREND_COMBINATION_DE.md`
+
+Der anschließend geprüfte und verworfene V12.32-LTC-Kombinationsversuch steht
+in:
+
+`research/V12_32_LTC_ROUTE_COMBINATION_DE.md`
+
+Die frühere V12.17-Roadmap bleibt als historische Fehler- und Herkunftsakte
+unter `research/V12_17_CONTINUATION_HANDOFF_DE.md` erhalten.
+
+Die ursprüngliche, inzwischen ausdrücklich als historisch markierte
+V12.17-Zehn-Paare-Roadmap steht in:
+
+`docs/ZEHN_PAARE_ROADMAP_DE.md`
+
+## Die zwei Kapitalmodelle nicht verwechseln
+
+### 1. Laufender Paperbot
+
+Ein gemeinsames Wallet:
 
 ```text
-Market Data
-→ Normalizer / Data Quality
-→ Features
-→ Regime
-   ├─ TREND/BREAKOUT → separater Trend-Challenger
-   │                   ├─ ORB-Retest
-   │                   └─ Ichimoku
-   ├─ RANGE/MEAN_REVERSION → Bollinger MR
-   └─ unklar → NO_TRADE
-→ Signal Validator
-→ Portfolio/Risk
-→ Execution/OMS
-→ Reconciliation
-→ Telemetrie
+250 USDT gesamt
+→ maximal 3 Kapitalblöcke
+→ maximal 80 USDT je Block
+→ maximal 240 USDT gleichzeitig investiert
+→ zehn Coins konkurrieren um dieselben Blöcke
 ```
 
-`NO_TRADE` ist die Default-Aktion bei unklarer Datenqualität, unklarem Regime oder Risk-Reject.
-
-Die beiden Deep-Research-Berichte setzen bei der Trendkomponente unterschiedliche Schwerpunkte. Deshalb werden **ORB-Retest und Ichimoku nicht miteinander vermischt und nicht stillschweigend gegeneinander entschieden**. Beide sind spätere eigenständige Trend-Challenger; Bollinger MR ist die separate Range-/Mean-Reversion-Familie. Ein Hybrid kommt erst nach Einzelvalidierung.
-
-Der spätere Research-Router ist bereits als fail-closed Contract in
-`runtime/research_strategy_contract.py` formalisiert. Er ist **nicht** in die
-aktive V12.15-Kandidatenstrategie verdrahtet und verändert deshalb keine aktuelle
-Paper-Handelsentscheidung.
-
-Der AI-/LLM-Teil liegt ausschließlich im Cold Path:
+Beispiele:
 
 ```text
-Trades + Logs + Regime + Execution-Daten
-→ AI Research
-→ falsifizierbare Hypothese
-→ separater Candidate
-→ Backtest / Walk-Forward / PBO / DSR / Stress
-→ Registry
-→ Shadow / Forward
-→ manuelle Freigabe
+BTC 80 + LINK 80 + SOL 80
+LINK 80 + LINK später erneut 80 + XRP 80
+BTC 80 + BTC später 80 + BTC später 80
 ```
 
-Der LLM-Agent erhält keine freie Exchange-Orderfunktion und verändert nicht spontan aktive Risk-/Trading-Parameter.
+Voraussetzung für einen weiteren Block im selben Coin sind ein neues gültiges
+Signal auf einer späteren Candle, ein bereits profitabler Trade, ein Kurs über
+allen früheren Fills und freie globale Exposure.
+
+### 2. Normaler Einzelpair-Backtest
+
+Der Backtest ist davon getrennt. Ein ausgewählter Coin bekommt für seine
+historische Simulation **ein eigenes 250-USDT-Startwallet**.
+
+Die UI bietet:
+
+- 1 Jahr
+- 2 Jahre
+- 3 Jahre
+
+`Gewählten Coin testen` testet genau den ausgewählten Coin.
+
+`Alle 10 einzeln testen` nimmt den aktuell gewählten Zeitraum und startet
+automatisch zehn unabhängige Läufe nacheinander. Jeder Coin beginnt erneut mit
+250 USDT. Du musst den Startknopf daher nicht zehnmal drücken.
+
+V12.33 speichert diesen Zehner-Batch nach jedem Coin. Die Warteschlange gehört
+zum lokalen Bot-Server und nicht zur gerade sichtbaren Browserseite: Du kannst
+zwischen Trade, Dashboard, Chart, Logs und Backtest wechseln, ohne den Batch zu
+stoppen. Nach einem Bot-Neustart wird ein unvollständiger Batch als fortsetzbar
+erkannt; bereits vollständig erhaltene identische Tests werden nicht erneut
+simuliert.
+
+Damit sind bei zehn Einzeltests nominell 10 × 250 = 2.500 USDT Startwerte im
+Spiel, aber **nicht als gemeinsames Portfolio**. Die Ergebnisse dürfen nicht
+addiert und als gemeinsame Kapitalkurve interpretiert werden.
+
+Der gemeinsame Zehn-Paare-Systembacktest bleibt für Replay und Audit intern
+erhalten. Er ist bewusst kein dritter Knopf im normalen Backtest-Bildschirm.
+
+## Neue Paare und erste Strategiezuordnung
+
+LINK, TRX und LTC verwenden weiterhin den vorhandenen Broad-Core-Donchian-Pfad.
+DOGE nutzt seine Supertrend20×3-/EMA100-Route; BCH nutzt die feste
+EMA30/EMA80-/EMA100-/ADX24-Route; SOL behält den V12.22-ADX21-Filter. LTC wird
+weiter beobachtet, bleibt aber bis zu neuer Evidenz im Zustand `NO_TRADE`.
+
+BTC und ETH behalten ihre spezialisierten Champion-/Reclaim-Pfade aus dem
+bewährten V12.15-Kern.
+
+Die vier neuen Coins werden nicht sofort auf bereits angesehene Historie
+überoptimiert. Zuerst werden ihre unabhängigen Backtests gemessen. Danach dürfen
+pair-spezifische Parameter oder Signalpfade einzeln, vorregistriert und mit
+klarer Begründung angepasst werden.
+
+## Selektive weitere Entries im selben Pair
+
+V12.33 verwendet technisch für den Paper-/Backtest-Kandidaten weiterhin:
+
+```text
+position_adjustment_enable = true
+max_entry_position_adjustment = 2
+```
+
+Dadurch kann ein offener Freqtrade-Trade bei BTC, ETH, LINK und TRX bis zu drei
+erfolgreiche Entry-Orders enthalten. Für SOL, XRP, BNB, DOGE, LTC und BCH gibt
+`adjust_trade_position()` immer `None` zurück. SOL, XRP, BNB, DOGE und BCH
+dürfen ihren normalen ersten Trade eröffnen; LTC derzeit nicht.
+
+Zusätzliche Sicherheitslogik prüft:
+
+- neues `enter_long`-Signal vorhanden;
+- Signalcandle liegt nach dem letzten gefüllten Entry;
+- offener Trade ist bereits profitabel;
+- neuer Entry-Kurs liegt strikt über allen vorherigen Entry-Fills;
+- kein offener Entry-Orderkonflikt;
+- weniger als drei erfolgreiche Entries im Pair;
+- Kill-Switch nicht aktiv;
+- globale offene Stake + 80 <= 240 USDT.
+
+Wichtig: Zusätzliche Freqtrade-Entry-Orders innerhalb eines bereits offenen
+Trades zählen nicht als zusätzliche `max_open_trades`. Deshalb wird die globale
+Stake-Summe zusätzlich separat begrenzt.
 
 ## Testbot starten
 
@@ -96,140 +235,194 @@ Für den 24/7-Paper-Test:
 STARTBOT.bat
 ```
 
-Der sichtbare STARTBOT-Prozess bleibt Teil des Sicherheitsvertrags: Wird die überwachte Konsole geschlossen, muss der zugehörige Bot-Prozessbaum beendet werden.
+Startpfad:
 
-Die Bedienung des Paperbots steht in [`TESTBOT_ANLEITUNG.md`](TESTBOT_ANLEITUNG.md).
+```text
+STARTBOT.bat
+→ runtime/scripts/run-testbot-supervised.ps1
+→ runtime/scripts/start-testbot-24x7.ps1
+→ locked_freqtrade.py
+→ config.json + CompressionBreakout250.py
+```
 
-## Normaler Backtest
+Die Strategy-Quelle wird vor dem Start gehasht und während der Sitzung gegen
+unerwartete Änderungen geschützt. Die wirksame Freqtrade-Konfiguration wird
+vor dem Start mit `runtime/validate_dryrun_config.py` gegen den exakten
+250/80/3-/Zehn-Paare-Vertrag geprüft.
 
-Der integrierte Backtest simuliert die aktuell geladene V12.15-Strategie; es gibt
-keine separate zweite Backtest-Strategie.
+Der sichtbare STARTBOT-Prozess bleibt Teil des Sicherheitsvertrags. Die
+Bedienung steht in `TESTBOT_ANLEITUNG.md`.
 
-In der Oberfläche ist **Gesamtportfolio** die maßgebliche 250-USDT-Prüfung.
-Alle sechs Pairs laufen dabei gemeinsam auf einem Konto. „Alle 14 Backtests“
-ergänzt diese echte Portfolio-Sicht um zwölf Einzelpaar-Zellen zur Attribution
-und zeigt, wie viel Kapitalzeit tatsächlich genutzt wurde. Der gesperrte Runner
-prüft dabei die wirklich verwendeten Strategy-, Config- und Candle-Dateien.
+## FreqUI und Charts
 
-Für das spätere Zehn-Paare-Ziel bleibt diese Trennung erhalten: Jedes Paar erhält
-einen eigenen Ein-/Drei-Jahres-Diagnoselauf mit 250 USDT Startwert; maßgeblich
-ist danach jedoch ausschließlich der gemeinsame chronologische Portfoliolauf mit
-einem einzigen 250-USDT-Wallet und höchstens drei 80-USDT-Positionen insgesamt.
+Die aktive `runtime/user_data/config.json` enthält alle zehn Paare in der
+statischen Binance-Whitelist. Damit kennt der laufende Freqtrade-Dry-run alle
+zehn Märkte und kann deren Marktdaten/Charts über den normalen FreqUI-/Binance-
+Datenpfad bereitstellen.
 
-Für lokale historische Backtests kann außerdem verwendet werden:
+Zusätzlich wird in FreqUI die repo-eigene Backtest-Seite eingeblendet. Sie
+enthält alle zehn Coins als Auswahl und startet die gesperrten historischen
+Backtests.
+
+## Historischer Backtest
+
+Die aktive Backtest-Kette verwendet dieselbe Strategy-Datei wie STARTBOT. Es
+existiert keine zweite vereinfachte Backteststrategie.
+
+Für einen Einzeltest:
+
+1. Coin auswählen.
+2. 1, 2 oder 3 Jahre auswählen.
+3. `Gewählten Coin testen` drücken.
+4. Der Runner lädt/ergänzt die benötigten Binance-Daten.
+5. Der Lauf startet mit 250 USDT eigenem virtuellem Wallet.
+6. Strategy-/Config-/Candle-Dateien werden auditiert.
+7. Das Resultat zeigt unter anderem P/L, USDT/Tag, Profit Factor, Drawdown,
+   Trefferquote, Tradezahl, tatsächliche Entry-Blöcke sowie Paar-/Entry-/Exit-
+   Attribution.
+8. Plan, Zeitanteile und Vergleich zum vorherigen materiell anderen Lauf
+   werden im Ergebnis und in der pair-spezifischen Lernakte gespeichert.
+
+Für alle zehn getrennten Coin-Tests:
+
+`Alle 10 einzeln testen`
+
+Dieser Knopf startet zehn unabhängige 250-USDT-Testwallets nacheinander. Die
+Ergebnisse bleiben je Coin getrennt. Der interne `PORTFOLIO`-Pfad für zehn Coins
+mit einem gemeinsamen 250-USDT-Wallet bleibt ausschließlich für Replay/Audit
+erhalten und wird nicht als dritter UI-Knopf angeboten.
+
+Für lokale historische Werkzeuge existiert zusätzlich:
 
 ```bat
 HISTORISCHER_BACKTEST.bat
 ```
 
-## Historischer Full-System-Replay
+## Historischer V8-Full-System-Replay
 
-Der Replay ist kein Ersatz für den klassischen Backtest. Er spielt historische Daten chronologisch ab und führt zustandsabhängige Portfolio-/Risk-/Orderpfade mit.
+Der bestehende V8-Replay bleibt eine eingefrorene historische Drei-Paare-
+Research-Evidenz und wird nicht auf V12.33 umetikettiert.
 
-Zuerst historische Daten laden und prüfen:
+Er handelt weiterhin nur:
+
+- BTC/USDT
+- ETH/USDT
+- SOL/USDT
+
+Sein Runtime-Vertrag darf aber erkennen, dass die **heutige** Dry-run-Whitelist
+inzwischen zehn Paare besitzt. Dadurch bleibt die alte Baseline reproduzierbar,
+ohne den aktuellen Bot künstlich wieder auf sechs oder drei Paare zu begrenzen.
+
+Historische Daten/Replay:
 
 ```bat
 HISTORISCHE_DATEN_LADEN.bat
-```
-
-Danach:
-
-```bat
 HISTORISCHER_LIVE_REPLAY.bat
 ```
 
-Der Replay nutzt ein gemeinsames 250-USDT-Wallet für BTC, ETH und SOL und erzeugt seine Ergebnisse unter:
+Replay-Ergebnisse liegen unter:
 
 ```text
 runtime\user_data\replay_results\
 ```
 
-Für den aktuellen Research-Gate sollen Baseline-Kosten von 0,002 je Orderseite und zusätzlich ein Stresslauf mit 0,004 je Seite bewertet werden.
+## Paper-vs-Replay und Deep Research
 
-Der Replay modelliert inzwischen zusätzlich zu Gebühren, fixer Slippage, Timeouts und Risk-Zustand auch **deterministischen Spread-Stress, eine auf 1-Minuten-Granularität begrenzte Execution-Verzögerung, Partial-Fill-Slices, Cancel-Reject-Stress, Duplicate-Minute-Idempotenz sowie Checkpoint-/Replay-Reconciliation**.
+Der Replay ist kein Ersatz für Freqtrade-Backtests. Er dient der chronologischen
+Prüfung von Zustands-, Risk-, Execution- und Reconciliation-Pfaden.
 
-**Wichtig:** Das macht ihn noch nicht zu einer historischen Tick-/Orderbuch-/Exchange-OMS-Rekonstruktion. Spread ist ein deterministischer Stress-Proxy, Partial Fills sind kein volumenbasiertes Queue-Modell, die Latenzauflösung bleibt 1 Minute und echte Exchange-Reconciliation bzw. asynchrones Fill-Reordering sind weiterhin offen. Der genaue Status steht im Gap-Audit.
-
-## Paper-vs-Replay-Parität
-
-Wenn ein tatsächlich überlappender Paper-Zeitraum vorhanden ist:
+Wenn ein echter überlappender Paper-Zeitraum vorhanden ist:
 
 ```bat
 PAPER_REPLAY_PARITAET.bat
 ```
 
-Unerklärte Signal- oder Risk-Allow/Reject-Abweichungen bei identischem kausalem Input sind ein Release-Blocker für spätere Strategie-Promotion.
+Unerklärte Signal- oder Risk-Allow/Reject-Abweichungen bei identischem kausalem
+Input bleiben Release-Blocker für spätere Promotion.
 
-## Red-Team-/Fault-Abdeckung
+Der verbindliche Research-Plan bleibt:
 
-Deep Research verlangt mehr als einen einzelnen Stale-Data-Test. Bereits maschinell geprüft sind jetzt unter anderem Data-Unhealthy, Kill-Switch, rückwärts laufende Replay-Zeit, fehlausgerichtete Minute-Batches, Fill-Time-Risk-Recheck, Entry-Timeout, Duplicate/Conflicting-Minute-Events, Partial Fills, Cancel Reject und Checkpoint-Restore mit teilgefüllter offener Position.
+`RESEARCH_MASTERPLAN_DE.md`
 
-Offen bzw. nur teilweise modelliert bleiben insbesondere echtes asynchrones Fill-/Order-Event-Reordering, reale Exchange-Positionen bei Boot, Risk-Service-/DB-Ausfall und feinere als 1-Minuten-Latenz. Die Fault-/Execution-Schicht bleibt deshalb als Gesamtpaket **PARTIAL**.
+Der Soll/Ist-Abgleich der Deep-Research-Infrastruktur bleibt:
 
-## Replay-/Research-Auswertung
+`docs/DEEP_RESEARCH_GAP_AUDIT_DE.md`
 
-```bat
-HISTORISCHE_AUSWERTUNG.bat
-```
+## Sicherheitsgrenzen
 
-Die Auswertung dient insbesondere dazu, die `failed_4h_breakout`-Trades, Volume-Ratio, Breakout-Distanz und kausale Regime zu untersuchen, **ohne V8 dadurch automatisch zu verändern**.
+Aktuell zwingend:
 
-## Trial Ledger, Walk-Forward und Multiple Testing
+- Dry-run/Paper only;
+- Binance Spot;
+- USDT;
+- long-only;
+- kein Hebel;
+- kein Futures/Margin;
+- pro Entry höchstens 80 USDT;
+- global höchstens 240 USDT offen;
+- höchstens drei erfolgreiche Entries bei BTC/ETH/LINK/TRX, sonst höchstens
+  ein erster Entry je offenem Trade; LTC bleibt aktuell ohne Entry;
+- Zusatz-Entry nur auf einem neuen Signal;
+- kein blindes DCA/Martingale;
+- Hard-Stop -5,5 %;
+- bestehende Pair-Protections;
+- lokaler Kill-Switch;
+- API nur auf localhost;
+- exakter Strategy-Hash;
+- gesperrte Strategy-/Config-Inputs;
+- keine Exchange-Secrets im Dry-run;
+- Live-Overlay nicht automatisch promovieren.
 
-Alle Kandidaten – auch abgelehnte – bleiben in:
+## Nächste Reihenfolge
+
+1. Die aktuell grünen CI-/Runtime-/Safety-Checks bei jeder Änderung grün halten.
+2. Den exakten V12.33-Kandidaten im Paperbetrieb mit allen zehn Coins laufen
+   lassen; fertig gespeicherte identische Backtests nicht wiederholen.
+3. V12.33 für die noch fehlenden 1-/2-/3-Jahres-Fingerprints je Coin messen und
+   den formalen UI-Dateizugriffsaudit abschließen.
+4. Selektives Gewinn-Pyramiding in echter Dry-run-Telemetrie prüfen.
+5. Die aktiven DOGE-/BCH-Routen und die verworfenen TRX-/LTC-/BNB-Routen sowie
+   die verworfene V12.32-LTC-Kombination nicht auf demselben Fenster
+   nachstimmen. Neue Pair-Hypothesen nur mit dem
+   reparierten kausalen Screen V2 vorregistrieren; alte V1-Screen-Ausgaben nicht
+   wiederverwenden.
+6. Jede neue Pair-Verbesserung anschließend im gemeinsamen
+   250/3×80-Zehn-Paare-Systemtest prüfen.
+7. Fee-/Stress-/Walk-Forward-/PBO-/DSR-/Paritäts-Gates schließen.
+8. Erst danach über Live-Promotion oder spätere Erhöhung von Stake/Slotzahl
+   entscheiden.
+
+`NO_TRADE` bleibt der sichere Standard bei unsicheren Daten, Regimen oder
+Signalen. ORB-Retest und Ichimoku bleiben getrennte spätere Research-Challenger
+und werden nicht ohne eigenes Experiment in V12.33 eingebaut.
+
+## Wichtig für spätere GPT-/Codex-Runden
+
+Nie wieder diese beiden Aussagen verwenden:
+
+- „Alle 10 Backtests bilden ein gemeinsames 2.500-USDT-Portfolio.“ → falsch.
+- „Der Paperbot hat pro Coin 250 USDT.“ → falsch.
+
+Richtig ist:
 
 ```text
-research\trial_ledger.csv
+PAPERBOT:
+10 Coins → 1 gemeinsames 250-USDT-Wallet → maximal 3×80 insgesamt.
+
+EINZEL-BACKTEST:
+1 Coin → eigenes 250-USDT-Testwallet → 1/2/3 Jahre.
+
+ALLE 10 EINZELN TESTEN:
+10 unabhängige Einzeltests → jeweils 250 USDT → gleicher ausgewählter Zeitraum.
+
+INTERNER REPLAY-/AUDIT-SYSTEMTEST (kein UI-Knopf):
+10 Coins gemeinsam → 1 Wallet 250 USDT → maximal 3×80 insgesamt.
 ```
 
-PBO/Deflated-Sharpe-Diagnostik kann über:
+Aktuelle Übergabe:
 
-```bat
-STATISTIK_AUDIT.bat
-```
+`research/V12_19_PERSISTENT_PAIR_LEARNING_DE.md`
 
-laufen, sobald vergleichbare Return-Serien für mehrere Trials vorliegen.
+`research/V12_20_SELECTIVE_PYRAMID_DE.md`
 
-Ein kausaler Walk-Forward-Contract ist inzwischen in `runtime/walk_forward.py` vorhanden: half-open Train/Test-Fenster, Fensterprüfung und Fold-Summary einschließlich Kostenstress- und 1-Bar-Lag-Feldern. Noch fehlt die vollständige Strategie-Runner-/Promotion-Integration; deshalb ist Walk-Forward **PARTIAL**, nicht fertig.
-
-Für neue Strategie-Challenger müssen Development/Validation/Holdout, Walk-Forward, Kostenstress, 1-Bar-Lag, Parameterplateau und PnL-Konzentration vollständig in den Research-Prozess aufgenommen werden. Diese Kennzahlen sind Research-Gates und keine Gewinn- oder Echtgeldfreigabe.
-
-## Offline AI Research Plane
-
-`research\Start-ResearchDesk.ps1` ist nur ein sicherheitsbewusster Prototyp. Autonome Ausführung bleibt absichtlich deaktiviert, bis eine echte Low-Privilege-/VM-/Container-Isolation besteht. Dieser fehlende aktive Loop ist **kein Bug, den man durch Entfernen des Guards beheben darf**.
-
-## Was aktuell ausdrücklich nicht gemacht wird
-
-- kein Futures/Perpetuals
-- kein Margin
-- kein Short
-- kein Hebel
-- kein Martingale/DCA
-- keine automatische Kapitalerhöhung
-- kein LLM mit direkter Exchange-Orderfunktion
-- kein Mischen von Bollinger/Ichimoku/ORB in den eingefrorenen V8
-- kein neues Volume-Tuning nach Sicht auf B1/B2
-- kein Regime-Hybrid, bevor Einzelstrategien getrennt validiert wurden
-- keine Aussage „Execution/Fault-Suite fertig“, solange der Gap-Audit offene Punkte zeigt
-
-## Nächste technische Reihenfolge
-
-1. V8 unverändert lassen.
-2. Verbleibende Replay-/Execution-/Reconciliation-/Fault-Gaps schließen, ohne V8 umzuschreiben.
-3. Danach echter Full-History-, Fee-Stress- und Paper-Parity-Lauf.
-4. V8-Diagnostik.
-5. Walk-Forward-Runner-/Meta-Research-Integration vervollständigen.
-6. Erst danach ORB-Retest, Bollinger MR und Ichimoku als **getrennte** Challenger vorregistrieren.
-7. Erst nach Einzelvalidierung einen Regime-Router/Hybrid testen.
-
-## Tests
-
-Vor relevanten Research-Änderungen:
-
-```bat
-uv sync --frozen --all-extras --python 3.12
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\ruff.exe check .
-```
-
-Marktdaten, Replay-Ergebnisse, Paper-Datenbanken, Logs und Secrets bleiben lokal und dürfen nicht in Git committed werden.
+`research/V12_22_SOL_ADX21_DE.md`

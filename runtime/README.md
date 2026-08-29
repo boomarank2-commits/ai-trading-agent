@@ -2,8 +2,8 @@
 
 Diese Laufzeit ist eine vorsichtige Forschungs- und Integrationsbasis, kein
 Renditeversprechen. Sie ist auf Freqtrade `2026.7` festgesetzt und nutzt nur
-`BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `BNB/USDT` und `DOGE/USDT`
-auf Binance Spot.
+`BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `XRP/USDT`, `BNB/USDT`, `DOGE/USDT`,
+`LINK/USDT`, `TRX/USDT`, `LTC/USDT` und `BCH/USDT` auf Binance Spot.
 
 Der Doppelklick-Ablauf für den ausschließlich simulierten 24/7-Test,
 einschließlich Stoppschalter, persistenter Datenbank und Auswertung, steht in
@@ -13,7 +13,7 @@ einschließlich Stoppschalter, persistenter Datenbank und Auswertung, steht in
 
 - 250 USDT maximales Botkapital
 - maximal drei Positionen à 80 USDT, zusammen höchstens 240 USDT
-- Long-only, Spot, 1x; kein Margin, Futures, Short, DCA oder Martingale
+- Long-only, Spot, 1x; kein Margin, Futures, Short, Verlust-DCA oder Martingale
 - neue Entries werden nach 10 USDT realisiertem Tagesverlust gesperrt
 - Stop-Loss −5,5 %, auf der Börse als Stop-Limit
 - `emergency_exit` und `force_exit` als Market-Order
@@ -34,14 +34,22 @@ Verlustobergrenze: offene Verluste, Gaps und Slippage können den Betrag
 
 ## Aktive Dry-run-Strategie
 
-Der Testbot lädt `CompressionBreakout250` / V12.15. Die Strategie verwendet
+Der Testbot lädt `CompressionBreakout250` / V12.33. Die Strategie verwendet
 pair-spezifische langsame Donchian-/Trendprofile. BTC und ETH besitzen zusätzlich
 ihre separat markierten EMA20-Trend-Reclaims innerhalb eines bestätigten
-1h/4h-Aufwärtstrends. SOL, XRP, BNB und DOGE bleiben beim bereits vorhandenen
-breiten Donchian-Kern. Eine pair-lokale `LowProfitPairs`-Protection pausiert das
+1h/4h-Aufwärtstrends. DOGE verwendet den eigenen 4h-Supertrend(20, 3)-Wechsel
+oberhalb einer steigenden EMA100. BCH verwendet die feste EMA30/EMA80-Route
+oberhalb steigender EMA100 bei ADX 24; die übrigen sechs Broad-Core-Paare behalten
+ihre markierten Donchian-/Trendprofile. SOL verlangt zusätzlich
+`adx_4h >= 21`. Eine pair-lokale `LowProfitPairs`-Protection pausiert das
 betroffene Pair nach zwei unprofitablen Trades für 72 Stunden. Nur ein
 Champion-Trade, der bereits mindestens +30 % erreicht hat, erhält einen
-+5-%-Gewinnboden.
++5-%-Gewinnboden. Nur BTC, ETH, LINK und TRX dürfen bis zu drei
+80-USDT-Entries erhalten; jede Ergänzung muss bei positivem
+Trade-/Entry-Ergebnis und oberhalb aller vorherigen Einstiegspreise liegen. Die
+anderen fünf aktiven Pairs behalten normale erste Entries. LTC bleibt sichtbar
+und wird weiter mit Daten versorgt, eröffnet aber vorerst keinen Trade.
+Verlierer werden nie aufgestockt.
 
 Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 
@@ -52,7 +60,7 @@ Zusätzliche Runtime-Callbacks arbeiten fail-closed:
 - `bot_start()` bricht bei abgeschwächtem Stop-Loss, Ordertypen,
   `unfilledtimeout`, Kapital-, Paar-, Spot-, API- oder PAUSED-Vertrag ab.
 
-V12.15 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
+V12.33 ist ein Research-/Paper-Kandidat und nicht für Echtgeld freigegeben. Die
 eingefrorene V8-Baseline unter `../research/baselines/V8/` bleibt separat für
 Replay und Audit erhalten. Sicherheitsprüfungen ersetzen keine positive
 Erwartung.
@@ -82,18 +90,29 @@ installierte Umgebung als exakt zu `uv.lock` passend bestätigen.
 
 Analyse- und Dry-run-Skripte laden zusätzlich `config-public.json`. Es setzt
 CCXTs internen `apiKey` auf `null`, damit ausschließlich öffentliche
-Binance-Endpunkte genutzt werden. Der Live-Launcher lädt dieses Overlay nie.
+Binance-Endpunkte genutzt werden. Für den Zehn-Paare-Betrieb deaktiviert das
+Overlay außerdem Exchange-OHLCV-WebSockets: Binance beendete den gleichzeitigen
+Abruf von zehn Paaren auf 15m/1h/4h mit Close-Code 1008. Freqtrade verwendet
+dadurch seinen dokumentierten REST-Fallback für dieselben Kerzen. Das betrifft
+weder lokale Backtestdaten noch die Strategieparameter. Der Live-Launcher lädt
+dieses Overlay nie.
 `config-analysis.json` ist nur für Freqtrades Lookahead-Diagnose bestimmt.
 
 Backtest und Lookahead verwenden `--fee 0.002` je Seite als Proxy für Gebühr
 plus Slippage. Reale Kosten können höher sein. Ein sauberer Lookahead-Bericht
 beweist weder Profitabilität noch vollständige Bias-Freiheit.
 
-Der UI-Modus `Gesamtportfolio` simuliert alle sechs Pairs gemeinsam mit genau
-einem 250-USDT-Wallet und den bestehenden Positionsgrenzen. Die Einzelpaar-
-Läufe dienen der Attribution. Ergebnis und Gesamtauswertung weisen zusätzlich
+Der UI-Knopf `Alle 10 einzeln testen` führt zehn unabhängige 250-USDT-Läufe
+nacheinander aus; deren Startkapital darf nicht addiert und als gemeinsames
+Portfolio interpretiert werden. Ein gemeinsamer Zehn-Paare-Lauf mit einem
+250-USDT-Wallet bleibt als interner Replay-/Audit-Pfad erhalten und wird nicht
+als normaler UI-Knopf angeboten. Ergebnis und Gesamtauswertung weisen zusätzlich
 Kapitalzeit-Nutzung, Zeit ohne Position sowie durchschnittlich und maximal
-gleichzeitig offene Positionen aus.
+gleichzeitig offene Positionen, Entry-Blöcke und maximal gebundenes Kapital aus.
+Der Einzelbatch wird serverseitig unter `backtest_results/ui/_BATCHES/`
+fortlaufend gesichert. Pair-spezifische Vorher-/Nachher-Akten liegen unter
+`backtest_results/ui/_PAIR_HISTORIEN/`; beide Verzeichnisse bleiben lokale,
+Git-ignorierte Runtime-Evidenz.
 
 Alle automatisch erzeugten Runtime-Dateien liegen unter `user_data/`: Daten in
 `data/`, UI-Backtests in `backtest_results/`, Sitzungsberichte in
@@ -108,9 +127,8 @@ kein Bot-Ergebnis.
 abgebrochene Versuche getrennt und erneuert `GESAMTAUSWERTUNG.md` sowie
 `gesamt-auswertung.json`. Rohresultate werden dabei niemals gelöscht;
 überlappende Testfenster werden nicht als eine gemeinsame Kapitalkurve
-ausgegeben. Portfolio-Läufe werden getrennt von der historischen
-historischen Sechs-Zellen- beziehungsweise aktuellen Zwölf-Zellen-
-Einzelpaar-Matrix ausgewertet. Jeder neue Lauf muss zusätzlich seinen
+ausgegeben. Portfolio-Läufe werden getrennt von historischen und aktuellen
+Einzelpaar-Diagnosen ausgewertet. Jeder neue Lauf muss zusätzlich seinen
 Dateizugriffsaudit bestehen.
 
 ## Dry-run
@@ -127,7 +145,7 @@ Dateizugriffsaudit bestehen.
 `FREQTRADE__...`-Overrides werden abgelehnt. Der frühere direkte Schalter
 `start-dryrun.ps1 -EnableEntries` ist gesperrt, damit der exklusive
 Doppelstart-Lock nicht umgangen werden kann. Der aktuelle Doppelklick-Test des
-V12.15-Kandidaten ist keine Freigabe für Echtgeld.
+V12.33-Kandidaten ist keine Freigabe für Echtgeld.
 
 ## Kill-Switch
 

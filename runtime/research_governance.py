@@ -21,6 +21,22 @@ V12_13_SHA256 = "043916a93ef9aafac3622425496ca2cd75f01c639bb3dc345a79887e882813d
 V12_14_SHA256 = "0141348dda98810508f23e6c1b63ed19fb9f5e384841b35a4d49f84d870a77f2"
 V12_15_SHA256 = "3c5aaf823e16c1a2901c4861fcf6dbc21da4dd0f1314385d78be1f2de86c4a97"
 V12_16_SHA256 = "9ad6f3e96d0f440a8a9cf4029cb6f64b7f6b73aba6ab524310f192797c1b6acf"
+V12_17_SHA256 = "772084097ef718603dfe7eae06b9318efee9ee8bf9f90dc22fdd76f525ab0f0b"
+V12_18_SHA256 = "ce0dc4938a365c593a4e06589f910b4c3b2a86020f6903b92bc1dbcca7f11fb4"
+V12_19_SHA256 = "6f0a006a7c459a165105ddf245222d99b27961acfd5ccde47b46181534f256ce"
+V12_20_SHA256 = "8eb1ad98e3cf13ea05c9c7f6dfb7c4b50b425741d3e225116e3b29f80391a3fb"
+V12_21_SHA256 = "53642d7cddd1b55d66462c83d87d4093f428a9f797aee95c5f389f34541c8b1d"
+V12_22_SHA256 = "f7aac4afe8204aa7ce28a4a2bbf1d3c579ff4f084effa8bbff1c78ad8e9d2caf"
+V12_23_SHA256 = "248fdac232c65d3c13b9946059a3932f5ed568d5656cbed0fed729f0d6ec10a0"
+V12_24_SHA256 = "b7a479b70b5dd0b82531ec5f24dcffd8493fdfbb77af1ce902e3d9a8fe08bb0d"
+V12_25_SHA256 = "5b4ac18b86d38a86114a67955bd5b452c52526211513a880f8de2f86bce92c5d"
+V12_26_SHA256 = "ba7752f8b03600cb244bab6b291e7200d56f6d6e14620ede6f6edd6443b10634"
+V12_27_SHA256 = "a47396306f6b15c1cbc4f6e1c7339d8e494092e101fb858f2258c7c67bbd5544"
+V12_28_SHA256 = "50b940c5d690fd06cdb7224ec4a3cbb8d05784c8c03bd21fa434cf16130c5aea"
+V12_29_SHA256 = "c02334560907c7cc61b3265daf345c13e8eb5da78a5101684ec8f3e97d1fb8cf"
+V12_30_SHA256 = "978c4626ba213de9bf8b93acceaf209074ab41b9d31a5a62da893e3018925630"
+V12_31_SHA256 = "e13a324560a4941350edd30b53e69ed6286eeb77f2b31673a859c3144e8965d5"
+V12_33_SHA256 = "58d59413ef41b798c75c41bab0f98e377316ad3b289b6ba874876e841cdfb263"
 MASTERPLAN = "RESEARCH_MASTERPLAN_DE.md"
 GAP_AUDIT = "docs/DEEP_RESEARCH_GAP_AUDIT_DE.md"
 SUPERSEDED_BRIEF = "CODEX_NEXT_PHASE_LIVE_REPLAY_DE.md"
@@ -227,6 +243,186 @@ def validate_trial_ledger(path: Path) -> list[str]:
     )
     if v12_16 is None or v12_16.get("strategy_hash", "").strip() != V12_16_SHA256:
         errors.append("V12.16 strategy is not exactly registered in trial ledger")
+
+    v12_17 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.17-TEN-PAIR-THREE-CHUNK-PAPER"
+        ),
+        None,
+    )
+    if v12_17 is None or v12_17.get("strategy_hash", "").strip() != V12_17_SHA256:
+        errors.append("V12.17 strategy is not exactly registered in trial ledger")
+
+    v12_18 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id")
+            == "V12.18-TEN-PAIR-PROFIT-PYRAMID-REPAIR"
+        ),
+        None,
+    )
+    if v12_18 is None or v12_18.get("strategy_hash", "").strip() != V12_18_SHA256:
+        errors.append("V12.18 strategy is not exactly registered in trial ledger")
+
+    v12_19 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id")
+            == "V12.19-PERSISTENT-PAIR-LEARNING-FAST-BACKTEST"
+        ),
+        None,
+    )
+    if v12_19 is None or v12_19.get("strategy_hash", "").strip() != V12_19_SHA256:
+        errors.append("V12.19 strategy is not exactly registered in trial ledger")
+
+    v12_20 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id")
+            == "V12.20-SELECTIVE-PYRAMID-ELIGIBILITY"
+        ),
+        None,
+    )
+    if v12_20 is None or v12_20.get("strategy_hash", "").strip() != V12_20_SHA256:
+        errors.append("V12.20 strategy is not exactly registered in trial ledger")
+
+    v12_21 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id")
+            == "V12.21-PAIR-LOCAL-LTC-BCH-VOLUME100"
+        ),
+        None,
+    )
+    if v12_21 is None or v12_21.get("strategy_hash", "").strip() != V12_21_SHA256:
+        errors.append("V12.21 strategy is not exactly registered in trial ledger")
+
+    v12_22 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.22-SOL-ADX21"
+        ),
+        None,
+    )
+    if v12_22 is None or v12_22.get("strategy_hash", "").strip() != V12_22_SHA256:
+        errors.append("V12.22 strategy is not exactly registered in trial ledger")
+
+    v12_23 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.23-LTC-EMA30-80-MACRO200"
+        ),
+        None,
+    )
+    if v12_23 is None or v12_23.get("strategy_hash", "").strip() != V12_23_SHA256:
+        errors.append("V12.23 strategy is not exactly registered in trial ledger")
+
+    v12_24 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.24-LTC-EMPTY-PORTFOLIO-ENTRY"
+        ),
+        None,
+    )
+    if v12_24 is None or v12_24.get("strategy_hash", "").strip() != V12_24_SHA256:
+        errors.append("V12.24 strategy is not exactly registered in trial ledger")
+
+    v12_25 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.25-BCH-EMA30-80-MACRO100"
+        ),
+        None,
+    )
+    if v12_25 is None or v12_25.get("strategy_hash", "").strip() != V12_25_SHA256:
+        errors.append("V12.25 strategy is not exactly registered in trial ledger")
+
+    v12_26 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.26-BCH-EMA30-80-MACRO100-FIX"
+        ),
+        None,
+    )
+    if v12_26 is None or v12_26.get("strategy_hash", "").strip() != V12_26_SHA256:
+        errors.append("V12.26 strategy is not exactly registered in trial ledger")
+
+    v12_27 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.27-TRX-DONCHIAN40-MACRO200"
+        ),
+        None,
+    )
+    if v12_27 is None or v12_27.get("strategy_hash", "").strip() != V12_27_SHA256:
+        errors.append("V12.27 strategy is not exactly registered in trial ledger")
+
+    v12_28 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.28-TRX40-SINGLE-BLOCK"
+        ),
+        None,
+    )
+    if v12_28 is None or v12_28.get("strategy_hash", "").strip() != V12_28_SHA256:
+        errors.append("V12.28 strategy is not exactly registered in trial ledger")
+
+    v12_29 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.29-BNB-DONCHIAN80-MACRO200"
+        ),
+        None,
+    )
+    if v12_29 is None or v12_29.get("strategy_hash", "").strip() != V12_29_SHA256:
+        errors.append("V12.29 strategy is not exactly registered in trial ledger")
+
+    v12_30 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.30-DOGE-SUPERTREND20X3-MACRO100"
+        ),
+        None,
+    )
+    if v12_30 is None or v12_30.get("strategy_hash", "").strip() != V12_30_SHA256:
+        errors.append("V12.30 strategy is not exactly registered in trial ledger")
+
+    v12_31 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.31-DOGE-BCH-FIXED-ROUTE-COMBINATION"
+        ),
+        None,
+    )
+    if v12_31 is None or v12_31.get("strategy_hash", "").strip() != V12_31_SHA256:
+        errors.append("V12.31 strategy is not exactly registered in trial ledger")
+
+    v12_33 = next(
+        (
+            row
+            for row in rows
+            if row.get("experiment_id") == "V12.33-LTC-NO-TRADE-COUNTERFACTUAL"
+        ),
+        None,
+    )
+    if v12_33 is None or v12_33.get("strategy_hash", "").strip() != V12_33_SHA256:
+        errors.append("V12.33 strategy is not exactly registered in trial ledger")
 
     for row in rows:
         experiment_id = row.get("experiment_id", "").strip()

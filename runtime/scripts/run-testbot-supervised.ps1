@@ -203,11 +203,16 @@ $localApplicationData = [Environment]::GetFolderPath([Environment+SpecialFolder]
 if ([string]::IsNullOrWhiteSpace($localApplicationData)) {
     throw "Der lokale Windows-Anwendungsdatenordner konnte nicht ermittelt werden."
 }
-$browserProfile = Join-Path $localApplicationData "DaviddTech\AiTradingAgent\browser-profile"
+# V2 deliberately starts with a clean, dedicated FreqUI browser state.  The
+# original profile can retain a stale service worker/local UI state even after
+# the repository-owned login hook has been replaced.  Keep this path stable so
+# normal paper sessions retain only the intended Testbot connection.
+$browserProfile = Join-Path $localApplicationData "DaviddTech\AiTradingAgent\browser-profile-v2"
 [System.IO.Directory]::CreateDirectory($browserProfile) | Out-Null
 $browserProcessName = [System.IO.Path]::GetFileName($browserExe)
 
 Write-Host "UI-Lebenszeitschutz: $browserProcessName wird als eigene Testbot-App ueberwacht." -ForegroundColor Green
+Write-Host "UI-Profil: frisches, dauerhaft isoliertes Testbot-Profil v2." -ForegroundColor Green
 Write-Host "Wird das Testbot-UI-Fenster geschlossen, wird auch der Bot beendet." -ForegroundColor Green
 Write-Host ""
 

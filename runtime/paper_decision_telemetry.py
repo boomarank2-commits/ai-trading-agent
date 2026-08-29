@@ -283,7 +283,7 @@ class PaperDecisionRecorder:
 
             # Backward-compatible V8 diagnostic only. Current pair-local
             # candidates have no btc_* columns, so this cannot create a
-            # cross-pair dependency in the active V12.15 path.
+            # cross-pair dependency in the active pair-local V12.33 path.
             btc_values = [
                 features.get("btc_close_4h"),
                 features.get("btc_ema_fast_4h"),

@@ -16,14 +16,14 @@ def _lf_sha(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def test_v8_reference_is_preserved_while_v12_15_is_active() -> None:
+def test_v8_reference_is_preserved_while_v12_22_is_active() -> None:
     assert _lf_sha(V8_BASELINE) == EXPECTED_V8_LF_SHA
     assert STRATEGY.is_file()
 
 
-def test_v12_15_is_pair_local_without_btc_regime_dependency() -> None:
+def test_v12_22_is_pair_local_without_btc_regime_dependency() -> None:
     text = STRATEGY.read_text(encoding="utf-8")
-    assert 'STRATEGY_VERSION = "V12.15"' in text
+    assert 'STRATEGY_VERSION = "V12.33"' in text
     assert "populate_indicators_btc_4h" not in text
     assert "btc_market_up" not in text
     assert "btc_close_4h" not in text

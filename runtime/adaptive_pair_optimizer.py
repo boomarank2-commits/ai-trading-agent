@@ -2,8 +2,10 @@
 
 Research-only. Downloads public Binance 15m spot klines, trains on 730 days,
 freezes a situation router, then evaluates on the following 365 blind days.
-BTC/USDT, ETH/USDT and SOL/USDT are optimized independently.
+All ten configured spot pairs are screened independently. Tolerated public-
+archive gaps are reported and guarded so they cannot create entry signals.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,11 +27,35 @@ STRESS_FEE = 0.003
 STAKE = 80.0
 TRAIN_DAYS = 730
 BLIND_DAYS = 365
-PAIRS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+PAIRS = (
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "BNBUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "TRXUSDT",
+    "LTCUSDT",
+    "BCHUSDT",
+)
 BASE_URL = "https://data.binance.vision/data/spot/monthly/klines"
+MAX_ARCHIVE_GAP = pd.Timedelta(hours=6)
+MAX_MISSING_CANDLES = 128
+GAP_ENTRY_GUARD_CANDLES = 7 * 24 * 4
 COLS = [
-    "open_time", "open", "high", "low", "close", "volume", "close_time",
-    "quote_volume", "trades", "taker_base", "taker_quote", "ignore",
+    "open_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "close_time",
+    "quote_volume",
+    "trades",
+    "taker_base",
+    "taker_quote",
+    "ignore",
 ]
 
 
@@ -98,11 +124,34 @@ def download_pair(symbol: str, start: pd.Timestamp, end: pd.Timestamp, cache: Pa
     gaps = df["date"].diff().dropna()
     if (gaps <= pd.Timedelta(0)).any():
         raise RuntimeError(f"{symbol}: non-monotone candle sequence")
-    bad = int((gaps > expected).sum())
-    if bad > 5:
-        raise RuntimeError(f"{symbol}: too many historical candle gaps={bad}")
-    if bad:
-        print(f"{symbol}: research warning - tolerated historical gaps={bad}", flush=True)
+    gap_mask = df["date"].diff() > expected
+    gap_sizes = gaps[gaps > expected]
+    missing_candles = int(sum(max(round(gap / expected) - 1, 0) for gap in gap_sizes))
+    max_gap = gap_sizes.max() if not gap_sizes.empty else expected
+    if max_gap > MAX_ARCHIVE_GAP or missing_candles > MAX_MISSING_CANDLES:
+        raise RuntimeError(
+            f"{symbol}: historical gaps exceed research limits "
+            f"(events={len(gap_sizes)}, missing_candles={missing_candles}, max_gap={max_gap})"
+        )
+    valid = np.ones(len(df), dtype=bool)
+    for gap_position in np.flatnonzero(gap_mask.to_numpy()):
+        valid[gap_position : gap_position + GAP_ENTRY_GUARD_CANDLES] = False
+    df["research_data_valid"] = valid
+    data_quality = {
+        "gap_events": len(gap_sizes),
+        "missing_candles": missing_candles,
+        "max_gap": str(max_gap),
+        "entry_guard_candles_after_gap": GAP_ENTRY_GUARD_CANDLES,
+        "guarded_candles": int((~valid).sum()),
+    }
+    df.attrs["data_quality"] = data_quality
+    if len(gap_sizes):
+        print(
+            f"{symbol}: research warning - tolerated archive gaps="
+            f"{len(gap_sizes)}, missing_candles={missing_candles}, max_gap={max_gap}; "
+            f"guarded={data_quality['guarded_candles']} candles",
+            flush=True,
+        )
     return df
 
 
@@ -143,17 +192,38 @@ def adx(frame: pd.DataFrame, n: int = 14) -> pd.Series:
 
 
 def add_tf_features(base: pd.DataFrame, rule: str, suffix: str) -> pd.DataFrame:
-    x = base.set_index("date").resample(rule, label="right", closed="right").agg(
-        open=("open", "first"), high=("high", "max"), low=("low", "min"),
-        close=("close", "last"), volume=("volume", "sum"),
-    ).dropna().reset_index()
+    # Binance timestamps identify candle opens. A 4h candle that opens at
+    # 00:00 is only available to a 15m strategy at 04:00, after the 03:45
+    # child candle has closed. Left-closed/right-labelled buckets reproduce
+    # that availability and avoid leaking the new 04:00 candle backwards.
+    x = (
+        base.set_index("date")
+        .resample(rule, label="right", closed="left")
+        .agg(
+            open=("open", "first"),
+            high=("high", "max"),
+            low=("low", "min"),
+            close=("close", "last"),
+            volume=("volume", "sum"),
+        )
+        .dropna()
+        .reset_index()
+    )
     x[f"ema20_{suffix}"] = ema(x["close"], 20)
     x[f"ema50_{suffix}"] = ema(x["close"], 50)
     x[f"ema200_{suffix}"] = ema(x["close"], 200)
     x[f"rsi_{suffix}"] = rsi(x["close"])
     x[f"mom6_{suffix}"] = x["close"].pct_change(6)
     x[f"close_{suffix}"] = x["close"]
-    keep = ["date", f"close_{suffix}", f"ema20_{suffix}", f"ema50_{suffix}", f"ema200_{suffix}", f"rsi_{suffix}", f"mom6_{suffix}"]
+    keep = [
+        "date",
+        f"close_{suffix}",
+        f"ema20_{suffix}",
+        f"ema50_{suffix}",
+        f"ema200_{suffix}",
+        f"rsi_{suffix}",
+        f"mom6_{suffix}",
+    ]
     if suffix == "4h":
         x["adx_4h"] = adx(x)
         x["donchian120_4h"] = x["high"].shift(1).rolling(120, min_periods=120).max()
@@ -199,22 +269,34 @@ def features(df: pd.DataFrame, train_end: pd.Timestamp) -> tuple[pd.DataFrame, d
     x["chikou_clear"] = x["close"] > x["high"].shift(26)
     for tf, suffix in (("1h", "1h"), ("4h", "4h")):
         y = add_tf_features(df, tf, suffix)
-        x = pd.merge_asof(x.sort_values("date"), y.sort_values("date"), on="date", direction="backward")
+        x = pd.merge_asof(
+            x.sort_values("date"), y.sort_values("date"), on="date", direction="backward"
+        )
     train = x[x["date"] < train_end]
     q = {
         "atr_lo": float(train["atr_pct"].quantile(0.33)),
         "atr_hi": float(train["atr_pct"].quantile(0.67)),
         "vol_hi": float(train["vol_ratio"].quantile(0.67)),
-        "trend_hi": float(((train["ema20_4h"] - train["ema50_4h"]).abs() / train["close"]).quantile(0.67)),
+        "trend_hi": float(
+            ((train["ema20_4h"] - train["ema50_4h"]).abs() / train["close"]).quantile(0.67)
+        ),
     }
     return x, q
 
 
 def situation_keys(x: pd.DataFrame, q: dict) -> pd.Series:
     trend_spread = (x["ema20_4h"] - x["ema50_4h"]) / x["close"]
-    trend = np.select([trend_spread > q["trend_hi"], trend_spread < -q["trend_hi"]], ["up", "down"], default="flat")
-    vol = np.select([x["atr_pct"] < q["atr_lo"], x["atr_pct"] > q["atr_hi"]], ["lowv", "highv"], default="midv")
-    mom = np.select([x["ret24h"] > 0.025, x["ret24h"] < -0.025], ["momup", "momdn"], default="momflat")
+    trend = np.select(
+        [trend_spread > q["trend_hi"], trend_spread < -q["trend_hi"]],
+        ["up", "down"],
+        default="flat",
+    )
+    vol = np.select(
+        [x["atr_pct"] < q["atr_lo"], x["atr_pct"] > q["atr_hi"]], ["lowv", "highv"], default="midv"
+    )
+    mom = np.select(
+        [x["ret24h"] > 0.025, x["ret24h"] < -0.025], ["momup", "momdn"], default="momflat"
+    )
     liq = np.where(x["vol_ratio"] >= q["vol_hi"], "volhi", "volnorm")
     return pd.Series(trend + "|" + vol + "|" + mom + "|" + liq, index=x.index)
 
@@ -222,8 +304,14 @@ def situation_keys(x: pd.DataFrame, q: dict) -> pd.Series:
 def variants() -> list[Variant]:
     out = []
     for adx_min, vol in itertools.product((16, 20, 24), (0.0, 0.8, 1.0)):
-        out.append(Variant("donchian_trend", f"donchian_a{adx_min}_v{vol}", adx_min, vol, 0.055, 0.50, 5760))
-    for n, vol, stop, tp in itertools.product((40, 80, 120), (0.8, 1.0, 1.2), (0.025, 0.04), (0.05, 0.08, 0.12)):
+        out.append(
+            Variant(
+                "donchian_trend", f"donchian_a{adx_min}_v{vol}", adx_min, vol, 0.055, 0.50, 5760
+            )
+        )
+    for n, vol, stop, tp in itertools.product(
+        (40, 80, 120), (0.8, 1.0, 1.2), (0.025, 0.04), (0.05, 0.08, 0.12)
+    ):
         out.append(Variant("slow_breakout", f"bo_n{n}_v{vol}_s{stop}_t{tp}", n, vol, stop, tp, 384))
     for vol, stop, tp in itertools.product((0.7, 0.9, 1.1), (0.02, 0.03), (0.035, 0.055, 0.08)):
         out.append(Variant("trend_pullback", f"pb_v{vol}_s{stop}_t{tp}", vol, 0, stop, tp, 192))
@@ -231,8 +319,14 @@ def variants() -> list[Variant]:
         out.append(Variant("bollinger_mr", f"mr_d{dev}_r{rmax}_s{stop}", dev, rmax, stop, 0.0, 64))
     for vol, stop, tp in itertools.product((0.7, 0.9, 1.1), (0.025, 0.035), (0.05, 0.08)):
         out.append(Variant("ichimoku", f"ichi_v{vol}_s{stop}_t{tp}", vol, 0, stop, tp, 256))
-    for drop, rmax, stop, tp in itertools.product((-0.04, -0.06, -0.08), (35, 40), (0.018, 0.025), (0.03, 0.05)):
-        out.append(Variant("panic_bounce", f"panic_d{drop}_r{rmax}_s{stop}_t{tp}", drop, rmax, stop, tp, 96))
+    for drop, rmax, stop, tp in itertools.product(
+        (-0.04, -0.06, -0.08), (35, 40), (0.018, 0.025), (0.03, 0.05)
+    ):
+        out.append(
+            Variant(
+                "panic_bounce", f"panic_d{drop}_r{rmax}_s{stop}_t{tp}", drop, rmax, stop, tp, 96
+            )
+        )
     return out
 
 
@@ -260,29 +354,47 @@ def signal(x: pd.DataFrame, v: Variant) -> pd.Series:
         return trend & (x["close"] > hh) & (x["vol_ratio"] >= v.p2) & x["rsi"].between(48, 78)
     if v.family == "trend_pullback":
         return (
-            trend & (x["low"] <= x["ema20"] + 0.35 * x["atr"]) & (x["close"] > x["ema20"])
-            & (x["close"] > x["open"]) & (x["rsi"] > x["rsi"].shift(1))
-            & (x["vol_ratio"] >= v.p1) & x["rsi"].between(45, 70)
+            trend
+            & (x["low"] <= x["ema20"] + 0.35 * x["atr"])
+            & (x["close"] > x["ema20"])
+            & (x["close"] > x["open"])
+            & (x["rsi"] > x["rsi"].shift(1))
+            & (x["vol_ratio"] >= v.p1)
+            & x["rsi"].between(45, 70)
         )
     if v.family == "bollinger_mr":
         col = {1.8: "bb_lower_18", 2.0: "bb_lower_20", 2.2: "bb_lower_22"}[v.p1]
         lower = x[col]
-        rangeish = ((x["ema20_4h"] - x["ema50_4h"]).abs() / x["close"] < 0.018) & (x["bb_width"] < 0.055)
+        rangeish = ((x["ema20_4h"] - x["ema50_4h"]).abs() / x["close"] < 0.018) & (
+            x["bb_width"] < 0.055
+        )
         return (
-            rangeish & (x["low"] <= lower) & (x["close"] > lower)
-            & (x["close"] > x["open"]) & (x["rsi"] <= v.p2) & (x["rsi"] > x["rsi"].shift(1))
+            rangeish
+            & (x["low"] <= lower)
+            & (x["close"] > lower)
+            & (x["close"] > x["open"])
+            & (x["rsi"] <= v.p2)
+            & (x["rsi"] > x["rsi"].shift(1))
         )
     if v.family == "ichimoku":
         cross = (x["tenkan"] > x["kijun"]) & (x["tenkan"].shift(1) <= x["kijun"].shift(1))
         return (
-            trend & cross & (x["close"] > x["cloud_top"]) & x["future_bull"] & x["chikou_clear"]
-            & (x["vol_ratio"] >= v.p1) & x["rsi"].between(47, 73)
+            trend
+            & cross
+            & (x["close"] > x["cloud_top"])
+            & x["future_bull"]
+            & x["chikou_clear"]
+            & (x["vol_ratio"] >= v.p1)
+            & x["rsi"].between(47, 73)
         )
     if v.family == "panic_bounce":
         return (
-            (x["ret24h"] <= v.p1) & (x["low"] <= x["bb_lower_20"])
-            & (x["close"] > x["bb_lower_20"]) & (x["close"] > x["open"])
-            & (x["rsi"] <= v.p2) & (x["rsi"] > x["rsi"].shift(1))
+            (x["ret24h"] <= v.p1)
+            & (x["low"] <= x["bb_lower_20"])
+            & (x["close"] > x["bb_lower_20"])
+            & (x["close"] > x["open"])
+            & (x["rsi"] <= v.p2)
+            & (x["rsi"] > x["rsi"].shift(1))
         )
     raise ValueError(v.family)
 
@@ -291,8 +403,17 @@ def net_return(entry: float, exit_: float, fee: float) -> float:
     return (exit_ / entry) * ((1 - fee) / (1 + fee)) - 1
 
 
-def simulate_variant(x: pd.DataFrame, v: Variant, mask: pd.Series, start_i: int, end_i: int, situations: pd.Series, fee: float = FEE) -> list[Trade]:
-    sig = mask.to_numpy(dtype=bool)
+def simulate_variant(
+    x: pd.DataFrame,
+    v: Variant,
+    mask: pd.Series,
+    start_i: int,
+    end_i: int,
+    situations: pd.Series,
+    fee: float = FEE,
+) -> list[Trade]:
+    valid = x.get("research_data_valid", pd.Series(True, index=x.index)).fillna(False)
+    sig = (mask.fillna(False) & valid).to_numpy(dtype=bool)
     high = x["high"].to_numpy()
     low = x["low"].to_numpy()
     close = x["close"].to_numpy()
@@ -332,7 +453,19 @@ def simulate_variant(x: pd.DataFrame, v: Variant, mask: pd.Series, start_i: int,
                 exit_i, exit_price = j, target_price
                 break
         nr = net_return(entry, exit_price, fee)
-        out.append(Trade(v.name, v.family, str(situations.iloc[i]), entry_i, exit_i, entry, exit_price, nr, STAKE * nr))
+        out.append(
+            Trade(
+                v.name,
+                v.family,
+                str(situations.iloc[i]),
+                entry_i,
+                exit_i,
+                entry,
+                exit_price,
+                nr,
+                STAKE * nr,
+            )
+        )
         i = exit_i + 1
     return out
 
@@ -361,7 +494,9 @@ def metrics(trades: list[Trade], fee_override: float | None = None) -> dict:
     }
 
 
-def train_router(x: pd.DataFrame, train_start_i: int, train_end_i: int, situations: pd.Series) -> tuple[dict, dict]:
+def train_router(
+    x: pd.DataFrame, train_start_i: int, train_end_i: int, situations: pd.Series
+) -> tuple[dict, dict]:
     candidates = variants()
     router: dict[str, dict] = {}
     diagnostics = {"tested_variants": len(candidates), "eligible_specialists": 0, "families": {}}
@@ -374,7 +509,12 @@ def train_router(x: pd.DataFrame, train_start_i: int, train_end_i: int, situatio
             continue
         global_m = metrics(tr)
         global_stress = metrics(tr, STRESS_FEE)
-        if global_m["trades"] < 10 or global_m["pnl"] <= 0 or global_m["pf"] < 1.10 or global_stress["pnl"] <= 0:
+        if (
+            global_m["trades"] < 10
+            or global_m["pnl"] <= 0
+            or global_m["pf"] < 1.10
+            or global_stress["pnl"] <= 0
+        ):
             continue
         by_sit: dict[str, list[Trade]] = {}
         for t in tr:
@@ -386,12 +526,24 @@ def train_router(x: pd.DataFrame, train_start_i: int, train_end_i: int, situatio
             if m["trades"] < min_trades or m["pnl"] <= 0 or m["pf"] < 1.20 or stress["pnl"] <= 0:
                 continue
             cuts = np.linspace(train_start_i, train_end_i, 5, dtype=int)
-            slice_pnls = [sum(t.pnl for t in ts if a <= t.open_i < b) for a, b in zip(cuts[:-1], cuts[1:])]
+            slice_pnls = [
+                sum(t.pnl for t in ts if a <= t.open_i < b)
+                for a, b in itertools.pairwise(cuts)
+            ]
             if sum(p > 0 for p in slice_pnls) < 2:
                 continue
             expectancy = m["pnl"] / m["trades"]
             score = expectancy * math.sqrt(m["trades"]) + 0.05 * m["pnl"]
-            spec = {"variant": v.name, "family": v.family, "situation": sit, "score": score, "train": m, "stress_pnl": stress["pnl"], "slice_pnls": slice_pnls, "params": asdict(v)}
+            spec = {
+                "variant": v.name,
+                "family": v.family,
+                "situation": sit,
+                "score": score,
+                "train": m,
+                "stress_pnl": stress["pnl"],
+                "slice_pnls": slice_pnls,
+                "params": asdict(v),
+            }
             prev = router.get(sit)
             if prev is None or spec["score"] > prev["score"]:
                 router[sit] = spec
@@ -399,9 +551,15 @@ def train_router(x: pd.DataFrame, train_start_i: int, train_end_i: int, situatio
     return router, diagnostics
 
 
-def blind_router(x: pd.DataFrame, router: dict, blind_start_i: int, blind_end_i: int, situations: pd.Series) -> list[Trade]:
+def blind_router(
+    x: pd.DataFrame, router: dict, blind_start_i: int, blind_end_i: int, situations: pd.Series
+) -> list[Trade]:
     by_name = {v.name: v for v in variants()}
-    masks = {name: signal(x, by_name[name]).to_numpy(dtype=bool) for name in {r["variant"] for r in router.values()}}
+    valid = x.get("research_data_valid", pd.Series(True, index=x.index)).fillna(False)
+    masks = {
+        name: (signal(x, by_name[name]).fillna(False) & valid).to_numpy(dtype=bool)
+        for name in {r["variant"] for r in router.values()}
+    }
     high = x["high"].to_numpy()
     low = x["low"].to_numpy()
     close = x["close"].to_numpy()
@@ -519,12 +677,40 @@ def main() -> int:
             result = run_pair_window(symbol, df, fold_start)
             folds.append(result)
             b = result["blind"]
-            print(f"{symbol} fold{idx + 1}: specialists={result['router_specialists']} trades={b['trades']} pnl={b['pnl']:.2f} PF={b['pf']:.3f} DD={b['dd']:.2f} families={result['blind_family_pnl']}", flush=True)
+            print(
+                f"{symbol} fold{idx + 1}: "
+                f"specialists={result['router_specialists']} "
+                f"trades={b['trades']} pnl={b['pnl']:.2f} "
+                f"PF={b['pf']:.3f} DD={b['dd']:.2f} "
+                f"families={result['blind_family_pnl']}",
+                flush=True,
+            )
         agg = aggregate_folds(folds)
-        results[symbol] = {"folds": folds, "aggregate": agg}
+        results[symbol] = {
+            "data_quality": df.attrs.get("data_quality", {}),
+            "folds": folds,
+            "aggregate": agg,
+        }
         b = agg["blind"]
-        print(f"{symbol} AGG: positive_folds={agg['positive_folds']}/{agg['fold_count']} trades={b['trades']} pnl={b['pnl']:.2f} PF={b['pf']:.3f} DD={b['dd']:.2f} families={agg['family_pnl']}", flush=True)
-    payload = {"version": "V12_RESEARCH_SEARCH_2", "generated_at": datetime.now(UTC).isoformat(), "fee_per_side": FEE, "stress_fee_per_side": STRESS_FEE, "stake_usdt": STAKE, "train_days": TRAIN_DAYS, "blind_days": BLIND_DAYS, "fold_starts": [str(s) for s in starts], "results": results}
+        print(
+            f"{symbol} AGG: "
+            f"positive_folds={agg['positive_folds']}/{agg['fold_count']} "
+            f"trades={b['trades']} pnl={b['pnl']:.2f} "
+            f"PF={b['pf']:.3f} DD={b['dd']:.2f} "
+            f"families={agg['family_pnl']}",
+            flush=True,
+        )
+    payload = {
+        "version": "V12_RESEARCH_SEARCH_3",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "fee_per_side": FEE,
+        "stress_fee_per_side": STRESS_FEE,
+        "stake_usdt": STAKE,
+        "train_days": TRAIN_DAYS,
+        "blind_days": BLIND_DAYS,
+        "fold_starts": [str(s) for s in starts],
+        "results": results,
+    }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return 0
