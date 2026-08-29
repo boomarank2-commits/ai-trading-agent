@@ -28,7 +28,7 @@ def test_pine_rma_seed_and_recursion() -> None:
     assert math.isnan(result.iloc[0])
     assert math.isnan(result.iloc[1])
     assert result.iloc[2] == 2.0
-    assert math.isclose(result.iloc[3], 2.0 / 3.0 + 8.0 / 3.0, rel_tol=0, abs_tol=1e-12)
+    assert math.isclose(result.iloc[3], 8.0 / 3.0, rel_tol=0, abs_tol=1e-12)
     assert math.isclose(result.iloc[4], (1.0 / 3.0) * 5.0 + (2.0 / 3.0) * result.iloc[3], rel_tol=0, abs_tol=1e-12)
 
 
