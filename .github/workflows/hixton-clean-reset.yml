@@ -15,6 +15,7 @@ on:
       - "research/hixton_trial_ledger.csv"
       - "research/hixton_executed_test_fingerprints.csv"
       - "tests/runtime/test_hixton_clean_reset.py"
+      - "tests/runtime/test_hixton_runtime_smoke.py"
       - ".github/workflows/hixton-clean-reset.yml"
 
 permissions:
@@ -22,15 +23,16 @@ permissions:
 
 jobs:
   contract:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync exact locked environment
+        run: uv sync --frozen --all-extras --python 3.12
       - name: Verify isolated Hixton reset contract
-        run: python tests/runtime/test_hixton_clean_reset.py
+        run: .\.venv\Scripts\python.exe tests\runtime\test_hixton_clean_reset.py
+      - name: Verify Hixton runtime math and Freqtrade loading
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime\test_hixton_runtime_smoke.py
+      - name: Ruff Hixton branch files
+        run: .\.venv\Scripts\ruff.exe check runtime\user_data\strategies\CompressionBreakout250.py runtime\ten_pair_backtest_api.py runtime\validate_dryrun_config.py tests\runtime\test_hixton_clean_reset.py tests\runtime\test_hixton_runtime_smoke.py
