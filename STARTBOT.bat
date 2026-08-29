@@ -16,7 +16,7 @@ echo Exit-Signal: geschlossene 15m-Kerze kreuzt unter das untere Band.
 echo Es gibt in HIXTON-V1 keine alten V12.33 Coin-Sonderrouten und kein Pyramiding.
 echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
 echo Der Backtest-Bereich kann alle zehn Coins einzeln mit je 250-USDT-Testwallet pruefen
-necho und danach automatisch den gemeinsamen chronologischen 3x80-Portfolio-Lauf rechnen.
+echo und danach automatisch den gemeinsamen chronologischen 3x80-Portfolio-Lauf rechnen.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
