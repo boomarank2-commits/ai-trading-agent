@@ -2,21 +2,23 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-title HIXTON-V3A Testbot - 250 USDT DRY-RUN
+title HIXTON-V4 Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   HIXTON-V3A CORRECTED GUARD: ausschliesslich Forschung und Testgeld
+echo   HIXTON-V4 PAIR PROFIT FLOOR: ausschliesslich Forschung und Testgeld
 echo   250 virtuelle USDT ^| 10 Coins ^| maximal 3 x 80 USDT ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo Dieser Branch verwendet fuer alle zehn Coins dieselbe Hixton-V3A-Logik.
+echo Dieser Branch testet die Hixton-V4-Feinjustierung fuer alle zehn Coins.
 echo Der gekaufte Motor bleibt unveraendert: VIDYA 10/20 + SMA 15, ATR 200 x 2.
-echo Long-Signal: originales Hixton-Flip-Up auf geschlossener 15m-Kerze,
-echo aber nur wenn der letzte abgeschlossene 1h-Close ueber der 1h-Hixton-VIDYA liegt
-echo und diese VIDYA gegenueber der vorherigen echten 1h-Kerze nicht faellt.
-echo Exit: wieder ausschliesslich das originale rote Hixton-Flip-Down am unteren Band.
-echo Der V2-Midline-Exit wurde entfernt, damit grosse Trends weiterlaufen koennen.
-echo Es gibt keine alten V12.33 Coin-Sonderrouten und kein Pyramiding.
+echo Long-Signal: originales Hixton-Flip-Up auf geschlossener 15m-Kerze.
+echo BTC, SOL, XRP, BNB, DOGE, LINK, TRX, LTC und BCH verlangen weiterhin
+echo 1h-Close ueber einer nicht fallenden echten 1h-Hixton-VIDYA.
+echo ETH verlangt nach der V3A-Tradeanalyse nur 1h-Close ueber der 1h-VIDYA.
+echo Exit bleibt das originale rote Hixton-Flip-Down am unteren Band.
+echo Neu: je Coin eigener konservativer Gewinn-Schwellenwert. Wird er erreicht,
+echo darf der Stop nur bis Break-even nachgezogen werden; kein enger Trailing-Exit.
+echo Es gibt kein Pyramiding und keine alten V12.33-Routen.
 echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
 echo Der Backtest-Bereich kann alle zehn Coins einzeln mit je 250-USDT-Testwallet pruefen
 echo und danach automatisch den gemeinsamen chronologischen 3x80-Portfolio-Lauf rechnen.
@@ -70,7 +72,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : HIXTON-V3A Corrected Guard
+echo Bot Name : HIXTON-V4 Pair Profit Floor
 echo Benutzer : testbot
 echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
