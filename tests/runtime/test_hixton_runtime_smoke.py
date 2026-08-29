@@ -29,7 +29,12 @@ def test_pine_rma_seed_and_recursion() -> None:
     assert math.isnan(result.iloc[1])
     assert result.iloc[2] == 2.0
     assert math.isclose(result.iloc[3], 8.0 / 3.0, rel_tol=0, abs_tol=1e-12)
-    assert math.isclose(result.iloc[4], (1.0 / 3.0) * 5.0 + (2.0 / 3.0) * result.iloc[3], rel_tol=0, abs_tol=1e-12)
+    assert math.isclose(
+        result.iloc[4],
+        (1.0 / 3.0) * 5.0 + (2.0 / 3.0) * result.iloc[3],
+        rel_tol=0,
+        abs_tol=1e-12,
+    )
 
 
 def test_pine_sma_uses_latest_non_na_values() -> None:
@@ -87,6 +92,10 @@ def test_hixton_indicator_runs_causally_on_synthetic_ohlcv() -> None:
 def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
     module = _load_strategy_module()
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    # Freqtrade's normal Config resolver injects this runtime field before the
+    # strategy is instantiated.  The smoke test loads the raw JSON directly,
+    # so mirror that resolved Spot value explicitly here.
+    config["candle_type_def"] = "spot"
     strategy = module.CompressionBreakout250(config=config)
     assert strategy.timeframe == "15m"
     assert strategy.can_short is False
