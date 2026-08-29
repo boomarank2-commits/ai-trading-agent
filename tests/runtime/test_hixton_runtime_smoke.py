@@ -145,33 +145,42 @@ def test_eth_uses_bullish_guard_without_slope_while_other_pairs_keep_slope() -> 
     assert "enter_long" not in btc.columns or int(btc["enter_long"].fillna(0).iloc[0]) == 0
 
 
-def test_v4_pair_profit_floor_thresholds_and_custom_stoploss() -> None:
+def test_v4_pair_profit_floor_thresholds_and_fee_covering_stop() -> None:
     module = _load_strategy_module()
     strategy = _strategy(module)
     assert strategy.PROFIT_FLOOR_TRIGGER == EXPECTED_TRIGGERS
-    assert strategy.PROFIT_FLOOR == 0.0
     assert strategy.use_custom_stoploss is True
 
-    trade = SimpleNamespace(is_short=False, leverage=1.0)
+    trade = SimpleNamespace(
+        is_short=False,
+        leverage=1.0,
+        open_rate=100.0,
+        fee_open=0.002,
+        fee_close=0.002,
+    )
     below = strategy.custom_stoploss(
         "BTC/USDT",
         trade,
         pd.Timestamp("2026-08-29T12:00:00Z").to_pydatetime(),
-        100.0,
+        101.0,
         0.0049,
         False,
     )
+    current_rate = 102.0
     active = strategy.custom_stoploss(
         "BTC/USDT",
         trade,
         pd.Timestamp("2026-08-29T12:00:00Z").to_pydatetime(),
-        100.0,
+        current_rate,
         0.0200,
         False,
     )
     assert below is None
     assert active is not None
     assert 0.0 < active < 1.0
+    stop_rate = current_rate * (1.0 - active)
+    expected_fee_break_even = 100.0 * 1.002 / 0.998
+    assert math.isclose(stop_rate, expected_fee_break_even, rel_tol=0, abs_tol=1e-10)
 
 
 def test_freqtrade_strategy_instantiates_with_clean_config() -> None:
