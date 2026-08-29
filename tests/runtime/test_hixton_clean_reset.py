@@ -24,7 +24,7 @@ EXPECTED_PAIRS = [
 ]
 
 
-class HixtonV2Contract(unittest.TestCase):
+class HixtonV3AContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.strategy_text = STRATEGY.read_text(encoding="utf-8")
@@ -35,7 +35,7 @@ class HixtonV2Contract(unittest.TestCase):
 
     def test_strategy_keeps_original_hixton_motor(self) -> None:
         required = (
-            'STRATEGY_VERSION = "HIXTON-V2"',
+            'STRATEGY_VERSION = "HIXTON-V3A"',
             "length=10, momentum_length=20",
             "_pine_sma_ignore_na(raw_vidya, length=15)",
             "_pine_atr(dataframe, length=200)",
@@ -55,37 +55,41 @@ class HixtonV2Contract(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, self.strategy_text)
 
-    def test_v2_fix_is_shared_by_all_ten_pairs(self) -> None:
+    def test_v3a_uses_native_hourly_guard_and_original_exit_for_all_pairs(self) -> None:
         required = (
             '@informative("1h")',
-            "return _hixton_state(dataframe)",
+            'dataframe["hixton_vidya_rising"] = (',
+            'dataframe["hixton_vidya"] >= dataframe["hixton_vidya"].shift(1)',
             'dataframe["close_1h"] > dataframe["hixton_vidya_1h"]',
-            'dataframe["hixton_vidya_1h"].shift(1)',
-            '"hixton_midline_cross_down"',
+            'dataframe["hixton_vidya_rising_1h"].fillna(False)',
             '"hixton_flip_up_1h_guard"',
-            '"hixton_midline_guard"',
+            '"hixton_flip_down"',
         )
         for marker in required:
             self.assertIn(marker, self.strategy_text)
+        self.assertNotIn('dataframe["hixton_vidya_1h"].shift(1)', self.strategy_text)
+        self.assertNotIn("hixton_midline_cross_down", self.strategy_text)
+        self.assertNotIn("hixton_midline_guard", self.strategy_text)
         for pair in EXPECTED_PAIRS:
             self.assertNotIn(f'if metadata["pair"] == "{pair}"', self.strategy_text)
 
-    def test_current_strategy_hash_has_exact_v2_trial_entry(self) -> None:
+    def test_current_strategy_hash_has_exact_v3a_trial_entry(self) -> None:
         digest = hashlib.sha256(STRATEGY.read_bytes()).hexdigest()
         with TRIAL.open("r", encoding="utf-8", newline="") as stream:
             rows = list(csv.DictReader(stream))
         matching = [row for row in rows if row["strategy_hash"] == digest]
         self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]["experiment_id"], "HIXTON-V2-GUARDED-EXIT")
-        self.assertEqual(matching[0]["strategy_version"], "HIXTON-V2")
+        self.assertEqual(matching[0]["experiment_id"], "HIXTON-V3A-CORRECTED-GUARD")
+        self.assertEqual(matching[0]["strategy_version"], "HIXTON-V3A")
         self.assertEqual(
             matching[0]["parameter_hash"],
-            "hixton_original_1h_vidya_guard_midline_exit",
+            "hixton_original_native_1h_vidya_guard_original_exit",
         )
 
     def test_execution_contract_is_250_wallet_with_three_80_slots(self) -> None:
         cfg = self.config
         self.assertEqual(cfg["strategy"], "CompressionBreakout250")
+        self.assertEqual(cfg["bot_name"], "hixton-v3a-ten-pair-250-dryrun")
         self.assertEqual(cfg["stake_currency"], "USDT")
         self.assertEqual(cfg["stake_amount"], 80)
         self.assertEqual(cfg["available_capital"], 250)
@@ -112,7 +116,9 @@ class HixtonV2Contract(unittest.TestCase):
         self.assertIn("_run_shared_portfolio()", self.adapter_text)
         self.assertIn("base.PORTFOLIO_TARGET", self.adapter_text)
         self.assertIn("portfolio_result", self.adapter_text)
+        self.assertIn('base.STRATEGY_VERSION = "HIXTON-V3A"', self.adapter_text)
         self.assertIn("Alle 10 + 3×80 Portfolio testen", self.ui_text)
+        self.assertIn("Hixton V3A Corrected Guard", self.ui_text)
         self.assertIn("TARGET_PER_DAY = 2.40", self.ui_text)
         self.assertIn("Die zehn Einzelgewinne werden ausdrücklich nicht", self.ui_text)
 
