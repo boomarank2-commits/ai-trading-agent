@@ -33,6 +33,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Sync exact locked environment
         run: uv sync --frozen --all-extras --python 3.12
+      - name: Show strategy SHA256
+        shell: powershell
+        run: Write-Output ((Get-FileHash "runtime/user_data/strategies/CompressionBreakout250.py" -Algorithm SHA256).Hash.ToLower())
       - name: Verify isolated Hixton reset contract
         run: .\.venv\Scripts\python.exe tests\runtime\test_hixton_clean_reset.py
       - name: Verify Hixton runtime math and Freqtrade loading
