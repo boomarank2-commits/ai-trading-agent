@@ -73,8 +73,8 @@
         @media(max-width:520px){.hx-wrap{padding:20px 13px 45px}.hx-grid{grid-template-columns:1fr}}
       </style>
       <div class="hx-wrap">
-        <h1 class="hx-title">Hixton V5 Pair Routes · 10 Coins + 3×80 Portfolio</h1>
-        <p class="hx-sub">Isolierter HIXTON-V5-Test nach der vollständigen V3A/V4-Tradeanalyse. Der V4-Gewinnstop ist vollständig entfernt. Sechs Coins bleiben als V3A-Kontrollen unverändert; nur BTC, BNB, LTC und BCH bekommen gezielte höhere Zeitrahmen.</p>
+        <h1 class="hx-title">Hixton V5B Deep Research Routes · 10 Coins + 3×80 Portfolio</h1>
+        <p class="hx-sub">Separater HIXTON-V5B-Fingerprint nach Deep Research. Der gerade laufende V5-Backtest bleibt davon vollständig getrennt. Kein V4-Gewinnstop, kein Midline-Exit, kein Trailing und kein Pyramiding.</p>
         <div class="hx-panel">
           <div class="hx-row">
             <div class="hx-field"><label for="hx-pair">Einzeltest</label><select id="hx-pair">${pairOptions()}</select></div>
@@ -85,14 +85,14 @@
             </div>
           </div>
           <div class="hx-info">
-            <strong>Hixton-Motor:</strong> Auf jedem verwendeten Zeitrahmen unverändert VIDYA 10/20 → SMA 15 und ATR 200 × 2. Kein Gewinnstop, kein enger Trail, kein Pyramiding und kein ROI-Ziel.<br><br>
-            <strong>V3A-Kontrollen:</strong> ETH, SOL, XRP, DOGE, LINK und TRX verwenden wieder exakt die V3A-Route: geschlossenes 15m-Flip-Up, letzter abgeschlossener 1h-Close über einer nicht fallenden echten 1h-VIDYA, Exit erst beim originalen 15m-Hixton-Flip-Down.<br><br>
-            <strong>BTC + BNB:</strong> gleiche V3A-Route, aber zusätzlich muss der abgeschlossene 4h-Close über einer nicht fallenden 4h-Hixton-VIDYA liegen. Damit wird gezielt geprüft, ob weniger schwache 15m-Einstiege die Gebührenlast senken.<br><br>
-            <strong>LTC + BCH:</strong> deren V3A-15m-Roh-P/L war bereits vor Gebühren negativ. Deshalb nutzen sie native abgeschlossene 1h-Hixton-Flip-Up/Flip-Down-Ereignisse und benötigen zusätzlich ein bullisches, nicht fallendes 4h-Hixton-Regime.<br><br>
+            <strong>Hixton-Motor:</strong> Auf jedem verwendeten Zeitrahmen unverändert VIDYA 10/20 → SMA 15 und ATR 200 × 2. Der originale gegenüberliegende Hixton-Flip bleibt der Exit.<br><br>
+            <strong>Route A · ETH/XRP/DOGE/TRX:</strong> geschlossenes 15m-Flip-Up + letzter abgeschlossener 1h-Close über der 1h-VIDYA + echte native 1h-VIDYA nicht fallend. Kein 4h-Filter. Exit auf originalem 15m-Flip-Down.<br><br>
+            <strong>Route B · BTC/SOL/LINK/BNB:</strong> gleiche strenge 15m+1h-Route, zusätzlich muss der tatsächliche bestätigte 4h-Hixton-Trendzustand <code>trendUp</code> bullisch sein. Kein Ersatzfilter aus 4h-Close&gt;VIDYA plus steigender VIDYA.<br><br>
+            <strong>Route C · LTC/BCH:</strong> nativer abgeschlossener 1h-Hixton-Flip-Up als Einstieg, bestätigt durch den tatsächlichen bullischen 4h-Hixton-<code>trendUp</code>-State. Exit auf dem nativen abgeschlossenen 1h-Flip-Down. Forward-Fill darf ein 1h-Ereignis nur einmal auslösen.<br><br>
             <strong>Einzeltests:</strong> Jeder Coin wird unabhängig mit eigenem 250-USDT-Testwallet und 80-USDT-Position gemessen. Die zehn Einzelgewinne werden ausdrücklich nicht zu einem Portfolioergebnis addiert.<br><br>
             <strong>Datenprüfung:</strong> Vor einem echten neuen Lauf werden Binance-Daten für 1m, 15m, 1h und 4h bis zum aktuellen Stand geladen. Für den Backtest werden ${75} zusätzliche Warm-up-Tage vor dem Testfenster angefordert. Lücken, Duplikate, zu später Start und veraltetes Ende werden geprüft; ein fehlerhafter Coin-Datensatz wird vollständig neu aufgebaut.<br><br>
             <strong>Gesamttest:</strong> Der große Knopf rechnet zuerst alle zehn Einzeltests. Nur wenn alle gültig sind, folgt automatisch der echte chronologische Portfolio-Backtest: ein gemeinsames 250-USDT-Wallet, maximal drei gleichzeitige Positionen à 80 USDT, also maximal 240 USDT im Markt.<br><br>
-            <strong>Forschungsregel:</strong> V5 ist ein neuer Fingerprint. Die sechs Kontroll-Coins dienen gleichzeitig als Sicherheitscheck: sie sollen ohne unbeabsichtigte Nebenwirkung wieder das V3A-Verhalten zeigen; die vier neuen Routen werden separat bewertet.
+            <strong>Forschungsregel:</strong> V5B ist ein eigener preregistrierter Fingerprint. ETH/XRP/DOGE/TRX sind die V3A-Kontrollen; BTC/SOL/LINK/BNB testen nur den zusätzlichen echten 4h-Trend-State; LTC/BCH testen ausschließlich den strukturellen Wechsel auf native 1h-Signale plus 4h-Regime.
           </div>
         </div>
         <div id="hx-status" class="hx-panel hx-status">
