@@ -73,8 +73,8 @@
         @media(max-width:520px){.hx-wrap{padding:20px 13px 45px}.hx-grid{grid-template-columns:1fr}}
       </style>
       <div class="hx-wrap">
-        <h1 class="hx-title">Hixton V2 Guarded · 10 Coins + 3×80 Portfolio</h1>
-        <p class="hx-sub">Isolierter HIXTON-V2-Test. Gleicher Guarded-Entry und früherer Exit für alle zehn Coins; keine V12.33-Logik, keine Coin-Sonderregeln und kein Pyramiding.</p>
+        <h1 class="hx-title">Hixton V3A Corrected Guard · 10 Coins + 3×80 Portfolio</h1>
+        <p class="hx-sub">Isolierter HIXTON-V3A-Test. Der 1h-Guard wird korrekt auf echten 1h-Kerzen berechnet; der V2-Midline-Exit ist entfernt und der originale Hixton-Exit wiederhergestellt. Keine V12.33-Logik, keine Coin-Sonderregeln und kein Pyramiding.</p>
         <div class="hx-panel">
           <div class="hx-row">
             <div class="hx-field"><label for="hx-pair">Einzeltest</label><select id="hx-pair">${pairOptions()}</select></div>
@@ -85,7 +85,7 @@
             </div>
           </div>
           <div class="hx-info">
-            <strong>Hixton V2:</strong> Der originale Motor bleibt VIDYA 10/20 → SMA 15, ATR 200 × 2. Einstieg bleibt das geschlossene 15m-Hixton-Flip-Up, wird aber nur genommen, wenn der abgeschlossene 1h-Kontext über einer nicht fallenden Hixton-VIDYA liegt. Exit erfolgt früher beim Rückfall unter die 15m-VIDYA; das originale rote Flip-Down am unteren Band bleibt als Fallback.<br><br>
+            <strong>Hixton V3A:</strong> Der originale Motor bleibt VIDYA 10/20 → SMA 15, ATR 200 × 2. Einstieg bleibt das geschlossene 15m-Hixton-Flip-Up und wird nur genommen, wenn der letzte abgeschlossene 1h-Close über der 1h-Hixton-VIDYA liegt und diese VIDYA gegenüber der vorherigen echten 1h-Kerze nicht fällt. Exit ist wieder ausschließlich das originale rote Hixton-Flip-Down am unteren ATR-Band. Der V2-Midline-Exit ist entfernt.<br><br>
             <strong>Einzeltests:</strong> Jeder Coin wird unabhängig mit eigenem 250-USDT-Testwallet und 80-USDT-Position gemessen. Die zehn Einzelgewinne werden ausdrücklich nicht zu einem Portfolioergebnis addiert.<br><br>
             <strong>Datenprüfung:</strong> Vor einem echten neuen Lauf werden Binance-Daten für 1m, 15m, 1h und 4h bis zum aktuellen Stand geladen. Für den Backtest werden ${75} zusätzliche Warm-up-Tage vor dem Testfenster angefordert. Lücken, Duplikate, zu später Start und veraltetes Ende werden geprüft; ein fehlerhafter Coin-Datensatz wird vollständig neu aufgebaut.<br><br>
             <strong>Gesamttest:</strong> Der große Knopf rechnet zuerst alle zehn Einzeltests. Nur wenn alle gültig sind, folgt automatisch der echte chronologische Portfolio-Backtest: ein gemeinsames 250-USDT-Wallet, maximal drei gleichzeitige Positionen à 80 USDT, also maximal 240 USDT im Markt.<br><br>
