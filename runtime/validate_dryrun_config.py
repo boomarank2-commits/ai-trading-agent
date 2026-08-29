@@ -55,7 +55,7 @@ def validate_strategy_directory(strategy_directory: Path) -> dict[str, Any]:
 
 
 def validate(config: Mapping[str, Any]) -> dict[str, Any]:
-    """Fail unless the effective STARTBOT configuration matches HIXTON-V1."""
+    """Fail unless the effective STARTBOT configuration matches HIXTON-V3A."""
     exact_values = {
         "dry_run": True,
         "initial_state": "running",
@@ -152,7 +152,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "mode": "dry_run_running",
-        "strategy_family": "HIXTON-V1",
+        "strategy_family": "HIXTON-V3A",
         "capital_usdt": 250,
         "stake_per_trade_usdt": 80,
         "maximum_exposure_usdt": 240,
