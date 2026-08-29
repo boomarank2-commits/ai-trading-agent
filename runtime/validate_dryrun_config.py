@@ -31,7 +31,7 @@ def _exact(label: str, actual: Any, expected: Any) -> None:
 
 
 def validate_strategy_directory(strategy_directory: Path) -> dict[str, Any]:
-    """Ensure Freqtrade can only resolve the intended top-level strategy class."""
+    """Ensure Freqtrade resolves only the authoritative branch strategy source."""
     strategy_directory = strategy_directory.resolve(strict=True)
     expected_source = strategy_directory / "CompressionBreakout250.py"
     if not expected_source.is_file():
@@ -55,7 +55,7 @@ def validate_strategy_directory(strategy_directory: Path) -> dict[str, Any]:
 
 
 def validate(config: Mapping[str, Any]) -> dict[str, Any]:
-    """Fail unless the effective STARTBOT configuration matches its displayed contract."""
+    """Fail unless the effective STARTBOT configuration matches HIXTON-V1."""
     exact_values = {
         "dry_run": True,
         "initial_state": "running",
@@ -66,25 +66,27 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "available_capital": 250,
         "dry_run_wallet": 250,
         "max_open_trades": 3,
-        "position_adjustment_enable": True,
-        "max_entry_position_adjustment": 2,
+        "position_adjustment_enable": False,
+        "max_entry_position_adjustment": 0,
         "force_entry_enable": False,
         "cancel_open_orders_on_exit": True,
         "strategy": "CompressionBreakout250",
         "timeframe": "15m",
-        "stoploss": -0.055,
+        "stoploss": -0.99,
         "db_url": "sqlite:///user_data/tradesv8.dryrun.sqlite",
     }
     for key, expected in exact_values.items():
         _exact(key, config.get(key), expected)
-    _exact("minimal_roi", config.get("minimal_roi"), {"0": 0.50})
+    _exact("minimal_roi", config.get("minimal_roi"), {})
     _exact("trailing_stop", config.get("trailing_stop"), False)
+    _exact("use_exit_signal", config.get("use_exit_signal"), True)
+    _exact("exit_profit_only", config.get("exit_profit_only"), False)
     if not math.isclose(
         float(config["stake_amount"]) * int(config["max_open_trades"]),
         240.0,
         abs_tol=1e-12,
     ):
-        raise ValueError("maximum configured three-chunk exposure must be exactly 240 USDT")
+        raise ValueError("maximum configured exposure must be exactly 240 USDT")
 
     exchange = config.get("exchange")
     if not isinstance(exchange, Mapping):
@@ -103,9 +105,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         _exact(f"exchange.{section}.apiKey", section_value.get("apiKey"), None)
         for secret_name in ("secret", "password", "uid"):
             if section_value.get(secret_name):
-                raise ValueError(
-                    f"exchange.{section}.{secret_name} must not be configured in dry-run"
-                )
+                raise ValueError(f"exchange.{section}.{secret_name} must not be configured in dry-run")
         options = section_value.get("options")
         if not isinstance(options, Mapping):
             raise ValueError(f"exchange.{section}.options must be an object")
@@ -123,11 +123,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
     _exact("api_server.CORS_origins", api_server.get("CORS_origins"), [])
 
     _exact("telegram.enabled", config.get("telegram", {}).get("enabled"), False)
-    _exact(
-        "external_message_consumer.enabled",
-        config.get("external_message_consumer", {}).get("enabled", False),
-        False,
-    )
+    _exact("external_message_consumer.enabled", config.get("external_message_consumer", {}).get("enabled", False), False)
     _exact("webhook.enabled", config.get("webhook", {}).get("enabled", False), False)
     for key in ("strategy_path", "recursive_strategy_search", "add_config_files"):
         _exact(key, config.get(key), None)
@@ -146,11 +142,7 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
         "stoploss_on_exchange_limit_ratio": 0.99,
     }.items():
         _exact(f"order_types.{key}", order_types.get(key), expected)
-    _exact(
-        "order_time_in_force",
-        config.get("order_time_in_force"),
-        {"entry": "GTC", "exit": "GTC"},
-    )
+    _exact("order_time_in_force", config.get("order_time_in_force"), {"entry": "GTC", "exit": "GTC"})
     _exact(
         "unfilledtimeout",
         config.get("unfilledtimeout"),
@@ -160,17 +152,17 @@ def validate(config: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "mode": "dry_run_running",
+        "strategy_family": "HIXTON-V1",
         "capital_usdt": 250,
         "stake_per_trade_usdt": 80,
         "maximum_exposure_usdt": 240,
         "max_open_positions": 3,
-        "max_entries_per_pair": 3,
+        "max_entries_per_pair": 1,
         "pairs": EXPECTED_PAIRS,
     }
 
 
 def _load_stdin() -> Mapping[str, Any]:
-    # Windows PowerShell 5 prefixes text piped to native processes with a BOM.
     value = json.loads(sys.stdin.buffer.read().decode("utf-8-sig"))
     if not isinstance(value, Mapping):
         raise ValueError("effective configuration must be a JSON object")
