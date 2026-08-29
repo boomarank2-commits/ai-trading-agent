@@ -1,9 +1,10 @@
-"""Hixton V5 pair-route adapter for the locked Testbot backtest API.
+"""Hixton V5B Deep Research adapter for the locked Testbot backtest API.
 
-This branch is intentionally isolated from V12.33 strategy research. A new
-clone starts without local market data/results, downloads and validates the
-required Binance candles, runs ten independent 250-USDT diagnostics, and then
-runs the real chronological shared-wallet portfolio with at most 3 x 80 USDT.
+This branch is intentionally isolated from both V12.33 research and the
+separately running HIXTON-V5 control. A new clone starts without local market
+data/results, downloads and validates the required Binance candles, runs ten
+independent 250-USDT diagnostics, and then runs the real chronological
+shared-wallet portfolio with at most 3 x 80 USDT.
 """
 
 from __future__ import annotations
@@ -39,12 +40,12 @@ TEN_PAIR_UNIVERSE = (
     "LTC/USDT",
     "BCH/USDT",
 )
-ACTIVE_EXPERIMENT_ID = "HIXTON-V5-PAIR-ROUTES"
+ACTIVE_EXPERIMENT_ID = "HIXTON-V5B-DEEP-RESEARCH-ROUTES"
 
 # Re-point the generic locked engine to the isolated Hixton research records.
 base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE
 base.ALLOWED_TARGETS = (*TEN_PAIR_UNIVERSE, base.PORTFOLIO_TARGET)
-base.STRATEGY_VERSION = "HIXTON-V5"
+base.STRATEGY_VERSION = "HIXTON-V5B"
 base._TRIAL_LEDGER = base._REPO_ROOT / "research" / "hixton_trial_ledger.csv"
 base._EXECUTED_TEST_LEDGER = base._REPO_ROOT / "research" / "hixton_executed_test_fingerprints.csv"
 base._RESULTS_ROOT = base._USERDIR / "backtest_results" / "hixton"
@@ -252,7 +253,7 @@ def _new_batch(
         "batch_id": batch_id,
         "batch_fingerprint": fingerprint,
         "status": "running",
-        "stage": "Hixton V5 wird vorbereitet",
+        "stage": "Hixton V5B Deep Research wird vorbereitet",
         "progress": 0,
         "years": years,
         "started_at_utc": _utc_now(),
@@ -296,7 +297,7 @@ def _run_individual_cases() -> None:
         _set_batch_state(
             cases=state["cases"],
             current_pair=pair,
-            stage=f"Hixton: {pair} Einzeltest ({index + 1}/{total})",
+            stage=f"Hixton V5B: {pair} Einzeltest ({index + 1}/{total})",
             progress=round(85 * index / max(1, total), 2),
         )
         try:
@@ -347,7 +348,7 @@ def _run_shared_portfolio() -> None:
     expected_fingerprint = str(state["plan"]["portfolio"]["test_fingerprint"])
     _set_batch_state(
         current_pair=base.PORTFOLIO_TARGET,
-        stage="Alle 10 Einzeltests fertig - gemeinsames 3x80-Portfolio wird gerechnet",
+        stage="Alle 10 V5B-Einzeltests fertig - gemeinsames 3x80-Portfolio wird gerechnet",
         progress=90,
         portfolio_status="running",
         portfolio_error=None,
@@ -368,7 +369,7 @@ def _run_shared_portfolio() -> None:
     except Exception as exc:
         _set_batch_state(
             status="completed_with_errors",
-            stage="Zehn Einzeltests fertig, aber der gemeinsame 3x80-Lauf ist fehlgeschlagen",
+            stage="Zehn V5B-Einzeltests fertig, aber der gemeinsame 3x80-Lauf ist fehlgeschlagen",
             progress=100,
             current_pair=None,
             portfolio_status="failed",
@@ -379,7 +380,7 @@ def _run_shared_portfolio() -> None:
 
     _set_batch_state(
         status="completed",
-        stage="Hixton-Gesamttest fertig: 10 Einzeltests + gemeinsames 3x80-Portfolio",
+        stage="Hixton V5B fertig: 10 Einzeltests + gemeinsames 3x80-Portfolio",
         progress=100,
         current_pair=None,
         finished_at_utc=_utc_now(),
@@ -395,7 +396,7 @@ def _run_batch() -> None:
         with suppress(Exception):
             _set_batch_state(
                 status="failed",
-                stage="Hixton-Gesamttest ist technisch fehlgeschlagen",
+                stage="Hixton V5B-Gesamttest ist technisch fehlgeschlagen",
                 progress=100,
                 current_pair=None,
                 batch_error=str(exc),
@@ -429,7 +430,7 @@ def start_batch(request: BatchRequest) -> dict[str, Any]:
                 return json.loads(json.dumps(current))
             _batch_state = current
             _batch_state["status"] = "running"
-            _batch_state["stage"] = "Unvollständiger Hixton-Gesamttest wird fortgesetzt"
+            _batch_state["stage"] = "Unvollständiger Hixton V5B-Gesamttest wird fortgesetzt"
             _batch_state["batch_error"] = None
             _batch_state["updated_at_utc"] = _utc_now()
             _persist_batch(_batch_state)
@@ -437,7 +438,7 @@ def start_batch(request: BatchRequest) -> dict[str, Any]:
             _batch_state = _new_batch(request.years, fingerprint, cases, portfolio_fingerprint)
             _persist_batch(_batch_state)
         response = json.loads(json.dumps(_batch_state))
-    threading.Thread(target=_run_batch, name="hixton-ten-plus-portfolio", daemon=True).start()
+    threading.Thread(target=_run_batch, name="hixton-v5b-ten-plus-portfolio", daemon=True).start()
     return response
 
 
@@ -550,7 +551,7 @@ def start_backtest(request: Any) -> dict[str, Any]:
                 now = _utc_now()
                 base._set_state(
                     status="completed",
-                    stage="Vorhandenes identisches Hixton-Ergebnis geladen - kein Doppeltest",
+                    stage="Vorhandenes identisches Hixton-V5B-Ergebnis geladen - kein Doppeltest",
                     progress=100,
                     run_id=existing.get("run_id"),
                     pair=request.pair,
