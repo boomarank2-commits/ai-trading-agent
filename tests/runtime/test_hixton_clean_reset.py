@@ -69,7 +69,7 @@ class HixtonV4Contract(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, self.strategy_text)
 
-    def test_v4_uses_eth_guard_exception_and_original_exit(self) -> None:
+    def test_v4_uses_eth_guard_exception_and_fee_covering_original_exit(self) -> None:
         required = (
             '@informative("1h")',
             'dataframe["hixton_vidya_rising"] = (',
@@ -80,12 +80,13 @@ class HixtonV4Contract(unittest.TestCase):
             'guard = one_hour_bullish',
             'guard = one_hour_bullish & one_hour_rising',
             '"hixton_flip_down"',
-            "PROFIT_FLOOR = 0.0",
-            "stoploss_from_open(",
+            "fee_break_even_rate = float(trade.open_rate)",
+            "stoploss_from_absolute(",
         )
         for marker in required:
             self.assertIn(marker, self.strategy_text)
         self.assertNotIn('dataframe["hixton_vidya_1h"].shift(1)', self.strategy_text)
+        self.assertNotIn("stoploss_from_open", self.strategy_text)
 
     def test_v4_has_exact_preregistered_pair_triggers(self) -> None:
         for pair, trigger in EXPECTED_TRIGGERS.items():
@@ -97,12 +98,12 @@ class HixtonV4Contract(unittest.TestCase):
         with TRIAL.open("r", encoding="utf-8", newline="") as stream:
             rows = list(csv.DictReader(stream))
         matching = [row for row in rows if row["strategy_hash"] == digest]
-        self.assertEqual(len(matching), 1)
+        self.assertEqual(len(matching), 1, f"unregistered strategy sha256: {digest}")
         self.assertEqual(matching[0]["experiment_id"], "HIXTON-V4-PAIR-PROFIT-FLOOR")
         self.assertEqual(matching[0]["strategy_version"], "HIXTON-V4")
         self.assertEqual(
             matching[0]["parameter_hash"],
-            "pair_peak_profit_floor_eth_slope_exception",
+            "pair_peak_profit_fee_floor_eth_slope_exception",
         )
         self.assertEqual(matching[0]["status"], "PREREGISTERED_PENDING_BACKTEST")
 
