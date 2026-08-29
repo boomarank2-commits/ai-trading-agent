@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.freqtrade.io/schema.json",
-  "bot_name": "v12-33-ten-pair-250-dryrun",
+  "bot_name": "hixton-v1-ten-pair-250-dryrun",
   "strategy": "CompressionBreakout250",
   "timeframe": "15m",
   "max_open_trades": 3,
@@ -17,12 +17,10 @@
   "cancel_open_orders_on_exit": true,
   "trading_mode": "spot",
   "margin_mode": "",
-  "position_adjustment_enable": true,
-  "max_entry_position_adjustment": 2,
-  "minimal_roi": {
-    "0": 0.50
-  },
-  "stoploss": -0.055,
+  "position_adjustment_enable": false,
+  "max_entry_position_adjustment": 0,
+  "minimal_roi": {},
+  "stoploss": -0.99,
   "trailing_stop": false,
   "use_exit_signal": true,
   "exit_profit_only": false,

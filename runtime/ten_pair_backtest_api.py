@@ -1,9 +1,9 @@
-"""Ten-pair adapter for the existing locked Testbot backtest API.
+"""Hixton clean-reset adapter for the locked Testbot backtest API.
 
-The active paper bot and the backtester share the exact same V12.33
-CompressionBreakout250 source and the same ten-pair config. The UI exposes both
-single-pair tests with an independent 250-USDT wallet and the real ten-pair
-portfolio in which all pairs compete for one shared 250-USDT / 3x80 budget.
+This branch is intentionally isolated from V12.33 strategy research.  A new
+clone starts without local market data/results, downloads and validates the
+required Binance candles, runs ten independent 250-USDT diagnostics, and then
+runs the real chronological shared-wallet portfolio with at most 3 x 80 USDT.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 try:
     from runtime import testbot_backtest_api as base
-except ModuleNotFoundError:  # Direct runtime/ execution.
+except ModuleNotFoundError:
     import testbot_backtest_api as base
 
 TEN_PAIR_UNIVERSE = (
@@ -39,17 +39,21 @@ TEN_PAIR_UNIVERSE = (
     "LTC/USDT",
     "BCH/USDT",
 )
-ACTIVE_EXPERIMENT_ID = "V12.33-LTC-NO-TRADE-COUNTERFACTUAL"
+ACTIVE_EXPERIMENT_ID = "HIXTON-V1-ORIGINAL-BASELINE"
 
+# Re-point the generic locked engine to the isolated Hixton research records.
 base.ALLOWED_PAIRS = TEN_PAIR_UNIVERSE
 base.ALLOWED_TARGETS = (*TEN_PAIR_UNIVERSE, base.PORTFOLIO_TARGET)
-base.STRATEGY_VERSION = "V12.33"
+base.STRATEGY_VERSION = "HIXTON-V1"
+base._TRIAL_LEDGER = base._REPO_ROOT / "research" / "hixton_trial_ledger.csv"
+base._EXECUTED_TEST_LEDGER = base._REPO_ROOT / "research" / "hixton_executed_test_fingerprints.csv"
+base._RESULTS_ROOT = base._USERDIR / "backtest_results" / "hixton"
 base._UI_SCRIPT = base._RUNTIME_ROOT / "ui" / "testbot-backtest.js"
 
 _original_validate_candle_data = base._validate_candle_data
 _original_is_within = base._is_within
 _python_dependency_prefix = Path(sys.prefix).resolve()
-_BATCH_ROOT = base._USERDIR / "backtest_results" / "_BATCHES"
+_BATCH_ROOT = base._RESULTS_ROOT / "_BATCHES"
 _BATCH_POINTER = _BATCH_ROOT / "latest.json"
 _batch_lock = threading.Lock()
 _batch_worker_context = threading.local()
@@ -70,17 +74,19 @@ def _compact_result(result: dict[str, Any]) -> dict[str, Any]:
         "years",
         "strategy",
         "strategy_sha256",
+        "starting_balance_usdt",
+        "final_balance_usdt",
         "profit_usdt",
         "profit_pct",
         "trades",
+        "wins",
         "winrate_pct",
         "profit_factor",
         "max_drawdown_pct",
         "capital_time_utilization_pct",
         "no_position_time_pct",
-        "total_entry_chunks",
-        "additional_entry_chunks",
-        "max_active_entry_chunks",
+        "average_open_positions",
+        "max_simultaneous_positions",
         "max_deployed_capital_usdt",
         "total_entry_capital_usdt",
         "deployed_capital_usdt_days",
@@ -92,24 +98,30 @@ def _compact_result(result: dict[str, Any]) -> dict[str, Any]:
         "backtest_start",
         "backtest_end",
         "backtest_days",
+        "coverage_validated",
+        "data_integrity_validated",
         "reused_existing_result",
-        "historical_context",
+        "pair_breakdown",
+        "entry_tag_breakdown",
+        "exit_reason_breakdown",
         "timing",
     )
     return {field: result.get(field) for field in fields}
 
 
-def _batch_fingerprint(years: int) -> tuple[str, list[dict[str, Any]]]:
-    source = base._STRATEGY.read_bytes()
-    config = base.load_config_contract(base._CONFIG)
-    cases = []
+def _identity(pair: str, years: int) -> dict[str, Any]:
+    return base.build_test_identity(
+        strategy_source=base._STRATEGY.read_bytes(),
+        pair=pair,
+        years=years,
+        config=base.load_config_contract(base._CONFIG),
+    )
+
+
+def _batch_fingerprint(years: int) -> tuple[str, list[dict[str, Any]], str]:
+    cases: list[dict[str, Any]] = []
     for pair in TEN_PAIR_UNIVERSE:
-        identity = base.build_test_identity(
-            strategy_source=source,
-            pair=pair,
-            years=years,
-            config=config,
-        )
+        identity = _identity(pair, years)
         cases.append(
             {
                 "pair": pair,
@@ -120,16 +132,19 @@ def _batch_fingerprint(years: int) -> tuple[str, list[dict[str, Any]]]:
                 "error": None,
             }
         )
+    portfolio_identity = _identity(base.PORTFOLIO_TARGET, years)
     material = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "experiment_id": ACTIVE_EXPERIMENT_ID,
         "strategy_sha256": base._sha256(base._STRATEGY),
         "years": years,
         "cases": [case["test_fingerprint"] for case in cases],
+        "portfolio_test_fingerprint": portfolio_identity["test_fingerprint"],
     }
     fingerprint = hashlib.sha256(
         json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    return fingerprint, cases
+    return fingerprint, cases, str(portfolio_identity["test_fingerprint"])
 
 
 def _batch_dir(batch_id: str) -> Path:
@@ -137,16 +152,15 @@ def _batch_dir(batch_id: str) -> Path:
 
 
 def _persist_batch(state: dict[str, Any]) -> None:
-    batch_id = str(state["batch_id"])
-    directory = _batch_dir(batch_id)
+    directory = _batch_dir(str(state["batch_id"]))
     directory.mkdir(parents=True, exist_ok=True)
     base._write_json(directory / "batch-plan.json", state["plan"])
     base._write_json(directory / "batch-result.json", state)
     base._write_json(
         _BATCH_POINTER,
         {
-            "schema_version": 1,
-            "batch_id": batch_id,
+            "schema_version": 2,
+            "batch_id": state["batch_id"],
             "batch_fingerprint": state["batch_fingerprint"],
             "result_path": str((directory / "batch-result.json").resolve()),
         },
@@ -162,7 +176,7 @@ def _load_latest_batch() -> dict[str, Any] | None:
         return None
     if state.get("status") == "running":
         state["status"] = "interrupted"
-        state["stage"] = "Bot wurde neu gestartet; Batch kann fortgesetzt werden"
+        state["stage"] = "Bot wurde neu gestartet; Hixton-Batch kann fortgesetzt werden"
         state["updated_at_utc"] = _utc_now()
         _persist_batch(state)
     return state
@@ -176,9 +190,11 @@ def get_batch_state() -> dict[str, Any]:
         if _batch_state is None:
             return {
                 "status": "idle",
-                "stage": "Kein Zehner-Batch gestartet",
+                "stage": "Kein Hixton-Gesamttest gestartet",
                 "progress": 0,
                 "cases": [],
+                "portfolio_status": "pending",
+                "portfolio_result": None,
             }
         return json.loads(json.dumps(_batch_state))
 
@@ -194,20 +210,16 @@ def _set_batch_state(**values: Any) -> dict[str, Any]:
         return json.loads(json.dumps(_batch_state))
 
 
-def _new_batch(years: int, fingerprint: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
+def _new_batch(
+    years: int,
+    fingerprint: str,
+    cases: list[dict[str, Any]],
+    portfolio_fingerprint: str,
+) -> dict[str, Any]:
     run_stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     batch_id = f"{run_stamp}-{uuid.uuid4().hex[:8]}"
-    history = base.analyze_backtest_history(
-        base._RESULTS_ROOT,
-        current_strategy_path=base._STRATEGY,
-        trial_ledger_path=base._TRIAL_LEDGER,
-    )
-    histories_before = {
-        pair: base.build_pair_history_context(history, pair=pair, years=years)
-        for pair in TEN_PAIR_UNIVERSE
-    }
     plan = {
-        "schema_version": 1,
+        "schema_version": 2,
         "batch_id": batch_id,
         "batch_fingerprint": fingerprint,
         "created_at_utc": _utc_now(),
@@ -216,23 +228,31 @@ def _new_batch(years: int, fingerprint: str, cases: list[dict[str, Any]]) -> dic
         "strategy_sha256": base._sha256(base._STRATEGY),
         "source_commit": base.current_git_commit(base._REPO_ROOT),
         "years": years,
-        "wallet_contract": "ten independent 250-USDT wallets; never summed as portfolio",
+        "wallet_contract": (
+            "10 independent diagnostics: own 250-USDT wallet, fixed 80-USDT trade; "
+            "then one chronological shared 250-USDT portfolio with max 3x80 USDT"
+        ),
+        "required_timeframes": list(base.REQUIRED_TIMEFRAMES),
         "cases": [
             {
                 "pair": case["pair"],
                 "years": years,
                 "test_fingerprint": case["test_fingerprint"],
-                "history_before": histories_before[pair],
             }
-            for pair, case in zip(TEN_PAIR_UNIVERSE, cases, strict=True)
+            for case in cases
         ],
+        "portfolio": {
+            "pair": base.PORTFOLIO_TARGET,
+            "years": years,
+            "test_fingerprint": portfolio_fingerprint,
+        },
     }
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "batch_id": batch_id,
         "batch_fingerprint": fingerprint,
         "status": "running",
-        "stage": "Zehner-Batch wird vorbereitet",
+        "stage": "Hixton Clean-Reset wird vorbereitet",
         "progress": 0,
         "years": years,
         "started_at_utc": _utc_now(),
@@ -243,11 +263,25 @@ def _new_batch(years: int, fingerprint: str, cases: list[dict[str, Any]]) -> dic
         "failed_cases": 0,
         "batch_error": None,
         "cases": cases,
+        "portfolio_status": "pending",
+        "portfolio_result": None,
+        "portfolio_error": None,
         "plan": plan,
     }
 
 
-def _run_batch_cases() -> None:
+def _wait_for_result(request: base.BacktestRequest) -> dict[str, Any]:
+    started = start_backtest(request)
+    state = started
+    while state.get("status") == "running":
+        time.sleep(1)
+        state = base.get_state()
+    if state.get("status") != "completed" or not isinstance(state.get("result"), dict):
+        raise RuntimeError(str(state.get("error") or "Backtest fehlgeschlagen"))
+    return dict(state["result"])
+
+
+def _run_individual_cases() -> None:
     state = get_batch_state()
     total = len(state.get("cases", []))
     for index in range(total):
@@ -262,60 +296,90 @@ def _run_batch_cases() -> None:
         _set_batch_state(
             cases=state["cases"],
             current_pair=pair,
-            stage=f"{pair} wird getestet ({index + 1}/{total})",
-            progress=round(100 * index / max(1, total), 2),
+            stage=f"Hixton: {pair} Einzeltest ({index + 1}/{total})",
+            progress=round(85 * index / max(1, total), 2),
         )
         try:
-            planned_strategy_hash = str(state.get("plan", {}).get("strategy_sha256") or "")
-            if base._sha256(base._STRATEGY) != planned_strategy_hash:
-                raise RuntimeError(
-                    "Aktive Strategie wurde während des Zehner-Batches verändert; "
-                    "gemischter Batch wird verweigert."
-                )
-            started = start_backtest(base.BacktestRequest(pair=pair, years=years))
-            result_state = started
-            while result_state.get("status") == "running":
-                time.sleep(1)
-                result_state = base.get_state()
-            if result_state.get("status") != "completed" or not isinstance(
-                result_state.get("result"), dict
-            ):
-                raise RuntimeError(str(result_state.get("error") or "Backtest fehlgeschlagen"))
-            result = dict(result_state["result"])
-            result_identity = result.get("test_identity")
-            actual_fingerprint = (
-                result_identity.get("test_fingerprint")
-                if isinstance(result_identity, dict)
-                else None
-            )
+            planned_hash = str(state.get("plan", {}).get("strategy_sha256") or "")
+            if base._sha256(base._STRATEGY) != planned_hash:
+                raise RuntimeError("Strategiedatei wurde während des Batches verändert.")
+            result = _wait_for_result(base.BacktestRequest(pair=pair, years=years))
+            identity = result.get("test_identity")
+            actual_fingerprint = identity.get("test_fingerprint") if isinstance(identity, dict) else None
             if actual_fingerprint != case["test_fingerprint"]:
-                raise RuntimeError(
-                    f"{pair}: Ergebnis-Fingerprint passt nicht zum gespeicherten Batchplan."
-                )
+                raise RuntimeError(f"{pair}: Ergebnis-Fingerprint passt nicht zum Batchplan.")
             case["status"] = "reused" if result.get("reused_existing_result") else "completed"
             case["result"] = _compact_result(result)
             case["error"] = None
         except Exception as exc:
             case["status"] = "failed"
             case["error"] = str(getattr(exc, "detail", None) or exc)
+
         state = get_batch_state()
         state["cases"][index] = case
-        completed = sum(
-            item.get("status") in {"completed", "reused"} for item in state["cases"]
-        )
+        completed = sum(item.get("status") in {"completed", "reused"} for item in state["cases"])
         failed = sum(item.get("status") == "failed" for item in state["cases"])
         _set_batch_state(
             cases=state["cases"],
             completed_cases=completed,
             failed_cases=failed,
-            progress=round(100 * (index + 1) / max(1, total), 2),
+            progress=round(85 * (index + 1) / max(1, total), 2),
         )
 
+
+def _run_shared_portfolio() -> None:
     state = get_batch_state()
-    failed = int(state.get("failed_cases") or 0)
+    if int(state.get("failed_cases") or 0):
+        _set_batch_state(
+            status="completed_with_errors",
+            stage="Einzeltests enthalten Fehler; 3x80-Portfolio wurde nicht gestartet",
+            progress=100,
+            current_pair=None,
+            portfolio_status="blocked",
+            finished_at_utc=_utc_now(),
+        )
+        return
+
+    if state.get("portfolio_status") in {"completed", "reused"}:
+        return
+
+    years = int(state["years"])
+    expected_fingerprint = str(state["plan"]["portfolio"]["test_fingerprint"])
     _set_batch_state(
-        status="completed_with_errors" if failed else "completed",
-        stage="Zehner-Batch mit Fehlern beendet" if failed else "Alle zehn Einzeltests fertig",
+        current_pair=base.PORTFOLIO_TARGET,
+        stage="Alle 10 Einzeltests fertig - gemeinsames 3x80-Portfolio wird gerechnet",
+        progress=90,
+        portfolio_status="running",
+        portfolio_error=None,
+    )
+    try:
+        result = _wait_for_result(base.BacktestRequest(pair=base.PORTFOLIO_TARGET, years=years))
+        identity = result.get("test_identity")
+        actual = identity.get("test_fingerprint") if isinstance(identity, dict) else None
+        if actual != expected_fingerprint:
+            raise RuntimeError("Portfolio-Ergebnis-Fingerprint passt nicht zum Batchplan.")
+        portfolio_status = "reused" if result.get("reused_existing_result") else "completed"
+        _set_batch_state(
+            portfolio_status=portfolio_status,
+            portfolio_result=_compact_result(result),
+            portfolio_error=None,
+            progress=100,
+        )
+    except Exception as exc:
+        _set_batch_state(
+            status="completed_with_errors",
+            stage="Zehn Einzeltests fertig, aber der gemeinsame 3x80-Lauf ist fehlgeschlagen",
+            progress=100,
+            current_pair=None,
+            portfolio_status="failed",
+            portfolio_error=str(getattr(exc, "detail", None) or exc),
+            finished_at_utc=_utc_now(),
+        )
+        return
+
+    _set_batch_state(
+        status="completed",
+        stage="Hixton-Gesamttest fertig: 10 Einzeltests + gemeinsames 3x80-Portfolio",
         progress=100,
         current_pair=None,
         finished_at_utc=_utc_now(),
@@ -325,12 +389,14 @@ def _run_batch_cases() -> None:
 def _run_batch() -> None:
     _batch_worker_context.active = True
     try:
-        _run_batch_cases()
+        _run_individual_cases()
+        _run_shared_portfolio()
     except Exception as exc:
         with suppress(Exception):
             _set_batch_state(
                 status="failed",
-                stage="Zehner-Batch ist technisch fehlgeschlagen",
+                stage="Hixton-Gesamttest ist technisch fehlgeschlagen",
+                progress=100,
                 current_pair=None,
                 batch_error=str(exc),
                 finished_at_utc=_utc_now(),
@@ -343,10 +409,7 @@ def _reject_manual_start_during_batch() -> None:
     if bool(getattr(_batch_worker_context, "active", False)):
         return
     if get_batch_state().get("status") == "running":
-        raise HTTPException(
-            status_code=409,
-            detail="Der Zehner-Batch läuft bereits; kein paralleler Einzeltest erlaubt.",
-        )
+        raise HTTPException(status_code=409, detail="Der Hixton-Gesamttest läuft bereits.")
 
 
 def start_batch(request: BatchRequest) -> dict[str, Any]:
@@ -355,7 +418,8 @@ def start_batch(request: BatchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Zeitraum muss 1, 2 oder 3 Jahre sein.")
     if base.get_state().get("status") == "running":
         raise HTTPException(status_code=409, detail="Es läuft bereits ein einzelner Backtest.")
-    fingerprint, cases = _batch_fingerprint(request.years)
+
+    fingerprint, cases, portfolio_fingerprint = _batch_fingerprint(request.years)
     with _batch_lock:
         current = _batch_state
         if current and current.get("status") == "running":
@@ -365,32 +429,21 @@ def start_batch(request: BatchRequest) -> dict[str, Any]:
                 return json.loads(json.dumps(current))
             _batch_state = current
             _batch_state["status"] = "running"
-            _batch_state["stage"] = "Unvollständiger Zehner-Batch wird fortgesetzt"
+            _batch_state["stage"] = "Unvollständiger Hixton-Gesamttest wird fortgesetzt"
             _batch_state["batch_error"] = None
             _batch_state["updated_at_utc"] = _utc_now()
             _persist_batch(_batch_state)
         else:
-            _batch_state = _new_batch(request.years, fingerprint, cases)
+            _batch_state = _new_batch(request.years, fingerprint, cases, portfolio_fingerprint)
             _persist_batch(_batch_state)
         response = json.loads(json.dumps(_batch_state))
-    threading.Thread(target=_run_batch, daemon=True).start()
+    threading.Thread(target=_run_batch, name="hixton-ten-plus-portfolio", daemon=True).start()
     return response
 
 
 def _audit_boundary_is_within(path: Path, root: Path) -> bool:
-    """Treat the exact active Python environment as dependency space, not repo source.
-
-    STARTBOT intentionally keeps ``.venv`` below the repository on Windows.
-    Freqtrade, pandas, pyarrow and other locked dependencies are therefore
-    physically below the repo root even though they are not repository-owned
-    strategy/config inputs.  Excluding only the exact ``sys.prefix`` subtree from
-    the repo-read check keeps the audit strict for every other repository file.
-    """
-
     resolved_root = root.resolve()
-    if resolved_root == base._REPO_ROOT.resolve() and _original_is_within(
-        path, _python_dependency_prefix
-    ):
+    if resolved_root == base._REPO_ROOT.resolve() and _original_is_within(path, _python_dependency_prefix):
         return False
     return _original_is_within(path, root)
 
@@ -400,20 +453,12 @@ def _validate_or_repair_candle_data(
     download_start: Any,
     required_end: Any,
 ) -> list[dict[str, Any]]:
-    """Repair stale/interrupted local candle caches once before failing a run.
-
-    Freqtrade's normal download path appends/prepends existing files.  That does
-    not necessarily repair an old hole in the middle of a Feather file.  For a
-    failed integrity check we therefore rebuild only this pair's four historical
-    files from Binance and validate the fresh files again.  Strategy logic and
-    backtest parameters remain unchanged.
-    """
-
+    """Validate all 1m/15m/1h/4h files; rebuild only this pair if invalid."""
     try:
         return _original_validate_candle_data(pair, download_start, required_end)
     except RuntimeError as first_error:
         base._set_state(
-            stage=f"Lokale {pair}-Marktdaten werden wegen einer Datenluecke neu aufgebaut",
+            stage=f"{pair}: lokale Marktdaten werden vollständig neu aufgebaut",
             progress=35,
         )
         for timeframe in base.REQUIRED_TIMEFRAMES:
@@ -445,33 +490,15 @@ def _validate_or_repair_candle_data(
             repaired = _original_validate_candle_data(pair, download_start, required_end)
         except Exception as repair_error:
             raise RuntimeError(
-                f"Marktdatenpruefung fuer {pair} fehlgeschlagen. "
-                f"Erster Fehler: {first_error}. Vollstaendiger Neuaufbau ebenfalls "
-                f"fehlgeschlagen: {repair_error}"
+                f"Marktdatenprüfung für {pair} fehlgeschlagen. Erster Fehler: {first_error}. "
+                f"Vollständiger Neuaufbau ebenfalls fehlgeschlagen: {repair_error}"
             ) from repair_error
-
-        base._set_state(
-            stage=f"{pair}-Marktdaten frisch aufgebaut und erfolgreich geprueft",
-            progress=38,
-        )
+        base._set_state(stage=f"{pair}: Daten frisch aufgebaut und geprüft", progress=38)
         return repaired
 
 
 def _existing_completed_result(request: Any) -> dict[str, Any] | None:
-    """Return an already completed identical run instead of rerunning it.
-
-    The research contract still forbids duplicate execution.  Reusing the
-    preserved result lets an interrupted ten-pair batch resume later while the
-    UI can still show metrics for coins which were already completed.
-    """
-
-    source = base._STRATEGY.read_bytes()
-    identity = base.build_test_identity(
-        strategy_source=source,
-        pair=request.pair,
-        years=request.years,
-        config=base.load_config_contract(base._CONFIG),
-    )
+    identity = _identity(request.pair, request.years)
     history = base.analyze_backtest_history(
         base._RESULTS_ROOT,
         current_strategy_path=base._STRATEGY,
@@ -487,22 +514,13 @@ def _existing_completed_result(request: Any) -> dict[str, Any] | None:
     )
     if existing is None:
         return None
-
-    recorded_result = existing.get("experiment_result")
-    if isinstance(recorded_result, dict):
-        existing["historical_context"] = recorded_result.get("historical_context")
-        existing["timing"] = recorded_result.get("timing")
-
-    experiment, lineage = base.registered_experiment(
-        base._TRIAL_LEDGER, identity["strategy_sha256"]
-    )
+    experiment, lineage = base.registered_experiment(base._TRIAL_LEDGER, identity["strategy_sha256"])
     existing.update(
         {
             "pair": request.pair,
             "years": request.years,
             "strategy": existing.get("strategy") or base.STRATEGY_NAME,
             "strategy_sha256": identity["strategy_sha256"],
-            "coverage_validated": True,
             "reused_existing_result": True,
             "experiment": experiment,
             "experiment_lineage": lineage,
@@ -529,10 +547,10 @@ def start_backtest(request: Any) -> dict[str, Any]:
         if exc.status_code == 409 and detail.startswith("Doppeltest blockiert:"):
             existing = _existing_completed_result(request)
             if existing is not None:
-                now = datetime.now(UTC).isoformat()
+                now = _utc_now()
                 base._set_state(
                     status="completed",
-                    stage="Vorhandenes identisches Ergebnis geladen - kein Doppeltest ausgefuehrt",
+                    stage="Vorhandenes identisches Hixton-Ergebnis geladen - kein Doppeltest",
                     progress=100,
                     run_id=existing.get("run_id"),
                     pair=request.pair,

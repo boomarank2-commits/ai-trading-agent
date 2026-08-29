@@ -2,27 +2,21 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-title DaviddTech Testbot - 250 USDT DRY-RUN
+title HIXTON-V1 Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   TESTBOT V12.31: Binance-Marktdaten, aber ausschliesslich Testgeld
-echo   250 virtuelle USDT ^| BTC/ETH/SOL/XRP/BNB/DOGE/LINK/TRX/LTC/BCH ^| KEIN ECHTGELD
+echo   HIXTON-V1 CLEAN-RESET: ausschliesslich Forschung und Testgeld
+echo   250 virtuelle USDT ^| 10 Coins ^| maximal 3 x 80 USDT ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V12.31 handelt zehn Binance-Spot-Pairs mit einem gemeinsamen 250-USDT-Testwallet.
-echo BTC und ETH behalten ihre separat markierten Trend-Reclaims.
-echo SOL/XRP/BNB/LINK/TRX/LTC/BCH handeln den Broad-Core-Donchian-Pfad.
-echo DOGE nutzt den kausal geprueften Supertrend-Ausbruch mit steigendem EMA100.
-echo BCH nutzt die feste EMA30/EMA80-Route ueber steigender EMA100 bei ADX 24.
-echo Nur SOL verlangt dabei zusaetzlich einen 4h-ADX von mindestens 21.
-echo Eine pair-lokale Verlustserien-Sperre pausiert nach zwei schwachen Trades
-echo innerhalb von 14 Tagen fuer drei Tage. Normale Gewinner bleiben unbeschnitten.
-echo Nur Champion-Trades sichern nach mindestens +30%% einen +5%%-Gewinnboden.
-echo Der feste -5,5%% Hard-Stop bleibt als letzte Sicherheitsgrenze bestehen.
-echo Insgesamt bleiben maximal drei 80-USDT-Bloecke bzw. 240 USDT gleichzeitig gebunden.
-echo Nur BTC/ETH/LINK/TRX duerfen weitere Bloecke erhalten, und nur im Gewinn
-echo sowie oberhalb aller frueheren Einstiegskurse. Die anderen sechs Coins
-echo handeln weiter normal mit ihrem ersten Block. Verlust-Nachkaeufe bleiben gesperrt.
+echo Dieser Branch verwendet fuer alle zehn Coins dieselbe isolierte Hixton-Baseline.
+echo VIDYA 10/20 wird mit SMA 15 geglaettet; ATR 200 x 2 bildet die Trendbaender.
+echo Long-Signal: geschlossene 15m-Kerze kreuzt ueber das obere Band.
+echo Exit-Signal: geschlossene 15m-Kerze kreuzt unter das untere Band.
+echo Es gibt in HIXTON-V1 keine alten V12.33 Coin-Sonderrouten und kein Pyramiding.
+echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
+echo Der Backtest-Bereich kann alle zehn Coins einzeln mit je 250-USDT-Testwallet pruefen
+echo und danach automatisch den gemeinsamen chronologischen 3x80-Portfolio-Lauf rechnen.
 echo Es werden KEINE echten Orders aufgegeben.
 echo.
 echo SICHERHEIT: Dieses Fenster und das Testbot-UI sind Lebensanker.
@@ -73,7 +67,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : Testbot V12.31
+echo Bot Name : HIXTON-V1 Clean-Reset
 echo Benutzer : testbot
 echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
