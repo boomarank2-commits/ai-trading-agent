@@ -73,8 +73,8 @@
         @media(max-width:520px){.hx-wrap{padding:20px 13px 45px}.hx-grid{grid-template-columns:1fr}}
       </style>
       <div class="hx-wrap">
-        <h1 class="hx-title">Hixton V3A Corrected Guard · 10 Coins + 3×80 Portfolio</h1>
-        <p class="hx-sub">Isolierter HIXTON-V3A-Test. Der 1h-Guard wird korrekt auf echten 1h-Kerzen berechnet; der V2-Midline-Exit ist entfernt und der originale Hixton-Exit wiederhergestellt. Keine V12.33-Logik, keine Coin-Sonderregeln und kein Pyramiding.</p>
+        <h1 class="hx-title">Hixton V4 Pair Profit Floor · 10 Coins + 3×80 Portfolio</h1>
+        <p class="hx-sub">Isolierter HIXTON-V4-Test. Originaler Hixton-Trendexit bleibt erhalten; jeder Coin hat einen eigenen, konservativen Break-even-Aktivierungspunkt. ETH nutzt nach der V3A-Tradeanalyse den 1h-Bullish-Guard ohne zusätzliche Slope-Bedingung. Kein Pyramiding.</p>
         <div class="hx-panel">
           <div class="hx-row">
             <div class="hx-field"><label for="hx-pair">Einzeltest</label><select id="hx-pair">${pairOptions()}</select></div>
@@ -85,11 +85,11 @@
             </div>
           </div>
           <div class="hx-info">
-            <strong>Hixton V3A:</strong> Der originale Motor bleibt VIDYA 10/20 → SMA 15, ATR 200 × 2. Einstieg bleibt das geschlossene 15m-Hixton-Flip-Up und wird nur genommen, wenn der letzte abgeschlossene 1h-Close über der 1h-Hixton-VIDYA liegt und diese VIDYA gegenüber der vorherigen echten 1h-Kerze nicht fällt. Exit ist wieder ausschließlich das originale rote Hixton-Flip-Down am unteren ATR-Band. Der V2-Midline-Exit ist entfernt.<br><br>
+            <strong>Hixton V4:</strong> Motor und Haupt-Exit bleiben unverändert: VIDYA 10/20 → SMA 15, ATR 200 × 2, Einstieg auf geschlossenem 15m-Flip-Up, Verkauf auf originalem unteren Hixton-Flip-Down. BTC 0,5 %, ETH 1,0 %, SOL 1,5 %, XRP 1,0 %, BNB 0,6 %, DOGE 1,5 %, LINK 1,5 %, TRX 0,5 %, LTC 1,0 % und BCH 1,25 % sind die preregistrierten Netto-Gewinnschwellen. Erst nach Erreichen der jeweiligen Schwelle darf der Stop auf Break-even angehoben werden; er trailt danach nicht enger hinter dem Kurs. ETH benötigt nur 1h-Close über 1h-VIDYA, die übrigen neun Coins zusätzlich eine nicht fallende echte 1h-VIDYA.<br><br>
             <strong>Einzeltests:</strong> Jeder Coin wird unabhängig mit eigenem 250-USDT-Testwallet und 80-USDT-Position gemessen. Die zehn Einzelgewinne werden ausdrücklich nicht zu einem Portfolioergebnis addiert.<br><br>
             <strong>Datenprüfung:</strong> Vor einem echten neuen Lauf werden Binance-Daten für 1m, 15m, 1h und 4h bis zum aktuellen Stand geladen. Für den Backtest werden ${75} zusätzliche Warm-up-Tage vor dem Testfenster angefordert. Lücken, Duplikate, zu später Start und veraltetes Ende werden geprüft; ein fehlerhafter Coin-Datensatz wird vollständig neu aufgebaut.<br><br>
             <strong>Gesamttest:</strong> Der große Knopf rechnet zuerst alle zehn Einzeltests. Nur wenn alle gültig sind, folgt automatisch der echte chronologische Portfolio-Backtest: ein gemeinsames 250-USDT-Wallet, maximal drei gleichzeitige Positionen à 80 USDT, also maximal 240 USDT im Markt.<br><br>
-            <strong>Forschungsregel:</strong> Ein bereits exakt getesteter Strategie-Fingerprint wird nicht noch einmal ausgeführt. Eine spätere Variante muss materiell neue Logik/Parameter besitzen.
+            <strong>Forschungsregel:</strong> V4 ist ein neuer Fingerprint. Die MFE-Auswertung war nur die Hypothesenbildung; die tatsächliche Wirkung des Break-even-Stopps wird ausschließlich durch den neuen Freqtrade-Lauf bewertet.
           </div>
         </div>
         <div id="hx-status" class="hx-panel hx-status">
