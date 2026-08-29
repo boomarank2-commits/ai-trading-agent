@@ -1,19 +1,17 @@
-"""HIXTON-V5: pair-route refinement after the complete V3A/V4 trade analysis.
+"""HIXTON-V5B: deep-research route alignment after the complete V3A/V4 analysis.
 
 V4 is rejected: its fee-covering profit floor saved some losers, but cut many of
-the large trend winners that pay for Hixton. V5 therefore removes the custom
-stop completely and restores the original lower-band Hixton exit.
+the large trend winners that pay for Hixton. V5B keeps the original lower-band
+Hixton exit and no custom/trailing profit stop.
 
-Routes are preregistered from the observed V3A failure modes:
-- ETH, SOL, XRP, DOGE, LINK and TRX are controls and keep the exact V3A route:
+Routes are preregistered from the Deep Research synthesis:
+- ETH, XRP, DOGE and TRX keep the exact V3A route:
   15m flip-up + completed 1h close above a non-falling 1h VIDYA; 15m flip-down.
-- BTC and BNB had positive gross price edge but insufficient edge after fees.
-  They keep the V3A route and additionally require completed 4h close above a
-  non-falling 4h Hixton VIDYA to reduce weak/noisy 15m entries.
-- LTC and BCH had negative gross price edge already before fees on the 15m route.
-  They therefore use native completed 1h Hixton flip events, guarded by a
-  completed bullish/non-falling 4h Hixton VIDYA regime, and exit on the native
-  completed 1h Hixton flip-down.
+- BTC, SOL, LINK and BNB use the same V3A 15m + 1h route and additionally
+  require the completed 4h Hixton trend state itself to be bullish.
+- LTC and BCH use native completed 1h Hixton flip events, guarded by the
+  completed bullish 4h Hixton trend state, and exit on native completed 1h
+  Hixton flip-down.
 
 The purchased Hixton motor itself remains unchanged on every timeframe:
 VIDYA 10 / momentum 20 -> Pine-compatible SMA 15, ATR 200 x 2 bands.
@@ -155,10 +153,10 @@ def _first_forward_filled_true(series: Series) -> Series:
 
 
 class CompressionBreakout250(IStrategy):
-    """Hixton V5: V3A controls plus targeted higher-timeframe weak-pair routes."""
+    """Hixton V5B: Deep Research three-route model for the ten-coin universe."""
 
     INTERFACE_VERSION = 3
-    STRATEGY_VERSION = "HIXTON-V5"
+    STRATEGY_VERSION = "HIXTON-V5B"
 
     can_short = False
     timeframe = "15m"
@@ -177,10 +175,10 @@ class CompressionBreakout250(IStrategy):
     ignore_roi_if_entry_signal = False
 
     V3A_CONTROL_PAIRS: ClassVar[frozenset[str]] = frozenset(
-        {"ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT", "LINK/USDT", "TRX/USDT"}
+        {"ETH/USDT", "XRP/USDT", "DOGE/USDT", "TRX/USDT"}
     )
     FOUR_HOUR_GUARD_PAIRS: ClassVar[frozenset[str]] = frozenset(
-        {"BTC/USDT", "BNB/USDT"}
+        {"BTC/USDT", "SOL/USDT", "LINK/USDT", "BNB/USDT"}
     )
     ONE_HOUR_ROUTE_PAIRS: ClassVar[frozenset[str]] = frozenset(
         {"LTC/USDT", "BCH/USDT"}
@@ -202,11 +200,7 @@ class CompressionBreakout250(IStrategy):
         self, dataframe: DataFrame, metadata: dict[str, Any]
     ) -> DataFrame:
         del metadata
-        dataframe = _hixton_state(dataframe)
-        dataframe["hixton_vidya_rising"] = (
-            dataframe["hixton_vidya"] >= dataframe["hixton_vidya"].shift(1)
-        )
-        return dataframe
+        return _hixton_state(dataframe)
 
     def populate_indicators(
         self, dataframe: DataFrame, metadata: dict[str, Any]
@@ -220,22 +214,24 @@ class CompressionBreakout250(IStrategy):
         pair = str(metadata.get("pair") or "")
         one_hour_bullish = dataframe["close_1h"] > dataframe["hixton_vidya_1h"]
         one_hour_rising = dataframe["hixton_vidya_rising_1h"].fillna(False)
-        four_hour_bullish = dataframe["close_4h"] > dataframe["hixton_vidya_4h"]
-        four_hour_rising = dataframe["hixton_vidya_rising_4h"].fillna(False)
-        four_hour_guard = four_hour_bullish & four_hour_rising
+        one_hour_guard = one_hour_bullish & one_hour_rising
+
+        # Deep Research specifies the actual completed 4h Hixton state as the
+        # market-regime filter. Do not replace this with close>VIDYA+slope.
+        four_hour_guard = dataframe["hixton_trend_up_4h"].fillna(False).astype(bool)
 
         if pair in self.ONE_HOUR_ROUTE_PAIRS:
             one_hour_flip_up_event = _first_forward_filled_true(
                 dataframe["hixton_flip_up_1h"]
             )
             entry = one_hour_flip_up_event & four_hour_guard
-            enter_tag = "hixton_1h_flip_up_4h_guard"
+            enter_tag = "hixton_1h_flip_up_4h_trend"
         else:
-            entry = dataframe["hixton_flip_up"] & one_hour_bullish & one_hour_rising
+            entry = dataframe["hixton_flip_up"] & one_hour_guard
             enter_tag = "hixton_15m_flip_up_1h_guard"
             if pair in self.FOUR_HOUR_GUARD_PAIRS:
                 entry = entry & four_hour_guard
-                enter_tag = "hixton_15m_flip_up_1h_4h_guard"
+                enter_tag = "hixton_15m_flip_up_1h_4h_trend"
 
         dataframe.loc[
             (dataframe["volume"] > 0.0) & entry,
@@ -264,5 +260,5 @@ class CompressionBreakout250(IStrategy):
         del kwargs
         if not bool(self.config.get("dry_run", True)):
             raise RuntimeError(
-                "HIXTON-V5 is research/dry-run only; real-money startup is blocked."
+                "HIXTON-V5B is research/dry-run only; real-money startup is blocked."
             )
