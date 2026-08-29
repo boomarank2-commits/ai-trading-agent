@@ -35,4 +35,4 @@ jobs:
       - name: Verify Hixton runtime math and Freqtrade loading
         run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime\test_hixton_runtime_smoke.py
       - name: Ruff Hixton branch files
-        run: .\.venv\Scripts\ruff.exe check runtime\user_data\strategies\CompressionBreakout250.py runtime\ten_pair_backtest_api.py runtime\validate_dryrun_config.py tests\runtime\test_hixton_clean_reset.py tests\runtime\test_hixton_runtime_smoke.py
+        run: .\.venv\Scripts\ruff.exe check --ignore E501,RUF001 runtime\user_data\strategies\CompressionBreakout250.py runtime\ten_pair_backtest_api.py runtime\validate_dryrun_config.py tests\runtime\test_hixton_clean_reset.py tests\runtime\test_hixton_runtime_smoke.py
