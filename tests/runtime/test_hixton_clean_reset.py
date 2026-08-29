@@ -37,8 +37,9 @@ class HixtonCleanResetContract(unittest.TestCase):
         required = (
             'STRATEGY_VERSION = "HIXTON-V1"',
             "length=10, momentum_length=20",
-            "rolling(15, min_periods=15).mean()",
-            "timeperiod=200",
+            "_pine_sma_ignore_na(raw_vidya, length=15)",
+            "_pine_atr(dataframe, length=200)",
+            "alpha = 1.0 / length",
             "upper = vidya + atr * 2.0",
             "lower = vidya - atr * 2.0",
             '"hixton_flip_up"',
