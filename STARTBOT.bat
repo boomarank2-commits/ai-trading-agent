@@ -2,20 +2,20 @@
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
-title HIXTON-V5 Testbot - 250 USDT DRY-RUN
+title HIXTON-V5B Deep Research Testbot - 250 USDT DRY-RUN
 
 echo ================================================================
-echo   HIXTON-V5 PAIR ROUTES: ausschliesslich Forschung und Testgeld
+echo   HIXTON-V5B DEEP RESEARCH ROUTES: Forschung und Testgeld
 echo   250 virtuelle USDT ^| 10 Coins ^| maximal 3 x 80 USDT ^| KEIN ECHTGELD
 echo ================================================================
 echo.
-echo V4 wurde nach der kompletten Tradeanalyse verworfen: der Gewinnstop ist entfernt.
+echo Diese Version ist ein eigener Fingerprint getrennt vom vorherigen V5-Lauf.
 echo Der gekaufte Motor bleibt unveraendert: VIDYA 10/20 + SMA 15, ATR 200 x 2.
-echo ETH, SOL, XRP, DOGE, LINK und TRX bleiben als V3A-Kontrollen auf 15m + 1h-Guard.
-echo BTC und BNB verlangen zusaetzlich einen bullischen, nicht fallenden 4h-Hixton-Kontext.
-echo LTC und BCH nutzen native abgeschlossene 1h-Hixton-Flip-Signale plus 4h-Regime.
-echo Exit: Kontrollen/BTC/BNB originales 15m-Flip-Down; LTC/BCH originales 1h-Flip-Down.
-echo Kein Gewinnstop, kein enger Trail, kein Pyramiding und keine alten V12.33-Routen.
+echo ETH, XRP, DOGE und TRX: 15m-Hixton + strenger bestaetigter 1h-Guard.
+echo BTC, SOL, LINK und BNB: gleiche Route + echter bestaetigter 4h-Hixton-trendUp-State.
+echo LTC und BCH: native abgeschlossene 1h-Hixton-Flip-Signale + 4h-trendUp-Regime.
+echo Exit: Route A/B originales 15m-Flip-Down; LTC/BCH originales 1h-Flip-Down.
+echo Kein Gewinnstop, kein Midline-Exit, kein enger Trail, kein Pyramiding.
 echo Das gemeinsame Portfolio darf maximal drei 80-USDT-Positionen bzw. 240 USDT binden.
 echo Der Backtest-Bereich kann alle zehn Coins einzeln mit je 250-USDT-Testwallet pruefen
 echo und danach automatisch den gemeinsamen chronologischen 3x80-Portfolio-Lauf rechnen.
@@ -69,7 +69,7 @@ set "FREQTRADE__API_SERVER__WS_TOKEN=DaviddTech-Local-Testbot-WebSocket-Token-%F
 
 echo FreqUI wird nach dem Botstart automatisch im Browser geoeffnet.
 echo Adresse  : http://127.0.0.1:8080
-echo Bot Name : HIXTON-V5 Pair Routes
+echo Bot Name : HIXTON-V5B Deep Research Routes
 echo Benutzer : testbot
 echo Passwort : wird aus der lokalen Passwortdatei geladen und nicht angezeigt
 echo Aendern   : PASSWORT_AENDERN.bat ^(wird nach Bot-Neustart aktiv^)
