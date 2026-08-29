@@ -22,21 +22,9 @@ EXPECTED_PAIRS = [
     "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "BNB/USDT",
     "DOGE/USDT", "LINK/USDT", "TRX/USDT", "LTC/USDT", "BCH/USDT",
 ]
-EXPECTED_TRIGGERS = {
-    "BTC/USDT": 0.0050,
-    "ETH/USDT": 0.0100,
-    "SOL/USDT": 0.0150,
-    "XRP/USDT": 0.0100,
-    "BNB/USDT": 0.0060,
-    "DOGE/USDT": 0.0150,
-    "LINK/USDT": 0.0150,
-    "TRX/USDT": 0.0050,
-    "LTC/USDT": 0.0100,
-    "BCH/USDT": 0.0125,
-}
 
 
-class HixtonV4Contract(unittest.TestCase):
+class HixtonV5Contract(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.strategy_text = STRATEGY.read_text(encoding="utf-8")
@@ -47,7 +35,7 @@ class HixtonV4Contract(unittest.TestCase):
 
     def test_strategy_keeps_original_hixton_motor(self) -> None:
         required = (
-            'STRATEGY_VERSION = "HIXTON-V4"',
+            'STRATEGY_VERSION = "HIXTON-V5"',
             "length=10, momentum_length=20",
             "_pine_sma_ignore_na(raw_vidya, length=15)",
             "_pine_atr(dataframe, length=200)",
@@ -58,59 +46,57 @@ class HixtonV4Contract(unittest.TestCase):
             '"hixton_flip_down"',
             "position_adjustment_enable = False",
             "max_entry_position_adjustment = 0",
-            "use_custom_stoploss = True",
+            "use_custom_stoploss = False",
         )
         for marker in required:
             self.assertIn(marker, self.strategy_text)
         for forbidden in (
-            "PAIR_PROFILES", "PYRAMIDING_PAIRS", "DONCHIAN_TREND",
-            "TREND_RECLAIM", "Supertrend20", "EMA30/EMA80",
-            "hixton_midline_cross_down", "hixton_midline_guard",
+            "PROFIT_FLOOR_TRIGGER", "custom_stoploss(", "stoploss_from_absolute",
+            "stoploss_from_open", "hixton_midline_cross_down", "hixton_midline_guard",
+            "PYRAMIDING_PAIRS", "DONCHIAN_TREND", "TREND_RECLAIM",
         ):
             self.assertNotIn(forbidden, self.strategy_text)
 
-    def test_v4_uses_eth_guard_exception_and_fee_covering_original_exit(self) -> None:
+    def test_v5_has_exact_three_route_groups(self) -> None:
         required = (
-            '@informative("1h")',
+            'V3A_CONTROL_PAIRS: ClassVar[frozenset[str]]',
+            '{"ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT", "LINK/USDT", "TRX/USDT"}',
+            'FOUR_HOUR_GUARD_PAIRS: ClassVar[frozenset[str]]',
+            '{"BTC/USDT", "BNB/USDT"}',
+            'ONE_HOUR_ROUTE_PAIRS: ClassVar[frozenset[str]]',
+            '{"LTC/USDT", "BCH/USDT"}',
+            '@informative("1h")', '@informative("4h")',
             'dataframe["hixton_vidya_rising"] = (',
-            'dataframe["hixton_vidya"] >= dataframe["hixton_vidya"].shift(1)',
-            'dataframe["close_1h"] > dataframe["hixton_vidya_1h"]',
-            'dataframe["hixton_vidya_rising_1h"].fillna(False)',
-            'if pair == "ETH/USDT":',
-            'guard = one_hour_bullish',
-            'guard = one_hour_bullish & one_hour_rising',
-            '"hixton_flip_down"',
-            "fee_break_even_rate = float(trade.open_rate)",
-            "stoploss_from_absolute(",
+            'four_hour_guard = four_hour_bullish & four_hour_rising',
+            'one_hour_flip_up_event = _first_forward_filled_true(',
+            '"hixton_1h_flip_up_4h_guard"',
+            '"hixton_15m_flip_up_1h_4h_guard"',
+            '"hixton_15m_flip_up_1h_guard"',
+            '"hixton_1h_flip_down"',
+            '"hixton_15m_flip_down"',
         )
         for marker in required:
             self.assertIn(marker, self.strategy_text)
-        self.assertNotIn('dataframe["hixton_vidya_1h"].shift(1)', self.strategy_text)
-        self.assertNotIn("stoploss_from_open", self.strategy_text)
+        self.assertNotIn('if pair == "ETH/USDT"', self.strategy_text)
 
-    def test_v4_has_exact_preregistered_pair_triggers(self) -> None:
-        for pair, trigger in EXPECTED_TRIGGERS.items():
-            rendered = f'"{pair}": {trigger:.4f}'
-            self.assertIn(rendered, self.strategy_text)
-
-    def test_current_strategy_hash_has_exact_v4_trial_entry(self) -> None:
+    def test_current_strategy_hash_has_exact_v5_trial_entry(self) -> None:
         digest = hashlib.sha256(STRATEGY.read_bytes()).hexdigest()
         with TRIAL.open("r", encoding="utf-8", newline="") as stream:
             rows = list(csv.DictReader(stream))
         matching = [row for row in rows if row["strategy_hash"] == digest]
         self.assertEqual(len(matching), 1, f"unregistered strategy sha256: {digest}")
-        self.assertEqual(matching[0]["experiment_id"], "HIXTON-V4-PAIR-PROFIT-FLOOR")
-        self.assertEqual(matching[0]["strategy_version"], "HIXTON-V4")
+        self.assertEqual(matching[0]["experiment_id"], "HIXTON-V5-PAIR-ROUTES")
+        self.assertEqual(matching[0]["strategy_version"], "HIXTON-V5")
         self.assertEqual(
             matching[0]["parameter_hash"],
-            "pair_peak_profit_fee_floor_eth_slope_exception",
+            "v3a_controls_btc_bnb_4h_ltc_bch_1h_routes",
         )
         self.assertEqual(matching[0]["status"], "PREREGISTERED_PENDING_BACKTEST")
 
     def test_execution_contract_is_250_wallet_with_three_80_slots(self) -> None:
         cfg = self.config
         self.assertEqual(cfg["strategy"], "CompressionBreakout250")
-        self.assertEqual(cfg["bot_name"], "hixton-v4-ten-pair-250-dryrun")
+        self.assertEqual(cfg["bot_name"], "hixton-v5-ten-pair-250-dryrun")
         self.assertEqual(cfg["stake_currency"], "USDT")
         self.assertEqual(cfg["stake_amount"], 80)
         self.assertEqual(cfg["available_capital"], 250)
@@ -137,12 +123,12 @@ class HixtonV4Contract(unittest.TestCase):
         self.assertIn("_run_shared_portfolio()", self.adapter_text)
         self.assertIn("base.PORTFOLIO_TARGET", self.adapter_text)
         self.assertIn("portfolio_result", self.adapter_text)
-        self.assertIn('base.STRATEGY_VERSION = "HIXTON-V4"', self.adapter_text)
-        self.assertIn('ACTIVE_EXPERIMENT_ID = "HIXTON-V4-PAIR-PROFIT-FLOOR"', self.adapter_text)
+        self.assertIn('base.STRATEGY_VERSION = "HIXTON-V5"', self.adapter_text)
+        self.assertIn('ACTIVE_EXPERIMENT_ID = "HIXTON-V5-PAIR-ROUTES"', self.adapter_text)
         self.assertIn("Alle 10 + 3×80 Portfolio testen", self.ui_text)
-        self.assertIn("Hixton V4 Pair Profit Floor", self.ui_text)
+        self.assertIn("Hixton V5 Pair Routes", self.ui_text)
         self.assertIn("TARGET_PER_DAY = 2.40", self.ui_text)
-        self.assertIn("Die zehn Einzelgewinne werden ausdrücklich nicht", self.ui_text)
+        self.assertIn("V3A-Kontrollen", self.ui_text)
 
     def test_duplicate_governance_stays_isolated_from_v1233_history(self) -> None:
         self.assertIn('"hixton_trial_ledger.csv"', self.adapter_text)
