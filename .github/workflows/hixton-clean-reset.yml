@@ -7,6 +7,7 @@ on:
       - agent/hixton-v2-guarded-exit
       - agent/hixton-v3a-corrected-guard
       - agent/hixton-v4-pair-profit-floor
+      - agent/hixton-v5-pair-routes
   pull_request:
     paths:
       - "runtime/user_data/strategies/CompressionBreakout250.py"
