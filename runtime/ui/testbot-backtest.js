@@ -77,6 +77,33 @@
     return found ? `${found[1]} · ${found[0]}` : pair;
   }
 
+  function resultNumber(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function entryCapitalEfficiency(result) {
+    const saved = Number(result.profit_per_100_entry_capital_usdt);
+    if (Number.isFinite(saved)) return saved;
+    const entryCapital = resultNumber(
+      result.total_entry_capital_usdt,
+      resultNumber(result.total_entry_chunks) * 80
+    );
+    return entryCapital > 0 ? 100 * resultNumber(result.profit_usdt) / entryCapital : 0;
+  }
+
+  function capitalDayEfficiency(result) {
+    const saved = Number(result.profit_per_100_deployed_capital_day_usdt);
+    if (Number.isFinite(saved)) return saved;
+    const capitalDays = resultNumber(
+      result.deployed_capital_usdt_days,
+      resultNumber(result.capital_time_utilization_pct) / 100
+        * resultNumber(result.starting_balance_usdt, 250)
+        * resultNumber(result.backtest_days)
+    );
+    return capitalDays > 0 ? 100 * resultNumber(result.profit_usdt) / capitalDays : 0;
+  }
+
   function elapsedText(value) {
     const timestamp = Date.parse(String(value || ""));
     if (!Number.isFinite(timestamp)) return "";
@@ -218,6 +245,7 @@
             <strong>Alle 10 einzeln testen:</strong> Startet serverseitig zehn getrennte Tests nacheinander. Jeder Coin beginnt mit eigenen 250 USDT. Plan, Fortschritt, Vorher/Nachher-Vergleich und Ergebnis werden dauerhaft gespeichert; ein Neuladen der UI unterbricht die Warteschlange nicht.<br><br>
             <strong>Aktive V12.33-Änderung:</strong> LTC bleibt sichtbar und seine Marktdaten werden weiter gepflegt, eröffnet aber mangels positiver Shared-Wallet-Evidenz vorerst keinen Trade. DOGE behält den 4h-Supertrend(20, 3), BCH die EMA30/EMA80-Route und SOL den ADX21-Filter; alle übrigen Routen bleiben gegenüber V12.31 unverändert.<br><br>
             <strong>Kapitalregel je Einzeltest:</strong> Nur BTC, ETH, LINK und TRX dürfen einen zweiten oder dritten 80-USDT-Block erhalten, und nur bei einem späteren vollständigen Einstiegssignal, einem bereits profitablen Trade und einem Kurs über allen vorherigen Einstiegskursen. SOL, XRP, BNB, DOGE und BCH handeln mit höchstens ihrem ersten Block; LTC eröffnet aktuell keinen Block. Verlust-Nachkäufe sind gesperrt.<br><br>
+            <strong>Kapital-Effizienz:</strong> „USDT je 100 Entry-Kapital“ misst den historischen Nettogewinn je 100 tatsächlich gefüllten USDT. „USDT je 100 Kapitaltag“ berücksichtigt zusätzlich die Haltedauer: 80 USDT, die zehn Tage gebunden sind, zählen als 800 USDT-Tage. Beide Werte sind Rückblick-Messungen und keine Gewinnzusage.<br><br>
             <strong>Optimierung:</strong> Dieser Bildschirm misst immer den unveränderten aktuellen Bot und ändert keine Parameter automatisch. Ein Coin mit schwachem Ergebnis erhält anschließend eine eigene, dokumentierte Parameter-Hypothese als neue Strategy-Version. Nur wenn deren neue Tests und Robustheitsprüfungen besser sind, darf sie später in den Paperbot übernommen werden.
           </div>
         </div>
@@ -237,7 +265,7 @@
           <div class="tb-result-head"><h2 id="tb-batch-title">Alle 10 einzeln</h2><div id="tb-batch-meta" class="tb-result-meta"></div></div>
           <div class="tb-batch-table-wrap">
             <table class="tb-batch-table">
-              <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>Δ Vorgänger</th><th>USDT / Tag</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
+              <thead><tr><th>Coin</th><th>Gewinn / Verlust</th><th>Δ Vorgänger</th><th>USDT / Tag</th><th>USDT / 100 Entry</th><th>USDT / 100 Kapitaltag</th><th>Kapitalzeit</th><th>Trades</th><th>Profit Factor</th><th>Drawdown</th><th>Trefferquote</th><th>Status</th></tr></thead>
               <tbody id="tb-batch-body"></tbody>
             </table>
           </div>
@@ -290,8 +318,8 @@
       const profit = Number(r.profit_usdt || 0);
       const trades = Number(r.trades || 0);
       const days = Math.max(1, Number(r.backtest_days || 0));
-      const profitPerDay = profit / days;
-      const tradesPerYear = (trades / days) * 365.25;
+      const profitPerDay = resultNumber(r.profit_per_calendar_day_usdt, profit / days);
+      const tradesPerYear = resultNumber(r.trades_per_year, (trades / days) * 365.25);
       const profitClass = profit > 0 ? "tb-positive" : profit < 0 ? "tb-negative" : "tb-neutral";
       results.style.display = "block";
       document.getElementById("tb-result-title").textContent = r.portfolio_mode ? "Gemeinsames Zehn-Paare-Systemergebnis" : "Einzelergebnis";
@@ -303,12 +331,19 @@
         resultCard("Endkapital", `${Number(r.final_balance_usdt || 0).toFixed(2)} USDT`, profitClass),
         resultCard("Trades", String(trades), "tb-neutral"),
         resultCard("Trades / Jahr", tradesPerYear.toFixed(2), "tb-neutral"),
+        resultCard("Gewinn / Trade", money(resultNumber(r.profit_per_trade_usdt, trades > 0 ? profit / trades : 0)), profitClass),
+        resultCard("USDT / 100 Entry-Kapital", money(entryCapitalEfficiency(r)), profitClass),
+        resultCard("USDT / 100 Kapitaltag", money(capitalDayEfficiency(r)), profitClass),
         resultCard("Profit Factor", Number(r.profit_factor || 0).toFixed(2), Number(r.profit_factor) >= 1 ? "tb-positive" : "tb-negative"),
         resultCard("Trefferquote", `${Number(r.winrate_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. Drawdown", `${Number(r.max_drawdown_pct || 0).toFixed(2)} %`, Number(r.max_drawdown_pct) > 15 ? "tb-negative" : "tb-neutral"),
         resultCard("Startkapital", `${Number(r.starting_balance_usdt || 250).toFixed(2)} USDT`, "tb-neutral"),
         resultCard("Entry-Blöcke gesamt", String(Number(r.total_entry_chunks || 0)), "tb-neutral"),
         resultCard("Zusätzliche Blöcke", String(Number(r.additional_entry_chunks || 0)), "tb-neutral"),
+        resultCard("Entry-Kapital gesamt", `${Number(r.total_entry_capital_usdt || 0).toFixed(2)} USDT`, "tb-neutral"),
+        resultCard("Gebundene Kapitaltage", `${Number(r.deployed_capital_usdt_days || 0).toFixed(2)} USDT-Tage`, "tb-neutral"),
+        resultCard("Kapitalzeit", `${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %`, "tb-neutral"),
+        resultCard("Zeit ohne Position", `${Number(r.no_position_time_pct || 0).toFixed(2)} %`, "tb-neutral"),
         resultCard("Max. aktive Blöcke", String(Number(r.max_active_entry_chunks || 0)), Number(r.max_active_entry_chunks || 0) > 3 ? "tb-negative" : "tb-neutral"),
         resultCard("Max. Einsatz", `${Number(r.max_deployed_capital_usdt || 0).toFixed(2)} USDT`, Number(r.max_deployed_capital_usdt || 0) > 240.05 ? "tb-negative" : "tb-neutral")
       ].join("");
@@ -400,21 +435,21 @@
       if (item.error) {
         const errorText = escapeHtml(item.error);
         if (item.skipped) {
-          return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-neutral tb-batch-error"><strong>Doppeltest übersprungen</strong>${errorText}</td></tr>`;
+          return `<tr><td>${label}</td>${"<td>—</td>".repeat(10)}<td class="tb-neutral tb-batch-error"><strong>Doppeltest übersprungen</strong>${errorText}</td></tr>`;
         }
-        return `<tr><td>${label}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="tb-batch-fail tb-batch-error"><strong>Fehler</strong>${errorText}</td></tr>`;
+        return `<tr><td>${label}</td>${"<td>—</td>".repeat(10)}<td class="tb-batch-fail tb-batch-error"><strong>Fehler</strong>${errorText}</td></tr>`;
       }
       const r = item.result;
       const profit = Number(r.profit_usdt || 0);
       const days = Math.max(1, Number(r.backtest_days || 0));
-      const profitPerDay = profit / days;
+      const profitPerDay = resultNumber(r.profit_per_calendar_day_usdt, profit / days);
       const delta = r.historical_context && r.historical_context.delta_vs_previous;
       const deltaProfit = delta ? Number(delta.profit_usdt || 0) : null;
       const profitClass = profit > 0 ? "tb-batch-ok" : profit < 0 ? "tb-batch-fail" : "";
       const deltaClass = deltaProfit === null ? "" : deltaProfit > 0 ? "tb-batch-ok" : deltaProfit < 0 ? "tb-batch-fail" : "";
       const totalTime = r.timing && r.timing.total_seconds;
       const statusText = `${item.status === "reused" ? "Vorhanden" : "Fertig"} · ${durationText(totalTime)}`;
-      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${deltaClass}">${deltaProfit === null ? "erster Vergleich" : money(deltaProfit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.winrate_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">${statusText}</td></tr>`;
+      return `<tr><td>${label}</td><td class="${profitClass}">${money(profit)}</td><td class="${deltaClass}">${deltaProfit === null ? "erster Vergleich" : money(deltaProfit)}</td><td class="${profitClass}">${money(profitPerDay)}</td><td class="${profitClass}">${money(entryCapitalEfficiency(r))}</td><td class="${profitClass}">${money(capitalDayEfficiency(r))}</td><td>${Number(r.capital_time_utilization_pct || 0).toFixed(2)} %</td><td>${Number(r.trades || 0)}</td><td>${Number(r.profit_factor || 0).toFixed(2)}</td><td>${Number(r.max_drawdown_pct || 0).toFixed(2)} %</td><td>${Number(r.winrate_pct || 0).toFixed(2)} %</td><td class="tb-batch-ok">${statusText}</td></tr>`;
     }).join("");
   }
 

@@ -198,9 +198,33 @@ Angezeigt werden unter anderem:
 - durchschnittliche und maximale Zahl gleichzeitig offener Positionen
 - gesamte und zusätzliche Entry-Blöcke
 - maximale gleichzeitig aktive Entry-Blöcke und maximal gebundenes Kapital
+- tatsächlich gefülltes Entry-Kapital über alle Trades
+- gebundenes Kapital in USDT-Tagen
+- Gewinn je Trade und je Kalendertag
+- Gewinn je 100 USDT tatsächlich gefülltem Entry-Kapital
+- Gewinn je 100 USDT gebundenem Kapitaltag
 - Paarbeitrag im gemeinsamen Portfolio
 - tatsächlicher Backtestzeitraum
 - Candle-Integritätsstatus
+
+### Was „1 USDT je 100 USDT Einsatz“ in der Auswertung bedeutet
+
+Die Oberfläche zeigt zwei getrennte Werte, damit Einsatz und Zeit nicht
+verwechselt werden:
+
+- **USDT / 100 Entry:** Nettogewinn geteilt durch das gesamte tatsächlich
+  gefüllte Entry-Kapital. Ein Coin erreicht die Marke `1,00`, wenn alle
+  historischen Entry-Fills zusammen je 100 USDT mindestens 1 USDT netto
+  erwirtschaftet haben.
+- **USDT / 100 Kapitaltag:** Nettogewinn geteilt durch die gebundenen
+  USDT-Tage. Ein 80-USDT-Block, der zehn Tage offen bleibt, zählt als 800
+  USDT-Tage. Damit werden lange Slot-Blockaden sichtbar.
+
+Beide Werte sind historische Diagnosewerte nach den im Test modellierten
+Gebühren. Sie sind weder eine Tagesrendite noch eine Gewinnzusage. Für den
+Paperbot entscheidet zusätzlich der gemeinsame PORTFOLIO-Test: alle zehn
+Signalquellen konkurrieren dort chronologisch um dasselbe 250-USDT-Wallet und
+höchstens drei gleichzeitig aktive 80-USDT-Blöcke.
 
 ## Was ein Backtest nicht beweist
 

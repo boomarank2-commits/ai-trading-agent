@@ -39,6 +39,9 @@ Diese Datei ist die menschlich lesbare Sperrliste fuer Deep Research.
 - BNB: Donchian80/20 ueber steigender EMA200 und positivem 30-Tage-Momentum.
 - BCH: EMA30/EMA80 ueber steigender EMA100 bei ADX24 nicht nachstimmen. Sie ist
   bereits unveraendert in V12.31 angenommen.
+- SOL, BNB, TRX, LTC, BCH und LINK: fester 4h-Parabolic-SAR(0,02/0,20) ueber
+  steigender EMA200. Kein Pair bestand am 29.08.2026 die neue
+  Kapitaleffizienz-Huerde; keine PSAR-Nachbarsuche auf demselben Fenster.
 - DOGE: Supertrend(20,3) ueber steigender EMA100 nicht nachstimmen. Sie ist
   bereits angenommen.
 - ADA: unveraenderte Broad-Core-Uebertragung. ADA war positiv, verschlechterte

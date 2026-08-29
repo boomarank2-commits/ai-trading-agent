@@ -145,6 +145,28 @@ def test_backtest_ui_offers_selected_pair_and_one_click_ten_individual_runs() ->
     assert "documented_pair_experiments" in source
     assert "Ein fertiges Einzelergebnis beendet den Zehnerlauf nicht" in source
     assert "Alle zehn unterschiedlichen Coins wurden vollständig abgeschlossen" in source
+    assert "USDT je 100 Entry-Kapital" in source
+    assert "USDT je 100 Kapitaltag" in source
+    assert "profit_per_100_entry_capital_usdt" in source
+    assert "profit_per_100_deployed_capital_day_usdt" in source
+
+
+def test_batch_compact_result_preserves_capital_efficiency_metrics() -> None:
+    result = {
+        "pair": "SOL/USDT",
+        "profit_per_trade_usdt": 0.305,
+        "profit_per_calendar_day_usdt": 0.0067,
+        "trades_per_year": 8.0,
+        "total_entry_capital_usdt": 1920.0,
+        "deployed_capital_usdt_days": 15279.0,
+        "profit_per_100_entry_capital_usdt": 0.3813,
+        "profit_per_100_deployed_capital_day_usdt": 0.0479,
+    }
+
+    compact = adapter._compact_result(result)
+
+    for field, value in result.items():
+        assert compact[field] == value
 
 
 def test_backtest_ui_renders_only_one_status_view_per_poll() -> None:

@@ -44,6 +44,7 @@ try:
     from runtime.backtest_history_analysis import (
         analyze_backtest_history,
         build_pair_history_context,
+        capital_efficiency_metrics,
         capital_utilization_metrics,
         write_history_reports,
     )
@@ -62,6 +63,7 @@ except ModuleNotFoundError:  # Direct locked_freqtrade.py execution from runtime
     from backtest_history_analysis import (
         analyze_backtest_history,
         build_pair_history_context,
+        capital_efficiency_metrics,
         capital_utilization_metrics,
         write_history_reports,
     )
@@ -484,6 +486,13 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         strategy.get("backtest_end"),
         available_capital=starting_balance,
     )
+    efficiency = capital_efficiency_metrics(
+        profit_usdt=profit_abs,
+        trades=trade_count,
+        backtest_days=int(strategy.get("backtest_days") or 0),
+        total_entry_capital_usdt=_number(utilization["total_entry_capital_usdt"]),
+        deployed_capital_usdt_days=_number(utilization["deployed_capital_usdt_days"]),
+    )
     if int(utilization["max_active_entry_chunks"]) > 3:
         raise RuntimeError(
             "Backtest verletzte das Limit von drei gleichzeitig aktiven Entry-Bloecken."
@@ -518,6 +527,7 @@ def _extract_result(result_file: Path, pair: str, years: int, strategy_hash: str
         "adaptive_router": False,
         "cross_pair_context": False,
         **utilization,
+        **efficiency,
         "pair_breakdown": _pair_breakdown(trades),
         "entry_tag_breakdown": _trade_breakdown(trades, key="enter_tag", fallback="ohne_entry_tag"),
         "exit_reason_breakdown": _trade_breakdown(
@@ -950,6 +960,13 @@ def _execute_backtest(
                     "max_entries_per_trade",
                     "max_active_entry_chunks",
                     "max_deployed_capital_usdt",
+                    "total_entry_capital_usdt",
+                    "deployed_capital_usdt_days",
+                    "profit_per_trade_usdt",
+                    "profit_per_calendar_day_usdt",
+                    "trades_per_year",
+                    "profit_per_100_entry_capital_usdt",
+                    "profit_per_100_deployed_capital_day_usdt",
                     "backtest_start",
                     "backtest_end",
                     "backtest_days",

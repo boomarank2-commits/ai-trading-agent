@@ -40,6 +40,10 @@ _DEFAULT_RESULTS_ROOT = _RUNTIME_ROOT / "user_data" / "backtest_results" / "ui"
 _DEFAULT_STRATEGY = _RUNTIME_ROOT / "user_data" / "strategies" / f"{STRATEGY_NAME}.py"
 _DEFAULT_LEDGER = _RUNTIME_ROOT.parent / "research" / "trial_ledger.csv"
 _VERSION_PATTERN = re.compile(r"\bV(?:ersion\s*)?(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_EXPLICIT_STRATEGY_VERSION_PATTERN = re.compile(
+    r"^\s*STRATEGY_VERSION\s*=\s*['\"]V?(\d+(?:\.\d+)*)['\"]",
+    re.IGNORECASE | re.MULTILINE,
+)
 _COMPARISON_METRICS = (
     "profit_usdt",
     "profit_pct",
@@ -49,6 +53,9 @@ _COMPARISON_METRICS = (
     "max_drawdown_pct",
     "capital_time_utilization_pct",
     "no_position_time_pct",
+    "profit_per_trade_usdt",
+    "profit_per_100_entry_capital_usdt",
+    "profit_per_100_deployed_capital_day_usdt",
 )
 
 
@@ -101,6 +108,9 @@ def _entry_name(names: list[str], suffix: str, *, excluded: tuple[str, ...] = ()
 
 def _strategy_version(source: bytes, digest: str) -> str:
     text = source.decode("utf-8", errors="replace")
+    explicit = _EXPLICIT_STRATEGY_VERSION_PATTERN.search(text[:12000])
+    if explicit:
+        return f"V{explicit.group(1)}"
     match = _VERSION_PATTERN.search(text[:12000])
     if match:
         return f"V{match.group(1)}"
@@ -174,10 +184,13 @@ def capital_utilization_metrics(
             "max_entries_per_trade": 0,
             "max_active_entry_chunks": 0,
             "max_deployed_capital_usdt": 0.0,
+            "total_entry_capital_usdt": 0.0,
+            "deployed_capital_usdt_days": 0.0,
         }
 
     events: list[tuple[datetime, int, float, int]] = []
     total_entry_chunks = 0
+    total_entry_capital = 0.0
     trades_with_multiple_entries = 0
     max_entries_per_trade = 0
     measured_trades = 0
@@ -217,6 +230,7 @@ def capital_utilization_metrics(
         entry_count = len(entry_fills)
         measured_trades += 1
         total_entry_chunks += entry_count
+        total_entry_capital += sum(cost for _filled_at, cost in entry_fills)
         trades_with_multiple_entries += int(entry_count > 1)
         max_entries_per_trade = max(max_entries_per_trade, entry_count)
         deployed_for_trade = sum(cost for _filled_at, cost in entry_fills)
@@ -279,6 +293,45 @@ def capital_utilization_metrics(
         "max_entries_per_trade": max_entries_per_trade,
         "max_active_entry_chunks": max_active_entry_chunks,
         "max_deployed_capital_usdt": round(max_deployed_capital, 4),
+        "total_entry_capital_usdt": round(total_entry_capital, 4),
+        "deployed_capital_usdt_days": round(capital_hours / 24.0, 4),
+    }
+
+
+def capital_efficiency_metrics(
+    *,
+    profit_usdt: float,
+    trades: int,
+    backtest_days: int,
+    total_entry_capital_usdt: float,
+    deployed_capital_usdt_days: float,
+) -> dict[str, float]:
+    """Normalize profit by completed trades, entries, time and bound capital.
+
+    ``profit_per_100_entry_capital_usdt`` answers how much net historical P/L
+    was produced per 100 USDT actually filled across all entries.  The capital-
+    day metric additionally charges long holding periods: one 80-USDT position
+    held for ten days contributes 800 USDT-days to its denominator.
+    """
+
+    return {
+        "profit_per_trade_usdt": round(profit_usdt / trades, 4) if trades > 0 else 0.0,
+        "profit_per_calendar_day_usdt": (
+            round(profit_usdt / backtest_days, 4) if backtest_days > 0 else 0.0
+        ),
+        "trades_per_year": (
+            round(trades * 365.25 / backtest_days, 4) if backtest_days > 0 else 0.0
+        ),
+        "profit_per_100_entry_capital_usdt": (
+            round(100.0 * profit_usdt / total_entry_capital_usdt, 4)
+            if total_entry_capital_usdt > 0.0
+            else 0.0
+        ),
+        "profit_per_100_deployed_capital_day_usdt": (
+            round(100.0 * profit_usdt / deployed_capital_usdt_days, 4)
+            if deployed_capital_usdt_days > 0.0
+            else 0.0
+        ),
     }
 
 
@@ -371,6 +424,13 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
         strategy.get("backtest_end"),
         available_capital=starting_balance,
     )
+    efficiency = capital_efficiency_metrics(
+        profit_usdt=profit_usdt,
+        trades=total_trades,
+        backtest_days=days,
+        total_entry_capital_usdt=_number(utilization["total_entry_capital_usdt"]),
+        deployed_capital_usdt_days=_number(utilization["deployed_capital_usdt_days"]),
+    )
 
     return {
         "status": "completed",
@@ -403,6 +463,7 @@ def _read_archive(archive_path: Path, run_id: str) -> dict[str, Any]:
         "sortino": _rounded(strategy.get("sortino")),
         "calmar": _rounded(strategy.get("calmar")),
         **utilization,
+        **efficiency,
         "entry_tag_breakdown": _breakdown(trades, "enter_tag", "ohne_entry_tag"),
         "exit_reason_breakdown": _breakdown(trades, "exit_reason", "ohne_exit_reason"),
     }
@@ -1053,8 +1114,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             "## Alle erfolgreichen Läufe",
             "",
             "| Lauf | Experiment | Version | Paar | Jahre | Zeitraum | P/L | P/L % | Trades | "
-            "Treffer | PF | Max DD | Kapitalzeit | Ohne Position |",
-            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "Treffer | PF | Max DD | USDT/Trade | USDT/100 Entry | USDT/100 Kapitaltag | "
+            "Kapitalzeit | Ohne Position |",
+            "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for run in report["runs"]:
@@ -1062,6 +1124,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             "| `{run}` | {experiment} | {version} | {pair} | {years} | {period} | {profit} | "
             "{profit_pct}% | {trades} | {winrate}% | {pf} | {drawdown}% | "
+            "{profit_trade} | {profit_entry} | {profit_capital_day} | "
             "{capital_time}% | {no_position}% |".format(
                 run=run["run_id"],
                 experiment=run["experiment_id"]
@@ -1076,6 +1139,11 @@ def render_markdown(report: dict[str, Any]) -> str:
                 winrate=_fmt(run["winrate_pct"]),
                 pf=_fmt(run["profit_factor"]),
                 drawdown=_fmt(run["max_drawdown_pct"]),
+                profit_trade=_fmt(run["profit_per_trade_usdt"]),
+                profit_entry=_fmt(run["profit_per_100_entry_capital_usdt"]),
+                profit_capital_day=_fmt(
+                    run["profit_per_100_deployed_capital_day_usdt"]
+                ),
                 capital_time=_fmt(run["capital_time_utilization_pct"]),
                 no_position=_fmt(run["no_position_time_pct"]),
             )
@@ -1121,8 +1189,9 @@ def render_pair_history_markdown(history: dict[str, Any]) -> str:
         "",
         f"Aktuelle Bewertung: **{history['assessment_de']}**",
         "",
-        "| Lauf | Experiment | Version | Zeitraum | P/L | Trades | PF | Max DD | Kapitalzeit |",
-        "|---|---|---|---|---:|---:|---:|---:|---:|",
+        "| Lauf | Experiment | Version | Zeitraum | P/L | Trades | PF | Max DD | "
+        "USDT/Trade | USDT/100 Entry | USDT/100 Kapitaltag | Kapitalzeit |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for run in history["all_preserved_runs"]:
         start = str(run.get("backtest_start") or "")[:10]
@@ -1130,7 +1199,8 @@ def render_pair_history_markdown(history: dict[str, Any]) -> str:
         period = f"{start} bis {end}"
         lines.append(
             "| `{run}` | {experiment} | {version} | {period} | {profit:+.2f} USDT | "
-            "{trades} | {pf:.2f} | {dd:.2f}% | {capital:.2f}% |".format(
+            "{trades} | {pf:.2f} | {dd:.2f}% | {profit_trade:.2f} | "
+            "{profit_entry:.2f} | {profit_capital_day:.3f} | {capital:.2f}% |".format(
                 run=run.get("run_id") or "?",
                 experiment=run.get("experiment_id") or "historisch-nicht-registriert",
                 version=run.get("strategy_version") or "?",
@@ -1139,6 +1209,11 @@ def render_pair_history_markdown(history: dict[str, Any]) -> str:
                 trades=_integer(run.get("trades")),
                 pf=_number(run.get("profit_factor")),
                 dd=_number(run.get("max_drawdown_pct")),
+                profit_trade=_number(run.get("profit_per_trade_usdt")),
+                profit_entry=_number(run.get("profit_per_100_entry_capital_usdt")),
+                profit_capital_day=_number(
+                    run.get("profit_per_100_deployed_capital_day_usdt")
+                ),
                 capital=_number(run.get("capital_time_utilization_pct")),
             )
         )

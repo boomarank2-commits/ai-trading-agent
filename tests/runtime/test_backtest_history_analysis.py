@@ -7,6 +7,7 @@ from pathlib import Path
 from runtime.backtest_history_analysis import (
     analyze_backtest_history,
     build_pair_history_context,
+    capital_efficiency_metrics,
     capital_utilization_metrics,
     render_markdown,
     render_pair_history_markdown,
@@ -91,6 +92,21 @@ def test_history_keeps_completed_and_incomplete_attempts_separate(tmp_path: Path
     assert run["period_years"] == 1
     assert run["profit_usdt"] == 5.0
     assert report["incomplete_runs"][0]["run_id"] == "run-incomplete"
+
+
+def test_history_prefers_explicit_strategy_version_over_stale_header(tmp_path: Path) -> None:
+    source = '''"""V12.31 stale historical header."""\nSTRATEGY_VERSION = "V12.33"\n'''
+    _write_result(
+        tmp_path,
+        "explicit-version",
+        pair="BTC/USDT",
+        profit=5.0,
+        source=source,
+    )
+
+    report = analyze_backtest_history(tmp_path, trial_ledger_path=None)
+
+    assert report["runs"][0]["strategy_version"] == "V12.33"
 
 
 def test_failed_run_contract_keeps_generated_zip_as_incomplete_evidence(tmp_path: Path) -> None:
@@ -282,6 +298,8 @@ def test_capital_utilization_measures_overlap_and_idle_time() -> None:
         "max_entries_per_trade": 1,
         "max_active_entry_chunks": 2,
         "max_deployed_capital_usdt": 160.0,
+        "total_entry_capital_usdt": 160.0,
+        "deployed_capital_usdt_days": 800.0,
     }
 
 
@@ -325,6 +343,40 @@ def test_capital_utilization_uses_actual_position_adjustment_fill_times() -> Non
     assert metrics["max_entries_per_trade"] == 3
     assert metrics["max_active_entry_chunks"] == 3
     assert metrics["max_deployed_capital_usdt"] == 240.0
+    assert metrics["total_entry_capital_usdt"] == 240.0
+    assert metrics["deployed_capital_usdt_days"] == 1360.0
+
+
+def test_capital_efficiency_normalizes_entries_and_holding_time() -> None:
+    metrics = capital_efficiency_metrics(
+        profit_usdt=16.0,
+        trades=2,
+        backtest_days=10,
+        total_entry_capital_usdt=160.0,
+        deployed_capital_usdt_days=800.0,
+    )
+
+    assert metrics == {
+        "profit_per_trade_usdt": 8.0,
+        "profit_per_calendar_day_usdt": 1.6,
+        "trades_per_year": 73.05,
+        "profit_per_100_entry_capital_usdt": 10.0,
+        "profit_per_100_deployed_capital_day_usdt": 2.0,
+    }
+
+
+def test_capital_efficiency_is_zero_without_trades_or_deployed_capital() -> None:
+    metrics = capital_efficiency_metrics(
+        profit_usdt=0.0,
+        trades=0,
+        backtest_days=365,
+        total_entry_capital_usdt=0.0,
+        deployed_capital_usdt_days=0.0,
+    )
+
+    assert metrics["profit_per_trade_usdt"] == 0.0
+    assert metrics["profit_per_100_entry_capital_usdt"] == 0.0
+    assert metrics["profit_per_100_deployed_capital_day_usdt"] == 0.0
 
 
 def test_portfolio_archive_is_separate_from_single_pair_matrix(tmp_path: Path) -> None:
