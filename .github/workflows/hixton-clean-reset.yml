@@ -5,6 +5,7 @@ on:
     branches:
       - agent/hixton-clean-reset
       - agent/hixton-v2-guarded-exit
+      - agent/hixton-v3a-corrected-guard
   pull_request:
     paths:
       - "runtime/user_data/strategies/CompressionBreakout250.py"
