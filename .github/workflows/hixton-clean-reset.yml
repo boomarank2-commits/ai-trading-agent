@@ -1,9 +1,9 @@
-name: hixton-clean-reset
+name: hixton-v1-trade-diagnostics
 
 on:
   push:
     branches:
-      - agent/hixton-clean-reset
+      - agent/hixton-v1-trade-diagnostics
   pull_request:
     paths:
       - "runtime/user_data/strategies/CompressionBreakout250.py"
@@ -30,7 +30,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Sync exact locked environment
         run: uv sync --frozen --all-extras --python 3.12
-      - name: Verify isolated Hixton reset contract
+      - name: Print diagnostic strategy SHA256
+        run: .\.venv\Scripts\python.exe -c "import hashlib, pathlib; p=pathlib.Path('runtime/user_data/strategies/CompressionBreakout250.py'); print('STRATEGY_SHA256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
+      - name: Verify isolated Hixton diagnostic contract
         run: .\.venv\Scripts\python.exe tests\runtime\test_hixton_clean_reset.py
       - name: Verify Hixton runtime math and Freqtrade loading
         run: .\.venv\Scripts\python.exe -m pytest -q tests\runtime\test_hixton_runtime_smoke.py
