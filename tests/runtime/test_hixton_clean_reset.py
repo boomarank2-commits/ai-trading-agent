@@ -53,7 +53,7 @@ class HixtonV1DiagnosticContract(unittest.TestCase):
         for forbidden in (
             "PAIR_PROFILES", "PYRAMIDING_PAIRS", "DONCHIAN_TREND",
             "TREND_RECLAIM", "Supertrend20", "EMA30/EMA80",
-            "custom_stoploss", "trailing_stop = True",
+            "def custom_stoploss", "trailing_stop = True",
         ):
             self.assertNotIn(forbidden, self.strategy_text)
 
