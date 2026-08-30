@@ -7,7 +7,7 @@ This experiment deliberately keeps the V1 trading decisions unchanged:
 - VIDYA 10 / momentum 20 / SMA15 / ATR200 x2.
 - No 1h/4h entry guards, no take-profit, no ROI, no trailing, no pyramiding.
 
-The additional columns are measurement features only. They exist so an exported
+The additional columns are measurement features only.  They exist so an exported
 Freqtrade `signals` dataset can answer why each V1 trade succeeded or failed
 without changing which trades are taken.
 """
@@ -23,6 +23,7 @@ from pandas import DataFrame, Series
 
 
 def _pine_vidya(source: Series, length: int, momentum_length: int) -> Series:
+    """Translate the user-supplied Pine VIDYA recursion."""
     source = source.astype(float)
     change = source.diff()
     up = change.where(change > 0.0, 0.0)
@@ -32,8 +33,10 @@ def _pine_vidya(source: Series, length: int, momentum_length: int) -> Series:
     denominator = up_sum + down_sum
     cmo = ((up_sum - down_sum) / denominator).abs()
     cmo = cmo.where(denominator != 0.0, 0.0)
+
     alpha = 2.0 / (length + 1.0)
     weight = alpha * cmo
+
     values = np.full(len(source), np.nan, dtype=float)
     src = source.to_numpy(dtype=float)
     weights = weight.to_numpy(dtype=float)
@@ -44,11 +47,15 @@ def _pine_vidya(source: Series, length: int, momentum_length: int) -> Series:
         elif np.isnan(weights[index]):
             values[index] = np.nan
         else:
-            values[index] = weights[index] * src[index] + (1.0 - weights[index]) * previous
+            values[index] = (
+                weights[index] * src[index]
+                + (1.0 - weights[index]) * previous
+            )
     return Series(values, index=source.index, dtype=float)
 
 
 def _pine_sma_ignore_na(source: Series, length: int) -> Series:
+    """Pine ta.sma-compatible SMA: length most recent non-na source values."""
     output = np.full(len(source), np.nan, dtype=float)
     window: deque[float] = deque(maxlen=length)
     for index, value in enumerate(source.to_numpy(dtype=float)):
@@ -60,6 +67,7 @@ def _pine_sma_ignore_na(source: Series, length: int) -> Series:
 
 
 def _pine_rma(source: Series, length: int) -> Series:
+    """Pine ta.rma-compatible Wilder moving average."""
     output = np.full(len(source), np.nan, dtype=float)
     seed: deque[float] = deque(maxlen=length)
     previous = np.nan
@@ -83,19 +91,26 @@ def _true_range(dataframe: DataFrame) -> Series:
     low = dataframe["low"].astype(float)
     close = dataframe["close"].astype(float)
     previous_close = close.shift(1)
-    return DataFrame({
-        "hl": high - low,
-        "hc": (high - previous_close).abs(),
-        "lc": (low - previous_close).abs(),
-    }).max(axis=1, skipna=True)
+    return DataFrame(
+        {
+            "hl": high - low,
+            "hc": (high - previous_close).abs(),
+            "lc": (low - previous_close).abs(),
+        }
+    ).max(axis=1, skipna=True)
 
 
 def _pine_atr(dataframe: DataFrame, length: int) -> Series:
+    """Pine ta.atr(length) = ta.rma(ta.tr(true), length)."""
     return _pine_rma(_true_range(dataframe), length)
 
 
 def _ema(source: Series, length: int) -> Series:
-    return source.astype(float).ewm(span=length, adjust=False, min_periods=length).mean()
+    return source.astype(float).ewm(
+        span=length,
+        adjust=False,
+        min_periods=length,
+    ).mean()
 
 
 def _rsi(source: Series, length: int = 14) -> Series:
@@ -104,7 +119,8 @@ def _rsi(source: Series, length: int = 14) -> Series:
     loss = (-change).where(change < 0.0, 0.0)
     avg_gain = _pine_rma(gain, length)
     avg_loss = _pine_rma(loss, length)
-    rs = avg_gain / avg_loss.replace(0.0, np.nan)
+    denominator = avg_loss.replace(0.0, np.nan)
+    rs = avg_gain / denominator
     rsi = 100.0 - (100.0 / (1.0 + rs))
     rsi = rsi.where(avg_loss != 0.0, 100.0)
     rsi = rsi.where(~((avg_gain == 0.0) & (avg_loss == 0.0)), 50.0)
@@ -118,6 +134,7 @@ def _adx(dataframe: DataFrame, length: int = 14) -> Series:
     down_move = -low.diff()
     plus_dm = up_move.where((up_move > down_move) & (up_move > 0.0), 0.0)
     minus_dm = down_move.where((down_move > up_move) & (down_move > 0.0), 0.0)
+
     atr = _pine_rma(_true_range(dataframe), length)
     plus_di = 100.0 * _pine_rma(plus_dm, length) / atr.replace(0.0, np.nan)
     minus_di = 100.0 * _pine_rma(minus_dm, length) / atr.replace(0.0, np.nan)
@@ -127,14 +144,17 @@ def _adx(dataframe: DataFrame, length: int = 14) -> Series:
 
 
 def _hixton_state(dataframe: DataFrame) -> DataFrame:
+    """Original V1 Hixton motor.  Do not add trading filters here."""
     close = dataframe["close"].astype(float)
     raw_vidya = _pine_vidya(close, length=10, momentum_length=20)
     vidya = _pine_sma_ignore_na(raw_vidya, length=15)
     atr = _pine_atr(dataframe, length=200)
     upper = vidya + atr * 2.0
     lower = vidya - atr * 2.0
+
     cross_up = (close > upper) & (close.shift(1) <= upper.shift(1))
     cross_down = (close < lower) & (close.shift(1) >= lower.shift(1))
+
     trend = np.zeros(len(dataframe), dtype=bool)
     trend_up = False
     for index in range(len(dataframe)):
@@ -143,8 +163,10 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
         if bool(cross_down.iloc[index]):
             trend_up = False
         trend[index] = trend_up
+
     trend_series = Series(trend, index=dataframe.index, dtype=bool)
     prior_trend = trend_series.shift(1, fill_value=False)
+
     dataframe["hixton_vidya"] = vidya
     dataframe["hixton_atr"] = atr
     dataframe["hixton_upper"] = upper
@@ -156,6 +178,7 @@ def _hixton_state(dataframe: DataFrame) -> DataFrame:
 
 
 def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
+    """Describe the wave immediately before each V1 signal without using it to trade."""
     size = len(dataframe)
     trend = dataframe["hixton_trend_up"].fillna(False).to_numpy(dtype=bool)
     flip_up = dataframe["hixton_flip_up"].fillna(False).to_numpy(dtype=bool)
@@ -164,11 +187,13 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
     lows = dataframe["low"].astype(float).to_numpy()
     closes = dataframe["close"].astype(float).to_numpy()
     atrs = dataframe["hixton_atr"].astype(float).to_numpy()
+
     previous_phase_bars = np.full(size, np.nan, dtype=float)
     previous_phase_range_atr = np.full(size, np.nan, dtype=float)
     previous_phase_net_atr = np.full(size, np.nan, dtype=float)
     red_rebound_atr = np.full(size, np.nan, dtype=float)
     previous_green_range_atr = np.full(size, np.nan, dtype=float)
+
     phase_kind = False
     phase_bars = 0
     phase_high = np.nan
@@ -176,7 +201,7 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
     phase_start_close = np.nan
     last_green_raw_range = np.nan
 
-    def start_phase(kind: bool, i: int) -> None:
+    def _start_phase(kind: bool, i: int) -> None:
         nonlocal phase_kind, phase_bars, phase_high, phase_low, phase_start_close
         phase_kind = kind
         phase_bars = 1
@@ -186,8 +211,9 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
 
     for i in range(size):
         if i == 0:
-            start_phase(bool(trend[i]), i)
+            _start_phase(bool(trend[i]), i)
             continue
+
         if bool(flip_up[i]) or bool(flip_down[i]):
             atr = atrs[i]
             if phase_bars > 0 and not np.isnan(atr) and atr > 0.0:
@@ -200,10 +226,10 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
                         previous_green_range_atr[i] = last_green_raw_range / atr
                 else:
                     last_green_raw_range = phase_high - phase_low
-            start_phase(bool(trend[i]), i)
+            _start_phase(bool(trend[i]), i)
         else:
             if bool(trend[i]) != phase_kind:
-                start_phase(bool(trend[i]), i)
+                _start_phase(bool(trend[i]), i)
             else:
                 phase_bars += 1
                 phase_high = max(phase_high, highs[i])
@@ -214,6 +240,7 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
     dataframe["diag_prev_phase_net_atr"] = previous_phase_net_atr
     dataframe["diag_red_rebound_atr"] = red_rebound_atr
     dataframe["diag_prev_green_range_atr"] = previous_green_range_atr
+
     for column in (
         "diag_prev_phase_bars",
         "diag_prev_phase_range_atr",
@@ -222,11 +249,13 @@ def _phase_diagnostics(dataframe: DataFrame) -> DataFrame:
         "diag_prev_green_range_atr",
     ):
         dataframe[column] = dataframe[column].ffill()
+
     return dataframe
 
 
 def _diagnostic_state(dataframe: DataFrame) -> DataFrame:
     dataframe = _hixton_state(dataframe)
+
     close = dataframe["close"].astype(float)
     open_ = dataframe["open"].astype(float)
     high = dataframe["high"].astype(float)
@@ -237,17 +266,24 @@ def _diagnostic_state(dataframe: DataFrame) -> DataFrame:
     upper = dataframe["hixton_upper"].astype(float)
     safe_atr = atr.replace(0.0, np.nan)
     safe_close = close.replace(0.0, np.nan)
+
     dataframe["diag_price_minus_vidya_atr"] = (close - vidya) / safe_atr
     dataframe["diag_breakout_excess_atr"] = (close - upper) / safe_atr
     dataframe["diag_candle_body_atr"] = (close - open_) / safe_atr
     dataframe["diag_candle_range_atr"] = (high - low) / safe_atr
     dataframe["diag_atr_pct"] = 100.0 * atr / safe_close
-    dataframe["diag_atr_vs_median_96"] = atr / atr.rolling(96, min_periods=48).median().replace(0.0, np.nan)
+    dataframe["diag_atr_vs_median_96"] = atr / atr.rolling(
+        96, min_periods=48
+    ).median().replace(0.0, np.nan)
     dataframe["diag_vidya_slope_1_atr"] = (vidya - vidya.shift(1)) / safe_atr
     dataframe["diag_vidya_slope_4_atr"] = (vidya - vidya.shift(4)) / safe_atr
     dataframe["diag_vidya_slope_16_atr"] = (vidya - vidya.shift(16)) / safe_atr
-    dataframe["diag_volume_ratio_20"] = volume / volume.rolling(20, min_periods=10).mean().replace(0.0, np.nan)
-    dataframe["diag_volume_ratio_96"] = volume / volume.rolling(96, min_periods=48).mean().replace(0.0, np.nan)
+
+    volume_mean_20 = volume.rolling(20, min_periods=10).mean()
+    volume_mean_96 = volume.rolling(96, min_periods=48).mean()
+    dataframe["diag_volume_ratio_20"] = volume / volume_mean_20.replace(0.0, np.nan)
+    dataframe["diag_volume_ratio_96"] = volume / volume_mean_96.replace(0.0, np.nan)
+
     dataframe["diag_rsi14"] = _rsi(close, 14)
     ema12 = _ema(close, 12)
     ema26 = _ema(close, 26)
@@ -257,18 +293,79 @@ def _diagnostic_state(dataframe: DataFrame) -> DataFrame:
     dataframe["diag_macd_hist"] = macd_hist
     dataframe["diag_macd_hist_atr"] = macd_hist / safe_atr
     dataframe["diag_adx14"] = _adx(dataframe, 14)
+
     return _phase_diagnostics(dataframe)
 
 
+def _fmt_metric(row: Any, key: str, decimals: int = 2) -> str:
+    value = row.get(key, np.nan)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "na"
+    if np.isnan(number) or np.isinf(number):
+        return "na"
+    return f"{number:.{decimals}f}"
+
+
+def _fmt_bool(row: Any, key: str) -> str:
+    value = row.get(key, False)
+    if value is None:
+        return "0"
+    try:
+        if isinstance(value, float) and np.isnan(value):
+            return "0"
+    except TypeError:
+        pass
+    return "1" if bool(value) else "0"
+
+
+def _diagnostic_enter_tag(row: Any) -> str:
+    """Compact pre-entry snapshot kept inside Freqtrade's saved trade record."""
+    fields = (
+        f"x={_fmt_metric(row, 'diag_breakout_excess_atr')}",
+        f"dv={_fmt_metric(row, 'diag_price_minus_vidya_atr')}",
+        f"cb={_fmt_metric(row, 'diag_candle_body_atr')}",
+        f"cr={_fmt_metric(row, 'diag_candle_range_atr')}",
+        f"av={_fmt_metric(row, 'diag_atr_vs_median_96')}",
+        f"vr={_fmt_metric(row, 'diag_volume_ratio_20')}",
+        f"r={_fmt_metric(row, 'diag_rsi14', 1)}",
+        f"a={_fmt_metric(row, 'diag_adx14', 1)}",
+        f"m={_fmt_metric(row, 'diag_macd_hist_atr')}",
+        f"s1={_fmt_metric(row, 'diag_vidya_slope_1_atr')}",
+        f"s4={_fmt_metric(row, 'diag_vidya_slope_4_atr')}",
+        f"rb={_fmt_metric(row, 'diag_prev_phase_bars', 0)}",
+        f"rr={_fmt_metric(row, 'diag_prev_phase_range_atr')}",
+        f"rn={_fmt_metric(row, 'diag_prev_phase_net_atr')}",
+        f"re={_fmt_metric(row, 'diag_red_rebound_atr')}",
+        f"pg={_fmt_metric(row, 'diag_prev_green_range_atr')}",
+        f"t1={_fmt_bool(row, 'hixton_trend_up_1h')}",
+        f"r1={_fmt_metric(row, 'diag_rsi14_1h', 1)}",
+        f"a1={_fmt_metric(row, 'diag_adx14_1h', 1)}",
+        f"sv1={_fmt_metric(row, 'diag_vidya_slope_1_atr_1h')}",
+        f"t4={_fmt_bool(row, 'hixton_trend_up_4h')}",
+        f"r4={_fmt_metric(row, 'diag_rsi14_4h', 1)}",
+        f"a4={_fmt_metric(row, 'diag_adx14_4h', 1)}",
+        f"sv4={_fmt_metric(row, 'diag_vidya_slope_1_atr_4h')}",
+    )
+    tag = "v1d|" + "|".join(fields)
+    return tag[:250]
+
+
 class CompressionBreakout250(IStrategy):
+    """Original V1 trades, enriched only with diagnostic indicator columns."""
+
     INTERFACE_VERSION = 3
     STRATEGY_VERSION = "HIXTON-V1-DIAG"
+
     can_short = False
     timeframe = "15m"
     process_only_new_candles = True
     startup_candle_count = 400
+
     position_adjustment_enable = False
     max_entry_position_adjustment = 0
+
     minimal_roi: ClassVar[dict[str, float]] = {}
     stoploss = -0.99
     trailing_stop = False
@@ -278,36 +375,51 @@ class CompressionBreakout250(IStrategy):
     use_custom_stoploss = False
 
     @informative("1h")
-    def populate_indicators_1h(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
+    def populate_indicators_1h(
+        self, dataframe: DataFrame, metadata: dict[str, Any]
+    ) -> DataFrame:
         del metadata
         return _diagnostic_state(dataframe)
 
     @informative("4h")
-    def populate_indicators_4h(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
+    def populate_indicators_4h(
+        self, dataframe: DataFrame, metadata: dict[str, Any]
+    ) -> DataFrame:
         del metadata
         return _diagnostic_state(dataframe)
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
+    def populate_indicators(
+        self, dataframe: DataFrame, metadata: dict[str, Any]
+    ) -> DataFrame:
         del metadata
         return _diagnostic_state(dataframe)
 
-    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
+    def populate_entry_trend(
+        self, dataframe: DataFrame, metadata: dict[str, Any]
+    ) -> DataFrame:
         del metadata
-        dataframe.loc[
-            (dataframe["volume"] > 0.0) & dataframe["hixton_flip_up"],
-            ["enter_long", "enter_tag"],
-        ] = (1, "hixton_v1_flip_up")
+        # Intentionally identical to V1. Diagnostic columns NEVER gate entry.
+        entry_mask = (dataframe["volume"] > 0.0) & dataframe["hixton_flip_up"]
+        dataframe.loc[entry_mask, "enter_long"] = 1
+        if bool(entry_mask.any()):
+            tags = dataframe.loc[entry_mask].apply(_diagnostic_enter_tag, axis=1)
+            dataframe.loc[entry_mask, "enter_tag"] = tags.to_numpy()
         return dataframe
 
-    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict[str, Any]) -> DataFrame:
+    def populate_exit_trend(
+        self, dataframe: DataFrame, metadata: dict[str, Any]
+    ) -> DataFrame:
         del metadata
+        # Intentionally identical to V1.  No TP / ROI / trailing / midline exit.
         dataframe.loc[
             (dataframe["volume"] > 0.0) & dataframe["hixton_flip_down"],
             ["exit_long", "exit_tag"],
-        ] = (1, "hixton_v1_flip_down")
+        ] = (1, "hixton_flip_down")
         return dataframe
 
     def bot_start(self, **kwargs: Any) -> None:
         del kwargs
         if not bool(self.config.get("dry_run", True)):
-            raise RuntimeError("HIXTON-V1-DIAG is research/dry-run only; real-money startup is blocked.")
+            raise RuntimeError(
+                "HIXTON-V1-DIAG is research/dry-run only; real-money startup is blocked."
+            )
