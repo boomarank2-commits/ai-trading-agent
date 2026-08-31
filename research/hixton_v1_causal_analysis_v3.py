@@ -6,7 +6,7 @@ from pathlib import Path
 
 import hixton_v1_causal_analysis as base
 import hixton_v1_causal_analysis_v2 as safety_v2
-import hixton_v1_coherent_batch as cohort
+import hixton_v1_cohort_loader_windows as cohort
 
 
 def main() -> int:
