@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 import hixton_v1_causal_analysis as causal
-import hixton_v1_coherent_batch as cohort
+import hixton_v1_cohort_loader_windows as cohort
 import hixton_v1_dead_trend_analysis as base
 import hixton_v1_dead_trend_analysis_v2 as safety_v2
 
