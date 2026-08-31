@@ -1,0 +1,11 @@
+pair,trades,profitable_then_lost_trades,one_percent_then_lost_trades,profitable_then_lost_loss_damage,median_mfe_pct,median_final_return_pct,median_giveback_pct,note
+BTC/USDT,674,319,190,290.00656904,1.1323247038536266,-1.0297925977517777,2.2919122918176837,Requires causal candle-path reconstruction before any exit rule is coded.
+ETH/USDT,651,344,216,425.44865873,1.258078022144471,-1.4164515833826599,2.8337689027191737,Requires causal candle-path reconstruction before any exit rule is coded.
+SOL/USDT,664,365,250,615.28753316,1.5311702515494074,-2.0482439087213598,3.7140876142451837,Requires causal candle-path reconstruction before any exit rule is coded.
+XRP/USDT,624,323,219,447.90147856,1.3851100667821026,-1.4866862293396508,2.9298935169309077,Requires causal candle-path reconstruction before any exit rule is coded.
+BNB/USDT,587,281,167,307.36487204,1.2081245733568613,-1.2037871426050961,2.572797016998401,Requires causal candle-path reconstruction before any exit rule is coded.
+DOGE/USDT,648,355,265,563.55585722,1.6607274927721516,-1.842458156301059,3.7636631709544415,Requires causal candle-path reconstruction before any exit rule is coded.
+LINK/USDT,676,366,260,610.00230844,1.6269268899144151,-1.9804100425451752,3.7322591948783748,Requires causal candle-path reconstruction before any exit rule is coded.
+TRX/USDT,784,324,116,206.31361637,0.8285906180553471,-0.6360618458606532,1.563158196545308,Requires causal candle-path reconstruction before any exit rule is coded.
+LTC/USDT,420,229,155,339.23023194,1.3250405624662065,-1.5360171283605237,3.138901953363709,Requires causal candle-path reconstruction before any exit rule is coded.
+BCH/USDT,600,333,233,504.17616,1.6110085584829736,-1.8294732075910611,3.3833959021042275,Requires causal candle-path reconstruction before any exit rule is coded.
