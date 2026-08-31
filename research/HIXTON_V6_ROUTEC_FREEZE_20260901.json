@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_CANDIDATE_NOT_APPROVED",
+  "route": "ROUTE_C_TWO_STAGE",
+  "cutoff_utc": "2026-09-01T00:00:00Z",
+  "source_cohort": "legacy-reconstructed-preregistered-v1",
+  "source_evidence_signature_sha256": "0d69cabb096d8b86303b44d3985710d2754b5ccbb7358c74641ebecf67099297",
+  "source_trade_count": 6328,
+  "source_snapshot_count": 9848,
+  "activation": "first completed 1m close at/above exact fee break-even",
+  "execution": "first 1m open after completed 15m signal",
+  "route_a_60": "giveback_fraction >= giveback_q80 AND macd_hist_atr <= macd_q20 AND trend_up_1h == 0",
+  "route_b_120": "macd_hist_atr <= macd_q20 AND price_minus_vidya_atr <= price_vidya_q20 AND trend_up_1h == 0",
+  "route_c": "route_a at 60m first; otherwise route_b at 120m",
+  "threshold_method": "per pair/checkpoint empirical q20/q80 from all cohort-locked snapshots strictly before 2026-09-01T00:00:00Z; frozen for any later fresh OOS",
+  "thresholds": {
+    "BCH/USDT": {
+      "60": {"n": 489, "giveback_q80": 1.1982142857142926, "macd_q20": 0.07541865687707863},
+      "120": {"n": 480, "macd_q20": -0.07952446649597751, "price_vidya_q20": 0.7568704974921148}
+    },
+    "BNB/USDT": {
+      "60": {"n": 442, "giveback_q80": 1.0, "macd_q20": 0.062386853053066904},
+      "120": {"n": 429, "macd_q20": -0.0721774464959575, "price_vidya_q20": 1.1209798405286544}
+    },
+    "BTC/USDT": {
+      "60": {"n": 490, "giveback_q80": 0.9963923832714134, "macd_q20": 0.0761925058226105},
+      "120": {"n": 477, "macd_q20": -0.08466282675217658, "price_vidya_q20": 1.1434227746353733}
+    },
+    "DOGE/USDT": {
+      "60": {"n": 538, "giveback_q80": 1.2875997446536858, "macd_q20": 0.0792827500602319},
+      "120": {"n": 524, "macd_q20": -0.06275796651674366, "price_vidya_q20": 1.1790104725879438}
+    },
+    "ETH/USDT": {
+      "60": {"n": 513, "giveback_q80": 1.1928573741298376, "macd_q20": 0.061955239010168923},
+      "120": {"n": 494, "macd_q20": -0.05682953517945741, "price_vidya_q20": 1.2259488772521794}
+    },
+    "LINK/USDT": {
+      "60": {"n": 559, "giveback_q80": 1.354545454545451, "macd_q20": 0.08694186293455776},
+      "120": {"n": 551, "macd_q20": -0.072896472671128, "price_vidya_q20": 0.93292266653569}
+    },
+    "LTC/USDT": {
+      "60": {"n": 343, "giveback_q80": 1.0969696969696912, "macd_q20": 0.06971464536804273},
+      "120": {"n": 336, "macd_q20": -0.0779524432230521, "price_vidya_q20": 1.0015838158778725}
+    },
+    "SOL/USDT": {
+      "60": {"n": 569, "giveback_q80": 1.318381618381614, "macd_q20": 0.0942484234396638},
+      "120": {"n": 558, "macd_q20": -0.0604855976564297, "price_vidya_q20": 0.9067529105523028}
+    },
+    "TRX/USDT": {
+      "60": {"n": 555, "giveback_q80": 0.6967320261438015, "macd_q20": 0.06966208022043985},
+      "120": {"n": 541, "macd_q20": -0.0989383994756327, "price_vidya_q20": 1.4022327953141505}
+    },
+    "XRP/USDT": {
+      "60": {"n": 485, "giveback_q80": 1.198558558558572, "macd_q20": 0.08200192722602631},
+      "120": {"n": 475, "macd_q20": -0.06528378630386937, "price_vidya_q20": 1.1192002083640806}
+    }
+  },
+  "freeze_payload_sha256": "c21ae9beda0efe2ced27cbe8000ab46de55deef88f0183130bae42b7dfc37bf3",
+  "notes": [
+    "The old 60/20/20 holdout and the four exploratory walk-forward windows have already been inspected and are not fresh OOS.",
+    "No threshold may be changed after 2026-09-01 based on later fresh-OOS outcomes.",
+    "Route C passed the exploratory fresh-OOS-candidate gate but is not approved strategy code."
+  ]
+}

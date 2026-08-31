@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "experiment_id": "HIXTON-V1-TRADE-DIAGNOSTICS",
+  "strategy_version": "HIXTON-V1-DIAG",
+  "strategy_sha256": "d43da032ad8aac714da60027702f84b584fc9cbc7e84038ca06847b5c2342290",
+  "source_archive": "HIXTON_V1_DIAGNOSTIK_KOMPLETT_20260830.zip",
+  "pairs": ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "BNB/USDT", "DOGE/USDT", "LINK/USDT", "TRX/USDT", "LTC/USDT", "BCH/USDT"],
+  "standalone_trade_count": 6328,
+  "method": {
+    "failed_start": "losing trade whose MFE never reached exact fee break-even",
+    "profitable_then_lost": "losing trade whose MFE reached exact fee break-even",
+    "split": "chronological 60/20/20 per coin",
+    "entry_screen": "discovery q20/q80 tails plus boolean 1h/4h states",
+    "holdout_selection": "holdout excluded from candidate selection",
+    "dead_trend_exit": "not simulated without temporal candle path"
+  },
+  "first_screen_result": {
+    "selected_single_feature_entry_filters": 0,
+    "interpretation": "Do not hardcode a simple ADX/RSI/4h/ATR gate. Continue with causal candle-path analysis."
+  }
+}

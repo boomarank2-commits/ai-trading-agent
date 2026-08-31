@@ -1,0 +1,56 @@
+name: hixton-causal-analysis
+
+on:
+  push:
+    branches:
+      - agent/hixton-v1-causal-analysis
+    paths:
+      - "research/hixton_v1_causal_analysis*.py"
+      - "research/hixton_v1_dead_trend_analysis*.py"
+      - "research/hixton_v1_coherent_batch.py"
+      - "research/hixton_v1_cohort_loader_windows.py"
+      - "research/hixton_v6_sequence_analysis.py"
+      - "research/hixton_v6_route_c_portfolio_replay.py"
+      - "research/HIXTON_V6_PREREGISTRATION_DE.md"
+      - "research/HIXTON_V6_SEQUENCE_PREREGISTRATION_DE.md"
+      - "research/HIXTON_V6_ROUTEC_FREEZE_20260901.json"
+      - "tests/research/test_hixton_v1_*"
+      - "tests/research/test_hixton_v6_*.py"
+      - "HIXTON_V1_CAUSAL_ANALYSE.bat"
+      - "HIXTON_V6_SEQUENZ_ANALYSE.bat"
+      - "HIXTON_V6_ROUTEC_PORTFOLIO_REPLAY.bat"
+      - ".github/workflows/hixton-causal-analysis.yml"
+  pull_request:
+    paths:
+      - "research/hixton_v1_causal_analysis*.py"
+      - "research/hixton_v1_dead_trend_analysis*.py"
+      - "research/hixton_v1_coherent_batch.py"
+      - "research/hixton_v1_cohort_loader_windows.py"
+      - "research/hixton_v6_sequence_analysis.py"
+      - "research/hixton_v6_route_c_portfolio_replay.py"
+      - "research/HIXTON_V6_PREREGISTRATION_DE.md"
+      - "research/HIXTON_V6_SEQUENCE_PREREGISTRATION_DE.md"
+      - "research/HIXTON_V6_ROUTEC_FREEZE_20260901.json"
+      - "tests/research/test_hixton_v1_*"
+      - "tests/research/test_hixton_v6_*.py"
+      - "HIXTON_V1_CAUSAL_ANALYSE.bat"
+      - "HIXTON_V6_SEQUENZ_ANALYSE.bat"
+      - "HIXTON_V6_ROUTEC_PORTFOLIO_REPLAY.bat"
+      - ".github/workflows/hixton-causal-analysis.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync exact locked environment
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Run causal safety tests
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\research\test_hixton_v1_causal_analysis.py tests\research\test_hixton_v1_dead_trend_analysis.py tests\research\test_hixton_v1_safety_v2.py tests\research\test_hixton_v1_coherent_batch.py tests\research\test_hixton_v1_cohort_loader_windows.py tests\research\test_hixton_v6_sequence_analysis.py tests\research\test_hixton_v6_route_c_portfolio_replay.py
+      - name: Ruff cohort-locked analysis
+        run: .\.venv\Scripts\ruff.exe check --ignore E501,RUF001,B023,RUF046,I001 research\hixton_v1_causal_analysis_v2.py research\hixton_v1_dead_trend_analysis_v2.py research\hixton_v1_coherent_batch.py research\hixton_v1_cohort_loader_windows.py research\hixton_v1_causal_analysis_v3.py research\hixton_v1_dead_trend_analysis_v3.py research\hixton_v6_sequence_analysis.py research\hixton_v6_route_c_portfolio_replay.py tests\research\test_hixton_v1_safety_v2.py tests\research\test_hixton_v1_coherent_batch.py tests\research\test_hixton_v1_cohort_loader_windows.py tests\research\test_hixton_v6_sequence_analysis.py tests\research\test_hixton_v6_route_c_portfolio_replay.py
