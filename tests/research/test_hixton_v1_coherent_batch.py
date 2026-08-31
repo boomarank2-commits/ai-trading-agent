@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 RESEARCH = ROOT / "research"
 if str(RESEARCH) not in sys.path:
@@ -17,18 +19,18 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 
 
-def _write_batch(root: Path, *, source_commit: str, complete: bool = True) -> None:
+def _write_batch(root: Path, *, source_commit: str, complete: bool = True, batch_id: str = "batch-test") -> None:
     cases = []
     for index, pair in enumerate(module.base.PAIRS):
         cases.append(
             {
                 "pair": pair,
                 "status": "completed" if complete or index else "running",
-                "result": {"run_id": f"run-{index}"},
+                "result": {"run_id": f"{batch_id}-run-{index}"},
             }
         )
     state = {
-        "batch_id": "batch-test",
+        "batch_id": batch_id,
         "years": 3,
         "failed_cases": 0,
         "finished_at_utc": "2026-08-30T18:00:00+00:00",
@@ -38,9 +40,29 @@ def _write_batch(root: Path, *, source_commit: str, complete: bool = True) -> No
         },
         "cases": cases,
     }
-    folder = root / "_BATCHES" / "batch-test"
+    folder = root / "_BATCHES" / batch_id
     folder.mkdir(parents=True)
     (folder / "batch-result.json").write_text(json.dumps(state), encoding="utf-8")
+
+
+def _fake_rows(delta: int = 0) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    counter = 0
+    for pair, count in module.EXPECTED_PAIR_TRADES.items():
+        adjusted = count + (delta if pair == "XRP/USDT" else 0)
+        for _ in range(adjusted):
+            rows.append(
+                {
+                    "pair": pair,
+                    "open_timestamp": counter,
+                    "close_timestamp": counter + 1,
+                    "open_rate": 1.0,
+                    "close_rate": 1.01,
+                    "profit_abs": 0.1,
+                }
+            )
+            counter += 2
+    return rows
 
 
 def test_expected_trade_contract_is_6328() -> None:
@@ -49,27 +71,37 @@ def test_expected_trade_contract_is_6328() -> None:
     assert module.EXPECTED_PAIR_TRADES["DOGE/USDT"] == 648
 
 
-def test_selector_accepts_only_locked_source_commit(tmp_path: Path) -> None:
-    _write_batch(tmp_path, source_commit=module.EXPECTED_SOURCE_COMMIT)
-    selected = module.select_locked_batch(tmp_path)
+def test_selector_does_not_require_final_branch_head(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_batch(tmp_path, source_commit="older-diagnostic-commit")
+    monkeypatch.setattr(module, "_load_exact_batch_rows", lambda *_: _fake_rows())
+    selected, rows, _ = module.select_locked_batch(tmp_path)
     assert selected["batch_id"] == "batch-test"
+    assert len(rows) == 6328
 
 
-def test_selector_rejects_other_source_commit(tmp_path: Path) -> None:
-    _write_batch(tmp_path, source_commit="14580e694271d3dfa1b3ab3d93d11f3dcc56ff4c")
-    try:
+def test_selector_rejects_wrong_trade_cohort(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_batch(tmp_path, source_commit="anything")
+    monkeypatch.setattr(module, "_load_exact_batch_rows", lambda *_: _fake_rows(delta=1))
+    with pytest.raises(RuntimeError, match="No complete 6328-trade"):
         module.select_locked_batch(tmp_path)
-    except RuntimeError as exc:
-        assert "refuses to mix" in str(exc)
-    else:
-        raise AssertionError("Expected fail-closed rejection")
+
+
+def test_selector_rejects_different_complete_cohorts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_batch(tmp_path, source_commit="a", batch_id="batch-a")
+    _write_batch(tmp_path, source_commit="b", batch_id="batch-b")
+    rows_a = _fake_rows()
+    rows_b = _fake_rows()
+    rows_b[0] = {**rows_b[0], "profit_abs": 0.2}
+
+    def fake_loader(_root: Path, batch: dict[str, object]) -> list[dict[str, object]]:
+        return rows_a if batch["batch_id"] == "batch-a" else rows_b
+
+    monkeypatch.setattr(module, "_load_exact_batch_rows", fake_loader)
+    with pytest.raises(RuntimeError, match="trade content differs"):
+        module.select_locked_batch(tmp_path)
 
 
 def test_selector_rejects_incomplete_batch(tmp_path: Path) -> None:
-    _write_batch(tmp_path, source_commit=module.EXPECTED_SOURCE_COMMIT, complete=False)
-    try:
+    _write_batch(tmp_path, source_commit="anything", complete=False)
+    with pytest.raises(RuntimeError, match="refuses to mix"):
         module.select_locked_batch(tmp_path)
-    except RuntimeError as exc:
-        assert "refuses to mix" in str(exc)
-    else:
-        raise AssertionError("Expected fail-closed rejection")
