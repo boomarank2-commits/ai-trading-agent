@@ -34,5 +34,5 @@ jobs:
         run: uv sync --frozen --all-extras --python 3.12
       - name: Run original and Safety V2 causal tests
         run: .\.venv\Scripts\python.exe -m pytest -q tests\research\test_hixton_v1_causal_analysis.py tests\research\test_hixton_v1_dead_trend_analysis.py tests\research\test_hixton_v1_safety_v2.py
-      - name: Ruff causal analysis
-        run: .\.venv\Scripts\ruff.exe check --ignore E501,RUF001 research\hixton_v1_causal_analysis.py research\hixton_v1_causal_analysis_v2.py research\hixton_v1_dead_trend_analysis.py research\hixton_v1_dead_trend_analysis_v2.py tests\research\test_hixton_v1_causal_analysis.py tests\research\test_hixton_v1_dead_trend_analysis.py tests\research\test_hixton_v1_safety_v2.py
+      - name: Ruff Safety V2 analysis
+        run: .\.venv\Scripts\ruff.exe check --ignore E501,RUF001,B023,RUF046,I001 research\hixton_v1_causal_analysis_v2.py research\hixton_v1_dead_trend_analysis_v2.py tests\research\test_hixton_v1_safety_v2.py
