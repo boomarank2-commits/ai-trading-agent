@@ -71,6 +71,34 @@ def test_expected_trade_contract_is_6328() -> None:
     assert module.EXPECTED_PAIR_TRADES["DOGE/USDT"] == 648
 
 
+def test_preregistered_evidence_fingerprint_accepts_committed_btc_summary() -> None:
+    expected = module.EXPECTED_PAIR_EVIDENCE["BTC/USDT"]
+    metrics = {
+        "trades": module.EXPECTED_PAIR_TRADES["BTC/USDT"],
+        "net_pnl": expected["net_pnl"],
+        "gross_pnl": expected["gross_pnl"],
+        "fees": expected["fees"],
+        "loss_damage": expected["loss_damage"],
+        "winner_profit": expected["winner_profit"],
+        "losers": expected["losers"],
+    }
+    assert module._matches_preregistered_evidence("BTC/USDT", metrics)
+
+
+def test_preregistered_evidence_fingerprint_rejects_fresh_run_drift() -> None:
+    expected = module.EXPECTED_PAIR_EVIDENCE["BTC/USDT"]
+    metrics = {
+        "trades": module.EXPECTED_PAIR_TRADES["BTC/USDT"],
+        "net_pnl": float(expected["net_pnl"]) - 0.19,
+        "gross_pnl": expected["gross_pnl"],
+        "fees": expected["fees"],
+        "loss_damage": expected["loss_damage"],
+        "winner_profit": expected["winner_profit"],
+        "losers": expected["losers"],
+    }
+    assert not module._matches_preregistered_evidence("BTC/USDT", metrics)
+
+
 def test_selector_does_not_require_final_branch_head(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_batch(tmp_path, source_commit="older-diagnostic-commit")
     monkeypatch.setattr(module, "_load_exact_batch_rows", lambda *_: _fake_rows())
