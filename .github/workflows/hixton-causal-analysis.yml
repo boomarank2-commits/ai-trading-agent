@@ -1,0 +1,38 @@
+name: hixton-causal-analysis
+
+on:
+  push:
+    branches:
+      - agent/hixton-v1-causal-analysis
+    paths:
+      - "research/hixton_v1_causal_analysis*.py"
+      - "research/hixton_v1_dead_trend_analysis*.py"
+      - "research/HIXTON_V6_PREREGISTRATION_DE.md"
+      - "tests/research/test_hixton_v1_*"
+      - "HIXTON_V1_CAUSAL_ANALYSE.bat"
+      - ".github/workflows/hixton-causal-analysis.yml"
+  pull_request:
+    paths:
+      - "research/hixton_v1_causal_analysis*.py"
+      - "research/hixton_v1_dead_trend_analysis*.py"
+      - "research/HIXTON_V6_PREREGISTRATION_DE.md"
+      - "tests/research/test_hixton_v1_*"
+      - "HIXTON_V1_CAUSAL_ANALYSE.bat"
+      - ".github/workflows/hixton-causal-analysis.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync exact locked environment
+        run: uv sync --frozen --all-extras --python 3.12
+      - name: Run original and Safety V2 causal tests
+        run: .\.venv\Scripts\python.exe -m pytest -q tests\research\test_hixton_v1_causal_analysis.py tests\research\test_hixton_v1_dead_trend_analysis.py tests\research\test_hixton_v1_safety_v2.py
+      - name: Ruff causal analysis
+        run: .\.venv\Scripts\ruff.exe check --ignore E501,RUF001 research\hixton_v1_causal_analysis.py research\hixton_v1_causal_analysis_v2.py research\hixton_v1_dead_trend_analysis.py research\hixton_v1_dead_trend_analysis_v2.py tests\research\test_hixton_v1_causal_analysis.py tests\research\test_hixton_v1_dead_trend_analysis.py tests\research\test_hixton_v1_safety_v2.py
